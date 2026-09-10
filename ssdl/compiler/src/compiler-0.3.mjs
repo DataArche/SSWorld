@@ -448,11 +448,13 @@ function compileDocument(document, source, options = {}) {
         const property = runtimeProperty(targetType, literalValue(propertyField.value));
         const native = propertyRegistry.properties.find(item => item.property === property && item.animatable && item.targets.includes("object"));
         const kind = {NumberAnimation:"scalar",Vector3dAnimation:"vec3",QuaternionAnimation:"quat",RotationAnimation:"quat",ColorAnimation:"color"}[child.type];
-        // The runtime animates SceneObjects only (Group is a locator handle and Model is not registered as animatable).
-        if (catalog.components[targetType]?.adapter === "group")
-          fail("property_not_animatable", propertyField, `${child.type} cannot animate ${targetType} '${targetId}': Group is not a live SceneObject in this runtime; animate the child geometry instead`);
-        if (!native || (kind && native.value_type !== kind)
-            || catalog.components[targetType]?.adapter !== "geometry")
+        // Geometry animates every registered object property; Group/GeoAnchor (locator rigs) and Model
+        // (external nodes) expose only their transform and visibility to the native animation table.
+        const adapter = catalog.components[targetType]?.adapter;
+        const rigOnly = adapter === "group" || adapter === "model";
+        if (rigOnly && !(property.startsWith("transform.") || property === "visible"))
+          fail("property_not_animatable", propertyField, `${child.type} cannot animate ${targetType}.${property}: ${targetType} exposes only position/rotation/scale/visible to animations`);
+        if (!native || (kind && native.value_type !== kind) || !(adapter === "geometry" || rigOnly))
           fail("property_not_animatable", propertyField, `${child.type} cannot animate ${targetType}.${property}`);
       }
     }

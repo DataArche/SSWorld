@@ -265,7 +265,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(skyCompile.body.next.action, "fix_source");
   assert.equal(skyCompile.body.next.line, 2);
   // Runtime facts promoted to compile-time diagnostics: Label needs a font the package does not ship,
-  // and animations cannot target a Group (locator, not a SceneObject).
+  // and Group animations are limited to transform/visible (material animations name the child geometry).
   const labelScene = "Scene { id: main\n Label { id: sign; text: \"hi\"; anchor.longitude: 114; anchor.latitude: 22 }\n}";
   const labelWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: labelScene, expected_digest: skyWrite.body.digest });
   assert.equal(labelWrite.isError, false, JSON.stringify(labelWrite.body));
@@ -277,8 +277,12 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const groupScene = "Scene { id: main\n Group { id: g; position: [0, 0, 0]; Box { id: b; width: 1; depth: 1; height: 1 } }\n Vector3dAnimation { target: g; property: \"position\"; from: [0, 0, 0]; to: [1, 0, 0]; duration: 100 }\n}";
   const groupWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: groupScene, expected_digest: labelWrite.body.digest });
   const groupCompile = await client.call("ssworld_compile", { project: "demo" });
-  assert.equal(groupCompile.isError, true);
-  assert.match(groupCompile.body.message, /scene\.ssdl:3:.*property_not_animatable.*Group is not a live SceneObject/);
+  assert.equal(groupCompile.isError, false, JSON.stringify(groupCompile.body));
+  const groupMaterialScene = groupScene.replace("Vector3dAnimation { target: g; property: \"position\"; from: [0, 0, 0]; to: [1, 0, 0]", "NumberAnimation { target: g; property: \"opacity\"; from: 1; to: 0");
+  const groupMaterialWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: groupMaterialScene, expected_digest: groupWrite.body.digest });
+  const groupMaterialCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(groupMaterialCompile.isError, true);
+  assert.match(groupMaterialCompile.body.message, /scene\.ssdl:3:.*property_not_animatable.*exposes only position/);
 
   // Scene logic: declared properties, comparison sugar, host calls checked against host_interfaces.json.
   const contract = JSON.stringify({ Game: { methods: { hit: { args: [{ name: "targetId", type: "string" }, { name: "score", type: "real" }] }, reset: { args: [] } } } }, null, 2);
@@ -292,7 +296,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   TapHandler { id: tap; onTapped: { score = score + 1; Game.hit(targetId: "b", score: score); } }
  }
 }`;
-  const logicSceneWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: logicScene, expected_digest: groupWrite.body.digest });
+  const logicSceneWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: logicScene, expected_digest: groupMaterialWrite.body.digest });
   const logicCompile = await client.call("ssworld_compile", { project: "demo" });
   assert.equal(logicCompile.isError, false, JSON.stringify(logicCompile.body));
   assert.deepEqual(logicCompile.body.logic, { properties: [{ name: "score", value_type: "scalar", unit: "scalar", initial: 0 }], states: ["won"],

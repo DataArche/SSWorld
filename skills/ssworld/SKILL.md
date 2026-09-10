@@ -1,7 +1,7 @@
 ---
 name: ssworld
 description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.4.0
+version: 1.5.0
 author: SSWorld
 license: MIT
 metadata:
@@ -57,7 +57,7 @@ metadata:
 - **`CameraView.fov` 是水平视场角**：垂直视场角 = 2·atan(tan(fov/2)/宽高比)，同一个 fov 在宽画面上看到的天空更少；算"哪个物体在画面内"要按水平 fov。
 - **`Label` 不能用**：引擎要加载 `assets/font/msyh.ttc` 而包里没有字体，写了整个场景加载失败（编译器现在直接报 `runtime_unsupported`）；文字放 `index.html` 浮层（记得给浮层 `pointer-events: none`，否则会挡住点击），或用几何体拼。
 - **程序化几何用参数化生成器，不写顶点**：`HeightField { width; depth; columns; rows; heights: [...] }`（heights 共 (columns+1)×(rows+1) 个，按行从 -depth/2 起）、`Lathe { profile: [[r, 0, z], …]; segments; closed }`（绕 Z 旋成，做花瓶/塔/柱）、`Tube { path: [...]; radius; segments; closed }`（沿路径扫管，做管道/栏杆/桥索）、`Loft { sections: [[环], [环], …]; cap }`（同点数的环逐层放样，做船体/楼体收分）。参数必须是常量，每个节点最多 65535 顶点（超出编译报 `mesh_budget`），`ssworld_compile` 的 `usage.mesh` 给出三角形数。任意网格走 `Model` 资产，没有逐顶点函数。
-- **动画/Behavior 不能指向 `Group`**：Group 是定位器不是 SceneObject，编译报 `property_not_animatable`；把动画目标改成 Group 里的几何体。
+- **`Group` / `GeoAnchor` / `Model` 只能动画 `position` / `rotation` / `scale` / `visible`**（动画、Behavior、Binding 都可以，整组一起动）；材质属性只在几何体上，指向 Group 的材质动画编译报 `property_not_animatable`。
 - 动画：`NumberAnimation` / `Vector3dAnimation` / `RotationAnimation` / `ColorAnimation` / `QuaternionAnimation`，`duration` 毫秒，循环 `loops: Animation.Infinite`，`running` 可绑定状态。目标属性必须在目录允许的注册表内，编译器会拒绝其它组合。
 - 交互：`TapHandler { onTapped: { ... } }`、`HoverHandler`；灯光/材质/环境先查目录，`supported: false` 的不要用。
 - 默认预算 2048 原生对象 / 256 绑定 / 128 处理器 / 32 计时器；大场景先用少量体块出画面，再加细节。

@@ -374,13 +374,24 @@
     return { value_milli: Math.round(value * 1000) };
   }
 
+  // Native property targets: geometry objects, Models (external nodes) and locator rigs
+  // (Group/GeoAnchor expose transform.* and visible through the same animation table).
   function propertyTarget(target, runtime = null) {
-    invariant((target instanceof SceneObject || target instanceof Model) && !target.disposed
+    invariant((target instanceof SceneObject || target instanceof Model
+      || target instanceof Group || target instanceof GeoAnchor) && !target.disposed
       && typeof target.handle === "string",
-    "property target must be a live SceneObject or Model");
+    "property target must be a live SceneObject, Model, Group or GeoAnchor");
     invariant(runtime === null || target.runtime === runtime,
       "property target must belong to the same runtime");
     return { kind: "object", object_handle: target.handle };
+  }
+
+  // Locator rigs and Model roots carry no material: only transform.* and visible bind natively.
+  function assertAnimatableProperty(target, property, type) {
+    if (target instanceof Group || target instanceof GeoAnchor || target instanceof Model) {
+      invariant(typeof property === "string" && (property.startsWith("transform.") || property === "visible"),
+        `property_not_animatable: ${type} cannot animate ${target.component_type}.${property}; ${target.component_type} exposes only position/rotation/scale/visible`);
+    }
   }
 
   function writeNativeProperty(runtime, target, property, value) {
@@ -780,7 +791,7 @@
           if (shouldPause) this.pause();
         }
         const targetHandle = timeline.target?.kind === "object" ? timeline.target.object_handle : null;
-        this.targetOwner = [...runtime.objects.values(), ...runtime.models.values()]
+        this.targetOwner = [...runtime.objects.values(), ...runtime.models.values(), ...runtime.groups.values()]
           .find((item) => item.handle === targetHandle) || null;
         invariant(this.targetOwner, "Animation target owner disappeared during initialization");
         runtime.registerTargetDependent(this.targetOwner, this);
@@ -941,6 +952,7 @@
       }
       propertyTarget(spec.target, runtime);
       invariant(typeof spec.property === "string", "PropertyAnimation.property is required");
+      assertAnimatableProperty(spec.target, spec.property, type);
       invariant(spec.from !== undefined, "PropertyAnimation.from is required");
       const duration = propertyAnimationDuration(spec, type);
       const easing = propertyAnimationEasing(spec.easing, type);
@@ -1073,6 +1085,7 @@
     invariant(!unsupported, `qml_member_unsupported: ${type}.${unsupported}`);
     propertyTarget(spec.target, runtime);
     invariant(typeof spec.property === "string", `${type}.property is required`);
+    assertAnimatableProperty(spec.target, spec.property, type);
     invariant(spec.from !== undefined, `${type}.from is required`);
     const duration = propertyAnimationDuration(spec, type);
     let from = spec.from;
@@ -1708,6 +1721,7 @@
       propertyTarget(spec.target, runtime);
       invariant(typeof spec.property === "string" && spec.property.length > 0,
         "Behavior.property is required");
+      assertAnimatableProperty(spec.target, spec.property, "Behavior");
       invariant(spec.enabled === undefined || typeof spec.enabled === "boolean",
         "Behavior.enabled must be boolean");
       invariant(![...runtime.behaviors].some((item) => !item.disposed
@@ -1728,7 +1742,10 @@
       this.logicalTarget = undefined;
       this.motion = null;
       this.disposed = false;
-      this.slot = runtime.ensureNativeSlot(this.target, this.property);
+      // Locator rigs keep member-kind slots (writes go through SceneGraphFacade) but animate natively.
+      this.slot = this.target instanceof Group || this.target instanceof GeoAnchor
+        ? runtime.ensureLogicalSlot(this.target, this.property)
+        : runtime.ensureNativeSlot(this.target, this.property);
       invariant(!this.slot.behavior, `Behavior already registered for '${spec.property}' on this target`);
       this.slot.behavior = this;
       runtime.behaviors.add(this);
@@ -5683,10 +5700,10 @@
       }
       let receipt = { ok: true, changed: true, property };
       if (options.write !== false) {
-        if (slot.descriptor.kind === "member") {
-          receipt = slot.descriptor.write(normalized);
-        } else if (!options.direct && slot.behavior && !slot.behavior.disposed) {
+        if (!options.direct && slot.behavior && !slot.behavior.disposed) {
           receipt = slot.behavior.presentLogical(normalized, options.previousMotion);
+        } else if (slot.descriptor.kind === "member") {
+          receipt = slot.descriptor.write(normalized);
         } else if (options.wireValue !== undefined) {
           receipt = writeNativeWireProperty(this, owner, property, options.wireValue);
         } else {

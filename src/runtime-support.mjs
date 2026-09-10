@@ -83,7 +83,7 @@ export function componentNotes(name) {
   if (name === "DirectionalLight") return { runtime_note: "atmosphereSunLight: true adopts the engine sun (drives the sky); only intensity/lightColor/castShadows/temperature/indirect/volumetric and sunAzimuth/sunElevation are writable on it. Leave it false for an owned light with full members." };
   if (name === "CameraView") return { runtime_note: `${CONVENTIONS.camera}. ${FOV_POLICY}. ${CLIP_PLANE_POLICY}` };
   if (name === "Label") return { runtime_note: LABEL_POLICY, runtime_supported: false };
-  if (name === "Group") return { runtime_note: "Group is a locator (transform parent), not a live SceneObject: animations and Behaviors cannot target it; animate its child geometry instead" };
+  if (name === "Group" || name === "GeoAnchor" || name === "Model") return { runtime_note: `${name} animates position/rotation/scale/visible only (animations, Behaviors and Bindings); material properties belong to the child geometry` };
   return {};
 }
 
