@@ -1,7 +1,7 @@
 ---
 name: ssworld
 description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.5.0
+version: 1.5.1
 author: SSWorld
 license: MIT
 metadata:
@@ -60,7 +60,8 @@ metadata:
 - **`Group` / `GeoAnchor` / `Model` 只能动画 `position` / `rotation` / `scale` / `visible`**（动画、Behavior、Binding 都可以，整组一起动）；材质属性只在几何体上，指向 Group 的材质动画编译报 `property_not_animatable`。
 - 动画：`NumberAnimation` / `Vector3dAnimation` / `RotationAnimation` / `ColorAnimation` / `QuaternionAnimation`，`duration` 毫秒，循环 `loops: Animation.Infinite`，`running` 可绑定状态。目标属性必须在目录允许的注册表内，编译器会拒绝其它组合。
 - 交互：`TapHandler { onTapped: { ... } }`、`HoverHandler`；灯光/材质/环境先查目录，`supported: false` 的不要用。
-- 默认预算 2048 原生对象 / 256 绑定 / 128 处理器 / 32 计时器；大场景先用少量体块出画面，再加细节。
+- 默认预算 2048 原生对象 / 256 绑定 / 128 处理器 / 32 计时器 / **256 条原生时间线**；大场景先用少量体块出画面，再加细节。
+- **动画数量有硬上限**：每页最多 256 条原生时间线（引擎 `max_active_timelines`，按小游戏"一靶一动画 + 每次命中一个 Behavior 过渡"定的）：顶层的每个 `NumberAnimation`/`Vector3dAnimation`/`RotationAnimation`/`ColorAnimation` 各占一条，跑完也不释放；`ParallelAnimation`/`SequentialAnimation` 连同全部子动画只占一条；Behavior 平时不占，过渡进行中才各占一条。超出编译报 `animation_budget`，`usage.timelines` 看占用；接近上限就把同时跑的动画收进一个 `ParallelAnimation`，或用 Behavior + 绑定驱动重复物体。
 
 最小可交互动画示例（这也是 `ssworld_project_create` 生成的起始场景）：
 

@@ -28,6 +28,12 @@ export const FOV_POLICY = "CameraView.fov is the horizontal field of view in deg
 // (msyh.ttc is not redistributable), so a Label makes the whole scene module fail to load.
 export const LABEL_POLICY = "Label needs a managed SDF font (assets/font/msyh.ttc) that ssworld-mcp does not ship, so any Label makes the scene module fail to load; put text in the page (index.html overlay) or model it with geometry";
 
+export const TIMELINE_LIMIT = 256;
+export const TIMELINE_TYPES = new Set(["NumberAnimation", "Vector3dAnimation", "ColorAnimation", "RotationAnimation", "QuaternionAnimation", "ParallelAnimation", "SequentialAnimation"]);
+const TIMELINE_CONTAINERS = new Set(["ParallelAnimation", "SequentialAnimation", "Behavior"]);
+export const ANIMATION_POLICY = `the engine runs at most ${TIMELINE_LIMIT} native timelines per page: every top-level NumberAnimation/Vector3dAnimation/RotationAnimation/QuaternionAnimation/ColorAnimation counts one whether or not it is running (finished ones keep their slot until the scene reloads), a ParallelAnimation/SequentialAnimation with all its children counts one, animations inside a Behavior count nothing until the Behavior transitions (each in-flight transition takes a slot); a small game (one animation per target plus Behavior transitions per hit) fits; beyond that group related animations under one ParallelAnimation/SequentialAnimation or drive repeated objects with Behaviors + bindings`;
+
+
 export const CONVENTIONS = Object.freeze({
   coordinate_system: "right-handed, Z-up; x east, y north, z up, metres; local origin is the project anchor",
   quaternion_order: "[x, y, z, w] (w last); identity is [0, 0, 0, 1]; only geometry/Model/Group rotation is a quaternion",
@@ -38,6 +44,7 @@ export const CONVENTIONS = Object.freeze({
   field_of_view: FOV_POLICY,
   labels: LABEL_POLICY,
   procedural_geometry: "parametric generators (HeightField width/depth/columns/rows/heights row-major from -depth/2; Lathe profile [radius, 0, height] revolved around Z with segments and optional closed caps; Tube path + radius + segments with a parallel-transport frame; Loft same-count ccw rings stacked bottom to top with optional cap) are compile-time constants: the IR stores parameters, the runtime builds a MeshData/v1 mesh (ccw outward, at most 65535 vertices per node, compile error mesh_budget beyond that); per-vertex functions and author JavaScript are not accepted; arbitrary meshes go through managed assets (Model)",
+  animations: ANIMATION_POLICY,
   logic: "declare scene state on the Scene root with `property real score: 0` (types real/bool/string/length/degrees/duration/radians); handlers assign with expressions (`score = score + 1`), bindings compare (`>= <= === !== < > && || ! ?:`); host JavaScript is reached only through `Iface.method(arg: expr)` actions declared in host_interfaces.json and implemented by logic.mjs; the page reads/writes declared properties through window.SSWorld.logical",
   ids: "every node in a component file needs a unique explicit id; anonymous siblings collide inside custom components",
   editing: "ssworld_source_patch edits one span by exact match; ssworld_source_batch applies several patches / node property sets atomically (optionally compiling and rolling back); ssworld_source_write replaces a file; writing the .ssdl files in the project directory with any other tool also works because ssworld_compile always rebuilds from disk, but such writes are not protected by the digest lock",
@@ -88,8 +95,20 @@ export function componentNotes(name) {
 }
 
 /** Post-compile check of the scene IR for combinations the compiler accepts but the engine rejects. */
+/** Native timelines the compiled scene will allocate at mount: top-level animation nodes and animation groups (children fold into their group). */
+export function timelineNodes(sceneIR) {
+  const types = new Map((sceneIR?.nodes || []).map((node) => [node.id, node.type]));
+  return (sceneIR?.nodes || []).filter((node) => TIMELINE_TYPES.has(node.type) && !TIMELINE_CONTAINERS.has(types.get(node.parent)));
+}
+
 export function checkRuntimeSupport(sceneIR) {
   const problems = [];
+  const timelines = timelineNodes(sceneIR);
+  if (timelines.length > TIMELINE_LIMIT) {
+    const extra = timelines[TIMELINE_LIMIT];
+    problems.push({ code: "animation_budget", node: extra.id, type: extra.type, property: null,
+      message: `${extra.type} '${extra.id}' is native timeline ${timelines.length > TIMELINE_LIMIT + 1 ? `${TIMELINE_LIMIT + 1}..${timelines.length}` : TIMELINE_LIMIT + 1} of at most ${TIMELINE_LIMIT} (the page would fail at mount with AnimationFacade.createTimeline: max_active_timelines reached); ${ANIMATION_POLICY}` });
+  }
   for (const node of sceneIR?.nodes || []) {
     const props = new Map((node.properties || []).map((item) => [item.property, item.value]));
     if (node.type === "Label") {

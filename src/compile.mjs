@@ -5,7 +5,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SSDL_ROOT } from "./paths.mjs";
-import { checkRuntimeSupport } from "./runtime-support.mjs";
+import { checkRuntimeSupport, TIMELINE_LIMIT, timelineNodes } from "./runtime-support.mjs";
 
 let compilerPromise = null;
 function loadCompiler() {
@@ -59,10 +59,12 @@ export function budgetUsage(result, budgets = {}) {
     bindings: (result.binding_ir?.bindings || []).length,
     handlers: nodes.reduce((sum, node) => sum + (node.handlers?.length || 0), 0),
     timers: nodes.filter((node) => TIMER_TYPES.has(node.type)).length,
+    timelines: timelineNodes(result.scene_ir).length,
   };
   const out = {};
   for (const [key, value] of Object.entries(used)) {
-    const limit = Number.isFinite(budgets?.[key]) ? budgets[key] : null;
+    // timelines is a native cap (AnimationFacade max_active_timelines), not a manifest choice.
+    const limit = key === "timelines" ? TIMELINE_LIMIT : Number.isFinite(budgets?.[key]) ? budgets[key] : null;
     out[key] = { used: value, limit, ...(limit ? { ratio: Number((value / limit).toFixed(3)) } : {}) };
   }
   const types = {};

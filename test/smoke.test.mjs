@@ -283,6 +283,21 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const groupMaterialCompile = await client.call("ssworld_compile", { project: "demo" });
   assert.equal(groupMaterialCompile.isError, true);
   assert.match(groupMaterialCompile.body.message, /scene\.ssdl:3:.*property_not_animatable.*exposes only position/);
+  // Native timeline cap (AnimationFacade max_active_timelines = 256) is a compile error; a group folds its children into one slot.
+  const anims = (n) => Array.from({ length: n }, (_, i) => `NumberAnimation { id: a${i}; target: b; property: "opacity"; from: 1; to: 0; duration: 100 }`);
+  const manyScene = `Scene { id: main\n Box { id: b; width: 1; depth: 1; height: 1 }\n ${anims(257).join("\n ")}\n}`;
+  const manyWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: manyScene, expected_digest: groupMaterialWrite.body.digest });
+  const manyCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(manyCompile.isError, true);
+  assert.equal(manyCompile.body.diagnostic.code, "animation_budget");
+  assert.match(manyCompile.body.diagnostic.node, /^a\d+$/);
+  assert.match(manyCompile.body.message, /257..257 of at most 256|257 of at most 256/);
+  assert.match(manyCompile.body.message, /max_active_timelines/);
+  const groupedScene = `Scene { id: main\n Box { id: b; width: 1; depth: 1; height: 1 }\n ParallelAnimation { id: all\n ${anims(8).join("\n ")}\n }\n}`;
+  const groupedWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: groupedScene, expected_digest: manyWrite.body.digest });
+  const groupedCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(groupedCompile.isError, false, JSON.stringify(groupedCompile.body));
+  assert.deepEqual(groupedCompile.body.usage.timelines, { used: 1, limit: 256, ratio: 0.004 });
 
   // Scene logic: declared properties, comparison sugar, host calls checked against host_interfaces.json.
   const contract = JSON.stringify({ Game: { methods: { hit: { args: [{ name: "targetId", type: "string" }, { name: "score", type: "real" }] }, reset: { args: [] } } } }, null, 2);
@@ -296,7 +311,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   TapHandler { id: tap; onTapped: { score = score + 1; Game.hit(targetId: "b", score: score); } }
  }
 }`;
-  const logicSceneWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: logicScene, expected_digest: groupMaterialWrite.body.digest });
+  const logicSceneWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: logicScene, expected_digest: groupedWrite.body.digest });
   const logicCompile = await client.call("ssworld_compile", { project: "demo" });
   assert.equal(logicCompile.isError, false, JSON.stringify(logicCompile.body));
   assert.deepEqual(logicCompile.body.logic, { properties: [{ name: "score", value_type: "scalar", unit: "scalar", initial: 0 }], states: ["won"],
