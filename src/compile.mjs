@@ -4,6 +4,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SSDL_ROOT } from "./paths.mjs";
+import { checkRuntimeSupport } from "./runtime-support.mjs";
 
 let compilerPromise = null;
 function loadCompiler() {
@@ -65,6 +66,11 @@ export async function compileProject(directory, { name, budgets } = {}) {
     const location = diagnostic.file ? `${diagnostic.file}:${diagnostic.line || 1}:${diagnostic.column || 1}: ` : "";
     const code = error?.code ? `${error.code}: ` : "";
     throw new CompileError(`${location}${code}${error?.message || String(error)}`, { ...diagnostic, code: error?.code });
+  }
+  const unsupported = checkRuntimeSupport(result.scene_ir);
+  if (unsupported.length) {
+    const first = unsupported[0];
+    throw new CompileError(`${first.code}: ${first.message}`, { code: first.code, node: first.node, property: first.property, problems: unsupported });
   }
   await mkdir(directory, { recursive: true });
   await Promise.all([

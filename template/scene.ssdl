@@ -1,5 +1,8 @@
 Scene {
   id: main
+  // Camera in local metres around the anchor (x east, y north, z up); lookAt derives heading/pitch.
+  CameraView { id: startView; position: [60, -80, 40]; lookAt: [0, 0, 12]; fov: 50 }
+  Camera { id: mainCamera; initialView: startView }
   State { id: selected; name: "selected"; when: false }
   Box {
     id: cube; width: 24; depth: 24; height: 24; position: [0, 0, 12]

@@ -10,6 +10,76 @@ import { engineStatus, ensureEngine } from "./engine.mjs";
 import { compileProject, CompileError } from "./compile.mjs";
 
 const STATUS_ROUTE = "/__ssworld/status";
+const SYNC_ROUTE = "/__ssworld/sync";      // page -> server: status heartbeat + command results; server -> page: pending commands
+const PAGE_ROUTE = "/__ssworld/page";      // tool -> server: last known page status for a project
+const COMMAND_ROUTE = "/__ssworld/command"; // tool -> server: queue a command for the page and wait for its result
+const PAGE_STALE_MS = 3000;
+const MAX_BODY = 32 * 1024 * 1024;
+
+// Per-project page state. A page is "connected" when it synced within PAGE_STALE_MS.
+const pages = new Map();     // project -> { client, seen, status }
+const commands = new Map();  // project -> [{ id, kind, params }]
+const results = new Map();   // command id -> { result, waiters: [resolve] }
+let commandSequence = 0;
+
+function readBody(request) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    request.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY) { reject(new Error("body too large")); request.destroy(); return; }
+      chunks.push(chunk);
+    });
+    request.on("end", () => {
+      try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {}); } catch (error) { reject(error); }
+    });
+    request.on("error", reject);
+  });
+}
+
+export function pageStatus(project) {
+  const page = pages.get(project);
+  if (!page) return { connected: false, seen_ms_ago: null, status: null };
+  const age = Date.now() - page.seen;
+  return { connected: age <= PAGE_STALE_MS, seen_ms_ago: age, status: page.status };
+}
+
+function syncEndpoint(body, response) {
+  const project = typeof body.project === "string" ? body.project : null;
+  if (!project) return sendJson(response, { ok: false, error: "project_required" }, 400);
+  pages.set(project, { client: body.client || null, seen: Date.now(), status: body.status || null });
+  for (const item of Array.isArray(body.results) ? body.results : []) {
+    const slot = results.get(item.id);
+    if (!slot) continue;
+    slot.result = item;
+    for (const resolve of slot.waiters) resolve(item);
+    slot.waiters = [];
+  }
+  const pending = commands.get(project) || [];
+  commands.set(project, []);
+  sendJson(response, { ok: true, commands: pending });
+}
+
+async function commandEndpoint(body, response) {
+  const project = typeof body.project === "string" ? body.project : null;
+  if (!project) return sendJson(response, { ok: false, error: "project_required" }, 400);
+  const timeout = Math.min(Math.max(Number(body.timeout_ms) || 15000, 1000), 120000);
+  const page = pageStatus(project);
+  if (!page.connected) return sendJson(response, { ok: false, error: "page_not_open", page }, 409);
+  const id = `cmd-${process.pid}-${++commandSequence}`;
+  const slot = { result: null, waiters: [] };
+  results.set(id, slot);
+  (commands.get(project) || commands.set(project, []).get(project)).push({ id, kind: body.kind, params: body.params || {} });
+  const outcome = await new Promise((resolve) => {
+    slot.waiters.push(resolve);
+    setTimeout(() => resolve(null), timeout);
+  });
+  results.delete(id);
+  if (!outcome) return sendJson(response, { ok: false, error: "page_timeout", page: pageStatus(project) }, 504);
+  sendJson(response, { ok: true, id, result: outcome, page: pageStatus(project) });
+}
+
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".cjs": "text/javascript",
   ".json": "application/json", ".map": "application/json", ".wasm": "application/wasm", ".css": "text/css", ".ssdl": "text/plain; charset=utf-8",
   ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml", ".glb": "model/gltf-binary", ".gltf": "model/gltf+json", ".bin": "application/octet-stream" };
@@ -96,6 +166,9 @@ async function handle(request, response) {
   const route = decodeURIComponent(url.pathname);
   if (route === STATUS_ROUTE) return sendJson(response, { ok: true, service: "ssworld-preview", version: PACKAGE.version, engine: engineStatus() });
   if (route === "/__ssdl_dev/status") return sendJson(response, { ok: true, schema_version: "SSDLDevServer/1" });
+  if (route === SYNC_ROUTE && request.method === "POST") return syncEndpoint(await readBody(request), response);
+  if (route === COMMAND_ROUTE && request.method === "POST") return commandEndpoint(await readBody(request), response);
+  if (route === PAGE_ROUTE) return sendJson(response, { ok: true, project: url.searchParams.get("project"), page: pageStatus(url.searchParams.get("project") || "") });
   if (route === "/__ssdl_dev/version") return versionEndpoint(url.searchParams, response);
   if (route === "/" ) return sendJson(response, { ok: true, service: "ssworld-preview", hint: "open /projects/<name>/index.html" });
   if (route.startsWith("/projects/")) {
@@ -150,6 +223,25 @@ export async function startPreview({ port = PREVIEW_PORT, log = () => {} } = {})
   server.unref();
   log(`preview listening on http://127.0.0.1:${port}`);
   return { port, reused: false, in_process: true };
+}
+
+/** Ask the running preview (in-process or another process on the same port) about a project's page. */
+export async function fetchPageStatus(project, port = PREVIEW_PORT) {
+  if (server) return pageStatus(project);
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}${PAGE_ROUTE}?project=${encodeURIComponent(project)}`, { signal: AbortSignal.timeout(1500) });
+    return (await response.json()).page;
+  } catch { return { connected: false, seen_ms_ago: null, status: null, preview_unreachable: true }; }
+}
+
+/** Queue a command for the project's open page and wait for its result. */
+export async function pageCommand(project, kind, params = {}, { port = PREVIEW_PORT, timeoutMs = 15000 } = {}) {
+  const response = await fetch(`http://127.0.0.1:${port}${COMMAND_ROUTE}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project, kind, params, timeout_ms: timeoutMs }),
+    signal: AbortSignal.timeout(timeoutMs + 5000),
+  });
+  return response.json();
 }
 
 export function projectUrl(name, port = PREVIEW_PORT) {

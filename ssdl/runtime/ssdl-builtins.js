@@ -4499,9 +4499,65 @@
     }
   }
 
+  // Local-frame camera authoring: ENU metres at the runtime anchor <-> WGS84 geodetic degrees.
+  const WGS84_A = 6378137;
+  const WGS84_F = 1 / 298.257223563;
+  const WGS84_E2 = WGS84_F * (2 - WGS84_F);
+  const DEG = Math.PI / 180;
+  function geodeticToEcef(lonDeg, latDeg, height) {
+    const lon = lonDeg * DEG, lat = latDeg * DEG;
+    const sinLat = Math.sin(lat), cosLat = Math.cos(lat);
+    const n = WGS84_A / Math.sqrt(1 - WGS84_E2 * sinLat * sinLat);
+    return {
+      x: (n + height) * cosLat * Math.cos(lon),
+      y: (n + height) * cosLat * Math.sin(lon),
+      z: (n * (1 - WGS84_E2) + height) * sinLat,
+    };
+  }
+  function ecefToGeodetic({ x, y, z }) {
+    const lon = Math.atan2(y, x);
+    const p = Math.hypot(x, y);
+    let lat = Math.atan2(z, p * (1 - WGS84_E2));
+    let height = 0;
+    for (let i = 0; i < 8; i += 1) {
+      const sinLat = Math.sin(lat);
+      const n = WGS84_A / Math.sqrt(1 - WGS84_E2 * sinLat * sinLat);
+      height = p / Math.cos(lat) - n;
+      lat = Math.atan2(z, p * (1 - WGS84_E2 * n / (n + height)));
+    }
+    return { longitude: lon / DEG, latitude: lat / DEG, height };
+  }
+  function enuAxes(anchor) {
+    const lon = anchor.lon * DEG, lat = anchor.lat * DEG;
+    const sinLon = Math.sin(lon), cosLon = Math.cos(lon), sinLat = Math.sin(lat), cosLat = Math.cos(lat);
+    return {
+      east: { x: -sinLon, y: cosLon, z: 0 },
+      north: { x: -sinLat * cosLon, y: -sinLat * sinLon, z: cosLat },
+      up: { x: cosLat * cosLon, y: cosLat * sinLon, z: sinLat },
+    };
+  }
+  function enuToGeodetic(anchor, local) {
+    const origin = geodeticToEcef(anchor.lon, anchor.lat, anchor.height);
+    const { east, north, up } = enuAxes(anchor);
+    return ecefToGeodetic({
+      x: origin.x + east.x * local.x + north.x * local.y + up.x * local.z,
+      y: origin.y + east.y * local.x + north.y * local.y + up.y * local.z,
+      z: origin.z + east.z * local.x + north.z * local.y + up.z * local.z,
+    });
+  }
+  function geodeticToEnu(anchor, longitude, latitude, height) {
+    const origin = geodeticToEcef(anchor.lon, anchor.lat, anchor.height);
+    const point = geodeticToEcef(longitude, latitude, height);
+    const d = { x: point.x - origin.x, y: point.y - origin.y, z: point.z - origin.z };
+    const { east, north, up } = enuAxes(anchor);
+    const dot = (a) => a.x * d.x + a.y * d.y + a.z * d.z;
+    return { x: dot(east), y: dot(north), z: dot(up) };
+  }
+
   class CameraView {
     constructor(runtime, spec) {
-      const allowed = new Set(["id", "key", "label", "longitude", "latitude", "height", "duration", "heading", "pitch", "roll"]);
+      const allowed = new Set(["id", "key", "label", "longitude", "latitude", "height", "duration", "heading", "pitch", "roll",
+        "position", "lookAt", "fov", "nearPlane", "farPlane"]);
       const unsupported = Object.keys(spec || {}).find((name) => !allowed.has(name));
       invariant(!unsupported, `CameraView.${unsupported} is unsupported by the Q7 contract`);
       const id = spec?.id || spec?.key;
@@ -4511,23 +4567,59 @@
       this.runtime = runtime;
       this.id = id;
       this.label = spec.label || id;
-      this.longitude = finite(spec.longitude, "CameraView.longitude");
-      this.latitude = finite(spec.latitude, "CameraView.latitude");
-      this.height = finite(spec.height, "CameraView.height");
-      invariant(this.longitude >= -180 && this.longitude <= 180, "CameraView.longitude must be in -180..180");
-      invariant(this.latitude >= -90 && this.latitude <= 90, "CameraView.latitude must be in -90..90");
+      const geographic = spec.longitude !== undefined || spec.latitude !== undefined || spec.height !== undefined;
+      if (spec.position !== undefined) {
+        // Local ENU metres (x east, y north, z up) relative to the scene anchor, same frame as node positions.
+        invariant(!geographic, "CameraView.position (local metres) and longitude/latitude/height are mutually exclusive");
+        this.position = vector3(spec.position, null, "CameraView.position");
+        const geodetic = enuToGeodetic(runtime.anchor, this.position);
+        this.longitude = geodetic.longitude;
+        this.latitude = geodetic.latitude;
+        this.height = geodetic.height;
+      } else {
+        invariant(geographic, "CameraView needs either position (local metres) or longitude/latitude/height");
+        this.longitude = finite(spec.longitude, "CameraView.longitude");
+        this.latitude = finite(spec.latitude, "CameraView.latitude");
+        this.height = finite(spec.height, "CameraView.height");
+        invariant(this.longitude >= -180 && this.longitude <= 180, "CameraView.longitude must be in -180..180");
+        invariant(this.latitude >= -90 && this.latitude <= 90, "CameraView.latitude must be in -90..90");
+        this.position = geodeticToEnu(runtime.anchor, this.longitude, this.latitude, this.height);
+      }
       this.duration = spec.duration ?? 0;
       invariant(Number.isInteger(this.duration) && this.duration >= 0 && this.duration <= 20000,
         "CameraView.duration must be an integer in 0..20000 ms");
       // Optional orientation in degrees. Without it the view keeps the legacy top-down flight.
-      this.oriented = spec.heading !== undefined || spec.pitch !== undefined || spec.roll !== undefined;
+      this.oriented = spec.heading !== undefined || spec.pitch !== undefined || spec.roll !== undefined || spec.lookAt !== undefined;
       this.heading = spec.heading === undefined ? 0 : finite(spec.heading, "CameraView.heading");
       this.pitch = spec.pitch === undefined ? -90 : finite(spec.pitch, "CameraView.pitch");
       this.roll = spec.roll === undefined ? 0 : finite(spec.roll, "CameraView.roll");
+      this.lookAt = null;
+      if (spec.lookAt !== undefined) {
+        // Aim point in the same local frame; derives heading (0 = north, clockwise) and pitch (negative = down)
+        // unless the author pins them explicitly.
+        this.lookAt = vector3(spec.lookAt, null, "CameraView.lookAt");
+        const dx = this.lookAt.x - this.position.x, dy = this.lookAt.y - this.position.y, dz = this.lookAt.z - this.position.z;
+        const flat = Math.hypot(dx, dy);
+        invariant(Math.hypot(flat, dz) > 1e-6, "CameraView.lookAt must differ from the camera position");
+        if (spec.heading === undefined) this.heading = flat > 1e-9 ? Math.atan2(dx, dy) / DEG : 0;
+        if (spec.pitch === undefined) this.pitch = Math.max(-90, Math.min(90, Math.atan2(dz, flat) / DEG));
+      }
       invariant(this.heading >= -360 && this.heading <= 360, "CameraView.heading must be in -360..360 degrees");
       invariant(this.pitch >= -90 && this.pitch <= 90, "CameraView.pitch must be in -90..90 degrees");
       invariant(this.roll >= -180 && this.roll <= 180, "CameraView.roll must be in -180..180 degrees");
+      this.fov = spec.fov === undefined ? null : finite(spec.fov, "CameraView.fov");
+      invariant(this.fov === null || (this.fov >= 1 && this.fov <= 170), "CameraView.fov must be in 1..170 degrees");
+      this.nearPlane = spec.nearPlane === undefined ? null : finite(spec.nearPlane, "CameraView.nearPlane");
+      this.farPlane = spec.farPlane === undefined ? null : finite(spec.farPlane, "CameraView.farPlane");
+      invariant(this.nearPlane === null || this.nearPlane > 0, "CameraView.nearPlane must be positive metres");
+      invariant(this.farPlane === null || this.farPlane > (this.nearPlane ?? 0), "CameraView.farPlane must exceed nearPlane");
       runtime.views.set(this.id, this);
+    }
+
+    applyProjection(camera) {
+      if (this.fov !== null) camera.fieldOfView = this.fov;
+      if (this.nearPlane !== null) camera.nearPlane = this.nearPlane;
+      if (this.farPlane !== null) camera.farPlane = this.farPlane;
     }
 
     activate(options = {}) {
@@ -4540,6 +4632,7 @@
       invariant(Number.isInteger(duration) && duration >= 0 && duration <= 20000,
         "CameraView activation duration must be an integer in 0..20000 ms");
       const camera = this.runtime.scene.mainCamera;
+      this.applyProjection(camera);
       const flight = duration === 0 && !this.oriented
         ? camera.flyTo(target)
         : camera.cameraController().flyToCartographic(target, duration / 1000, this.heading, this.pitch, this.roll);

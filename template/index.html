@@ -45,7 +45,152 @@
       hint: document.getElementById("hint"),
     });
 
+    // Runtime evidence for the ssworld MCP: errors since the last generation load, plus a status
+    // heartbeat the preview server keeps per project (POST /__ssworld/sync). Commands queued by
+    // ssworld_capture_frame arrive in the sync response and their results go back on the next sync.
+    const errors = [];
+    const client = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    let pendingResults = [];
+    function noteError(kind, message) {
+      if (errors.length >= 20) errors.shift();
+      errors.push({ kind, message: String(message).slice(0, 500), at: Date.now() });
+    }
+    window.addEventListener("error", (event) => noteError("error", event.error?.message || event.message));
+    window.addEventListener("unhandledrejection", (event) => noteError("unhandledrejection", event.reason?.message || event.reason));
+    const consoleError = console.error.bind(console);
+    console.error = (...args) => { noteError("console.error", args.map((item) => item?.message || item).join(" ")); consoleError(...args); };
+
+    function pageStatus() {
+      return {
+        state: document.body.dataset.runtime,
+        generation: ui.generation.textContent,
+        last_batch: ui.batch.textContent,
+        hint: ui.hint.textContent,
+        status_line: document.getElementById("status").textContent,
+        engine_ready: Boolean(window.GlobalViewer),
+        errors: errors.slice(),
+        visibility: document.visibilityState,
+        canvas: (() => { const c = renderCanvas(); return c ? { width: c.width, height: c.height } : null; })(),
+      };
+    }
+
+    function cameraState() {
+      try {
+        const camera = window.GlobalViewer?.scene?.mainCamera;
+        if (!camera) return null;
+        const controller = camera.cameraController();
+        const carto = controller.positionCartographic;
+        const degrees = carto && typeof carto.toDegrees === "function" ? carto.toDegrees() : null;
+        // The controller reports heading/pitch/roll in radians; authors think in CameraView degrees.
+        const toDeg = (value) => Number.isFinite(value) ? value * 180 / Math.PI : null;
+        const wrap = (deg, low) => deg === null ? null : ((deg - low) % 360 + 360) % 360 + low;
+        const out = {
+          longitude: degrees?.longitude ?? degrees?.lon ?? null, latitude: degrees?.latitude ?? degrees?.lat ?? null,
+          height: degrees?.height ?? carto?.height ?? null,
+          heading: wrap(toDeg(controller.heading), 0), pitch: wrap(toDeg(controller.pitch), -180), roll: wrap(toDeg(controller.roll), -180),
+          fov: camera.fieldOfView, near_plane: camera.nearPlane, far_plane: camera.farPlane,
+          units: "degrees; heading 0 = north clockwise, pitch negative = down",
+        };
+        for (const handle of [degrees, carto]) if (handle && typeof handle.delete === "function") handle.delete();
+        return out;
+      } catch (error) { return { error: error.message }; }
+    }
+
+    // saveImage2Base64 resolves a wasm heap pointer to a QByteArray holding base64 PNG text; the
+    // buffer only lives inside the future's callback, so the text is copied out right there.
+    function awaitNativeFuture(future, timeoutMs, read) {
+      return new Promise((resolve) => {
+        let settled = false;
+        const finish = (outcome) => { if (!settled) { settled = true; resolve(outcome); } };
+        setTimeout(() => finish({ timedOut: true }), timeoutMs);
+        try {
+          future.then((pointer) => {
+            try { finish({ value: read(pointer) }); } catch (error) { finish({ failed: error.message }); }
+          });
+        } catch (error) { finish({ failed: error.message }); }
+      });
+    }
+    function readByteArrayText(S, pointer) {
+      const address = typeof pointer === "bigint" ? Number(pointer) : pointer;
+      if (!Number.isSafeInteger(address) || address <= 0) return null;
+      const array = S.ByteArray.fromPtr(address);
+      const typed = array && typeof array.data === "function" ? array.data() : null;
+      return typed && typed.length ? new TextDecoder().decode(new Uint8Array(typed)) : null;
+    }
+    async function pixelStats(dataUrl) {
+      const image = new Image();
+      await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(new Error("captured PNG could not be decoded")); image.src = dataUrl; });
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.drawImage(image, 0, 0);
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+      const colors = new Set();
+      let nonBlack = 0, sum = 0, bright = 0;
+      const total = canvas.width * canvas.height;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const luma = (r * 299 + g * 587 + b * 114) / 1000;
+        sum += luma;
+        if (luma > 8) nonBlack += 1;
+        if (luma > 247) bright += 1;
+        if (colors.size < 4096) colors.add((r << 16) | (g << 8) | b);
+      }
+      return { width: canvas.width, height: canvas.height, distinct_colors: colors.size, non_black_ratio: nonBlack / total,
+        overexposed_ratio: bright / total, mean_luma: sum / total };
+    }
+    async function captureFrame(params = {}) {
+      const S = engineConfig;
+      if (!window.GlobalViewer || typeof S?.saveImage2Base64 !== "function" || !S?.ByteArray?.fromPtr) throw new Error("engine is not ready for capture");
+      const width = Math.min(Math.max(Math.trunc(params.width) || 960, 64), 4096);
+      const height = Math.min(Math.max(Math.trunc(params.height) || Math.round(width * 9 / 16), 64), 4096);
+      if (params.settle_ms) await new Promise((resolve) => setTimeout(resolve, Math.min(params.settle_ms, 10000)));
+      let last = "capture produced no image";
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        if (attempt) await new Promise((resolve) => setTimeout(resolve, 300));
+        const outcome = await awaitNativeFuture(S.saveImage2Base64(width, height, "PNG"), 8000, (pointer) => readByteArrayText(S, pointer));
+        if (outcome.timedOut) { last = "saveImage2Base64 timed out (is the page visible and painting?)"; continue; }
+        if (outcome.failed) { last = outcome.failed; continue; }
+        if (!outcome.value || !outcome.value.startsWith("iVBOR")) { last = "saveImage2Base64 did not return a PNG"; continue; }
+        const stats = await pixelStats(`data:image/png;base64,${outcome.value}`);
+        if (stats.distinct_colors < 2) { last = "captured frame has no pixel variation yet"; continue; }
+        return { png_base64: outcome.value, stats, camera: cameraState(), status: pageStatus() };
+      }
+      throw new Error(last);
+    }
+
+    async function runCommand(command) {
+      try {
+        if (command.kind === "status") return { id: command.id, ok: true, status: pageStatus(), camera: cameraState() };
+        if (command.kind === "capture") return { id: command.id, ok: true, ...(await captureFrame(command.params)) };
+        return { id: command.id, ok: false, error: `unknown command ${command.kind}` };
+      } catch (error) {
+        return { id: command.id, ok: false, error: error.message, status: pageStatus() };
+      }
+    }
+
+    let syncInFlight = false;
+    async function sync() {
+      if (syncInFlight) return;
+      syncInFlight = true;
+      try {
+        const response = await fetch("/__ssworld/sync", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project: __NAME_JSON__, client, status: pageStatus(), results: pendingResults }) });
+        pendingResults = [];
+        if (!response.ok) return;
+        const { commands = [] } = await response.json();
+        if (commands.length) {
+          for (const command of commands) pendingResults.push(await runCommand(command));
+          syncInFlight = false;
+          await sync();
+        }
+      } catch (_) {
+        // Static hosting without the ssworld preview server: no evidence channel, page still works.
+      } finally { syncInFlight = false; }
+    }
+
     function showFailure(error) {
+      noteError("scene_module", error.message);
       console.error(error, error.sceneModuleReceipt || "");
       const retained = window.SSWorld?.ok === true;
       document.body.dataset.runtime = retained ? "ready" : "failed";
@@ -72,6 +217,7 @@
     function loadGeneration() {
       if (loadPromise) return loadPromise;
       loadPromise = (async () => {
+        errors.length = 0;
         try {
           const manifest = await fetch(manifestUrl, { cache: "no-store" }).then((response) => response.json());
           const receipt = await host.loadAndAdopt({
@@ -161,6 +307,8 @@
       setInterval(pollChanges, 800);
     };
 
+    sync();
+    setInterval(sync, 800);
     (async () => {
       try {
         engineConfig = {

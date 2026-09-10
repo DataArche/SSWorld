@@ -3,15 +3,19 @@ import { createInterface } from "node:readline";
 import { PACKAGE, SERVER_NAME, PREVIEW_PORT, PROJECTS_ROOT } from "./paths.mjs";
 import { engineStatus, ensureEngine } from "./engine.mjs";
 import { compileNamed, createProject, listProjects, readSource, writeSource, DEFAULT_ANCHOR } from "./project.mjs";
-import { startPreview, projectUrl } from "./preview.mjs";
+import { startPreview, projectUrl, fetchPageStatus, pageCommand } from "./preview.mjs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { projectDir } from "./project.mjs";
 import { catalogSummary, catalogComponent } from "./catalog.mjs";
 import { CompileError } from "./compile.mjs";
 
 const SUPPORTED_PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
 export const INSTRUCTIONS = `SSWorld: author 3D geographic scenes with the SSDL scene description language (a QML-like subset, right-handed Z-up, metres) and run them on the SSEngine WebGPU runtime.
-Workflow: ssworld_catalog (learn available components) -> ssworld_project_create -> ssworld_source_read -> ssworld_source_write (pass the digest you read) -> ssworld_compile (real diagnostics) -> ssworld_preview (returns a URL to open in a browser with WebGPU).
-Compile success means the scene is well-formed, not that it looks right; always open the preview and inspect it. Sources are plain .ssdl text; everything else in the project is generated.`;
+Workflow: ssworld_catalog (learn available components) -> ssworld_project_create -> ssworld_source_read -> ssworld_source_write (pass the digest you read) -> ssworld_compile (real diagnostics) -> ssworld_preview (returns a URL to open in a browser with WebGPU) -> ssworld_capture_frame (screenshot + runtime errors + camera pose from the open page).
+Compile success means the scene is well-formed, not that it looks right; open the preview, then call ssworld_capture_frame and look at the image before reporting. Sources are plain .ssdl text; everything else in the project is generated.
+Conventions: local metres, x east / y north / z up around the project anchor; rotation quaternions are [x, y, z, w]; CameraView takes position/lookAt in local metres (or longitude/latitude/height), fov in degrees.`;
 
 const log = (line) => process.stderr.write(`[ssworld-mcp] ${line}\n`);
 
@@ -80,8 +84,55 @@ const TOOLS = [
     run: async ({ project }) => {
       const compiled = await compileNamed(project);
       const started = await startPreview({ log });
-      return { ...compiled, viewer_url: projectUrl(project, started.port), preview: started, render_verified: false,
-        next_action: "Open viewer_url in a browser with WebGPU (Chrome/Edge) and inspect the scene; a 200 from the server does not prove it rendered." };
+      const page = await fetchPageStatus(project);
+      return { ...compiled, viewer_url: projectUrl(project, started.port), preview: started, page, render_verified: false,
+        next_action: page.connected
+          ? "The page is open and will hot reload; call ssworld_capture_frame to see the frame and runtime errors."
+          : "Open viewer_url in a browser with WebGPU (Chrome/Edge), keep it visible, then call ssworld_capture_frame; a 200 from the server does not prove it rendered." };
+    },
+  },
+  {
+    name: "ssworld_capture_frame",
+    description: "Screenshot the project's open preview page through the engine (real WebGPU frame), with pixel statistics, runtime errors since the last hot reload, and the camera pose. Requires the viewer_url from ssworld_preview to be open in a browser; returns page_not_open otherwise. The PNG is returned as image content and saved under the project's captures/ directory.",
+    inputSchema: { type: "object", required: ["project"], properties: {
+      project: { type: "string" },
+      width: { type: "integer", minimum: 64, maximum: 4096, description: "Capture width in pixels; default 800." },
+      height: { type: "integer", minimum: 64, maximum: 4096, description: "Capture height; default keeps 16:9." },
+      settle_ms: { type: "integer", minimum: 0, maximum: 10000, description: "Wait before capturing (camera flights, animations); default 500." },
+    }, additionalProperties: false },
+    annotations: { title: "Capture preview frame", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    rich: true,
+    run: async ({ project, width, height, settle_ms }) => {
+      const directory = projectDir(project);
+      const page = await fetchPageStatus(project);
+      if (!page.connected) {
+        const started = await startPreview({ log });
+        throw Object.assign(new Error("preview page is not open; open viewer_url in a WebGPU browser (keep it visible), then call ssworld_capture_frame again"),
+          { code: "page_not_open", extra: { viewer_url: projectUrl(project, started.port), page } });
+      }
+      const reply = await pageCommand(project, "capture", { width: width || 800, height, settle_ms: settle_ms ?? 500 }, { timeoutMs: 20000 });
+      if (!reply.ok) throw Object.assign(new Error(reply.error === "page_timeout" ? "the page did not answer in time (is the tab visible and painting?)" : String(reply.error)), { code: reply.error, extra: { page: reply.page } });
+      const result = reply.result;
+      if (!result.ok) throw Object.assign(new Error(result.error), { code: "capture_failed", extra: { status: result.status } });
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const capturesDir = path.join(directory, "captures");
+      mkdirSync(capturesDir, { recursive: true });
+      const file = path.join(capturesDir, `${stamp}.png`);
+      writeFileSync(file, Buffer.from(result.png_base64, "base64"));
+      const { stats, camera, status } = result;
+      const blank = stats.distinct_colors < 64 || stats.non_black_ratio < 0.1;
+      const verified = status.state === "ready" && status.errors.length === 0 && !blank;
+      return {
+        payload: {
+          ok: true, project, capture_path: file, stats, camera, runtime: status,
+          render_verified: verified,
+          verdict: verified ? "frame captured from the running scene with no runtime errors; judge composition from the image"
+            : status.state !== "ready" ? `runtime state is '${status.state}': ${status.hint}`
+            : status.errors.length ? `runtime reported ${status.errors.length} error(s); see runtime.errors`
+            : "frame is blank or nearly black; the camera may be pointing at nothing",
+        },
+        images: [{ data: result.png_base64, mimeType: "image/png" }],
+      };
     },
   },
   {
@@ -96,8 +147,14 @@ const TOOLS = [
 function toolError(error) {
   const payload = error instanceof CompileError
     ? { ok: false, error: "compile_failed", message: error.message, diagnostic: error.diagnostic }
-    : { ok: false, error: "tool_failed", message: String(error?.message || error) };
+    : { ok: false, error: error?.code || "tool_failed", message: String(error?.message || error), ...(error?.extra || {}) };
   return { ...text(payload), isError: true };
+}
+
+function richResult(value) {
+  const base = text(value.payload);
+  for (const image of value.images || []) base.content.push({ type: "image", data: image.data, mimeType: image.mimeType });
+  return base;
 }
 
 async function dispatch(request) {
@@ -117,7 +174,10 @@ async function dispatch(request) {
     case "tools/call": {
       const tool = TOOLS.find((candidate) => candidate.name === params.name);
       if (!tool) throw Object.assign(new Error(`unknown tool ${params.name}`), { code: -32602 });
-      try { return text(await tool.run(params.arguments || {})); } catch (error) { return toolError(error); }
+      try {
+        const value = await tool.run(params.arguments || {});
+        return tool.rich ? richResult(value) : text(value);
+      } catch (error) { return toolError(error); }
     }
     case "resources/list": return { resources: [] };
     case "prompts/list": return { prompts: [] };

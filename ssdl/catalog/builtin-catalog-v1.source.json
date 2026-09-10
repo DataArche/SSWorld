@@ -1660,6 +1660,31 @@
           "value_type": "scalar",
           "unit": "deg",
           "update_class": "create_only"
+        },
+        "position": {
+          "value_type": "vector3",
+          "unit": "m",
+          "update_class": "create_only"
+        },
+        "lookAt": {
+          "value_type": "vector3",
+          "unit": "m",
+          "update_class": "create_only"
+        },
+        "fov": {
+          "value_type": "scalar",
+          "unit": "deg",
+          "update_class": "create_only"
+        },
+        "nearPlane": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only"
+        },
+        "farPlane": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only"
         }
       },
       "factory": "createCameraView",

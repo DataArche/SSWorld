@@ -50,12 +50,17 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const list = await client.request("tools/list", {});
   const names = list.result.tools.map((tool) => tool.name);
   assert.deepEqual(names, ["ssworld_catalog", "ssworld_project_list", "ssworld_project_create", "ssworld_source_read",
-    "ssworld_source_write", "ssworld_compile", "ssworld_preview", "ssworld_engine_status"]);
+    "ssworld_source_write", "ssworld_compile", "ssworld_preview", "ssworld_capture_frame", "ssworld_engine_status"]);
   for (const tool of list.result.tools) assert.equal(tool.inputSchema.type, "object", tool.name);
 
   const catalog = await client.call("ssworld_catalog");
   assert.equal(catalog.isError, false);
   assert.ok(catalog.body.components.Box?.supported, "Box must be a supported component");
+  assert.match(catalog.body.conventions.quaternion_order, /\[x, y, z, w\]/);
+  const sun = await client.call("ssworld_catalog", { component: "DirectionalLight" });
+  assert.match(sun.body.contract.members.lightSourceAngle.runtime_writable, /atmosphereSunLight/);
+  const view = await client.call("ssworld_catalog", { component: "CameraView" });
+  for (const member of ["position", "lookAt", "fov", "nearPlane", "farPlane"]) assert.ok(view.body.contract.members[member], `CameraView.${member}`);
   const box = await client.call("ssworld_catalog", { component: "Box" });
   assert.ok(box.body.contract.properties || box.body.contract, "component contract");
   const unknown = await client.call("ssworld_catalog", { component: "Nope" });
@@ -95,12 +100,28 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(failed.body.error, "compile_failed");
   assert.match(failed.body.message, /scene\.ssdl:\d+:\d+/);
 
+  // Accepted by the compiler, rejected by the engine: the adopted atmosphere sun has no lightSourceAngle.
+  const sunScene = "Scene { id: main\n DirectionalLight { id: sun; atmosphereSunLight: true; lightSourceAngle: 2 }\n}";
+  const sunWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: sunScene, expected_digest: broken.body.digest });
+  assert.equal(sunWrite.isError, false);
+  const sunCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(sunCompile.isError, true);
+  assert.equal(sunCompile.body.diagnostic.code, "runtime_unsupported");
+  assert.match(sunCompile.body.message, /lightSourceAngle cannot be written when atmosphereSunLight is true/);
+  assert.equal(sunCompile.body.diagnostic.node, "sun");
+  const restore = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: read.body.content, expected_digest: sunWrite.body.digest });
+  assert.equal(restore.isError, false);
+
   const good = read.body.content.replace("width: 24", "width: 40");
-  const rewritten = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: good, expected_digest: broken.body.digest });
+  const rewritten = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: good, expected_digest: restore.body.digest });
   assert.equal(rewritten.isError, false);
   const compiled = await client.call("ssworld_compile", { project: "demo" });
   assert.equal(compiled.isError, false, JSON.stringify(compiled.body));
   assert.notEqual(compiled.body.scene_ir_digest, created.body.scene_ir_digest);
+  const ir = JSON.parse(readFileSync(path.join(HOME, "projects", "demo", "scene.ir.json"), "utf8"));
+  const startView = ir.nodes.find((node) => node.type === "CameraView");
+  assert.ok(startView, "template declares a local-frame CameraView");
+  assert.deepEqual(startView.properties.find((item) => item.property === "lookAt").value, { x: 0, y: 0, z: 12 });
 
   const engine = await client.call("ssworld_engine_status");
   if (!engine.body.ready) { t.diagnostic("engine pair not available; preview checks skipped (set SSWORLD_ENGINE_DIR)"); return; }
@@ -109,6 +130,53 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(preview.isError, false, JSON.stringify(preview.body) + client.stderr);
   assert.equal(preview.body.viewer_url, `http://127.0.0.1:${PORT}/projects/demo/index.html`);
   assert.equal(preview.body.render_verified, false);
+  assert.equal(preview.body.page.connected, false);
+
+  // No page open yet: the capture tool must say so instead of hanging.
+  const notOpen = await client.call("ssworld_capture_frame", { project: "demo" });
+  assert.equal(notOpen.isError, true);
+  assert.equal(notOpen.body.error, "page_not_open");
+  assert.equal(notOpen.body.viewer_url, preview.body.viewer_url);
+
+  // A fake page: heartbeat through /__ssworld/sync, answer the capture command with a 2x2 PNG.
+  const syncUrl = `http://127.0.0.1:${PORT}/__ssworld/sync`;
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVQI12P4z8DwHwyBFJDxHwzhTAAB1Qv/N+qaVAAAAABJRU5ErkJggg==";
+  const status = { state: "ready", generation: "1", errors: [], hint: "ok" };
+  const sync = (results = []) => fetch(syncUrl, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project: "demo", client: "fake", status, results }) }).then((r) => r.json());
+  assert.deepEqual((await sync()).commands, []);
+  const pageSeen = await client.call("ssworld_preview", { project: "demo" });
+  assert.equal(pageSeen.body.page.connected, true);
+  const pump = setInterval(async () => {
+    const { commands } = await sync();
+    for (const command of commands) {
+      assert.equal(command.kind, "capture");
+      assert.equal(command.params.width, 640);
+      await sync([{ id: command.id, ok: true, png_base64: png,
+        stats: { width: 2, height: 2, distinct_colors: 4, non_black_ratio: 1, overexposed_ratio: 0, mean_luma: 90 },
+        camera: { heading: 0 }, status }]);
+    }
+  }, 100);
+  t.after(() => clearInterval(pump));
+  const captureResponse = await client.request("tools/call", { name: "ssworld_capture_frame", arguments: { project: "demo", width: 640 } });
+  clearInterval(pump);
+  assert.equal(captureResponse.result.isError, undefined, JSON.stringify(captureResponse.result));
+  const captureBody = JSON.parse(captureResponse.result.content[0].text);
+  assert.equal(captureBody.ok, true);
+  assert.equal(captureBody.render_verified, false, "a 4-colour frame counts as blank");
+  assert.match(captureBody.verdict, /blank/);
+  assert.equal(captureBody.stats.distinct_colors, 4);
+  assert.ok(captureBody.capture_path.endsWith(".png"));
+  assert.equal(readFileSync(captureBody.capture_path).subarray(1, 4).toString(), "PNG");
+  const image = captureResponse.result.content.find((item) => item.type === "image");
+  assert.equal(image?.mimeType, "image/png");
+  assert.equal(image?.data, png);
+
+  // A page that stopped syncing (tab closed) is reported as not open again after the heartbeat goes stale.
+  await new Promise((resolve) => setTimeout(resolve, 3200));
+  const closed = await client.call("ssworld_capture_frame", { project: "demo" });
+  assert.equal(closed.isError, true);
+  assert.equal(closed.body.error, "page_not_open");
 
   const page = await fetch(preview.body.viewer_url);
   assert.equal(page.status, 200);

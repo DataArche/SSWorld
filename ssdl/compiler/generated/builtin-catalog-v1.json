@@ -111,6 +111,16 @@
           "update_class": "create_only",
           "value_type": "scalar"
         },
+        "farPlane": {
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "fov": {
+          "unit": "deg",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
         "heading": {
           "unit": "deg",
           "update_class": "create_only",
@@ -135,10 +145,25 @@
           "update_class": "create_only",
           "value_type": "scalar"
         },
+        "lookAt": {
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector3"
+        },
+        "nearPlane": {
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
         "pitch": {
           "unit": "deg",
           "update_class": "create_only",
           "value_type": "scalar"
+        },
+        "position": {
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector3"
         },
         "roll": {
           "unit": "deg",
