@@ -1,0 +1,11 @@
+Scene {
+  id: main
+  State { id: selected; name: "selected"; when: false }
+  Box {
+    id: cube; width: 24; depth: 24; height: 24; position: [0, 0, 12]
+    PrincipledMaterial { baseColor: selected.when ? "#ffb454" : "#4288db"; roughness: 0.3; metalness: 0.5 }
+    TapHandler { onTapped: { selected.when = !selected.when; } }
+  }
+  RotationAnimation { target: cube; property: "rotation"; from: 0; to: 360;
+    duration: 8000; running: !selected.when; loops: Animation.Infinite }
+}

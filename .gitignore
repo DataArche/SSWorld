@@ -1,0 +1,5 @@
+node_modules/
+.release/
+engine/SSmap.js
+engine/SSmap.wasm
+*.tgz

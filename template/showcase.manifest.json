@@ -1,0 +1,26 @@
+{
+  "schema_version": "SceneModuleManifest/1",
+  "scene_module_version": 1,
+  "name": "PropertyBindingShowcase",
+  "entry": "scene.mjs",
+  "execution_profiles": [
+    "trusted-local",
+    "agent-mcp"
+  ],
+  "resource_root": ".",
+  "scene_ir_version": 5,
+  "binding_ir_version": 2,
+  "compiler_profile": "SSDL/QML-Subset/0.3",
+  "compiler_profile_digest": "sha256:2e2063486dac8330f22798c8498f39f12c0d600c490748b46b1311f0e1ed696c",
+  "scene_ir_digest": "sha256:8904648dff6ec5457fa36b98741c9e40e96e4244ef6f86834801e5c480443a48",
+  "binding_ir_digest": "sha256:c829fb10d80f041926a2f842900f82c8552a020fc82fc812590f6915511ee0e4",
+  "module_digest": "sha256:abddf8fa46d915776aef04c3ea9174e491d348fe4f6ac7ee7a03b0005400f41f",
+  "budgets": {
+    "native_objects": 16,
+    "bindings": 8,
+    "handlers": 4,
+    "timers": 2
+  },
+  "catalog_digest": "sha256:0c61210d3588bce0e55b6370f836fe92eac3ccc907c86412cc823c6f7481b17e",
+  "runtime_abi_digest": "sha256:91a94e8f52f0c00f6f406afb300ea099906a3fc65f8aa956b09f156b8b5bdfe2"
+}

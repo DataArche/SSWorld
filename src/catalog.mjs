@@ -1,0 +1,28 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { SSDL_ROOT } from "./paths.mjs";
+
+let cached = null;
+function catalog() {
+  cached ??= JSON.parse(readFileSync(path.join(SSDL_ROOT, "catalog", "builtin-catalog-v1.source.json"), "utf8"));
+  return cached;
+}
+
+export function catalogSummary() {
+  const source = catalog();
+  const components = Object.fromEntries(Object.entries(source.components).map(([name, value]) => [name, {
+    supported: Boolean(value.factory), adapter: value.adapter ?? null, summary: value.summary || value.description || undefined,
+  }]));
+  return { language: "SSDL/QML-Subset/0.3", coordinate_system: "right_handed_z_up", units: "metres, degrees for lon/lat",
+    schema_version: source.schema_version, components, unavailable_components: source.unavailable_components || {} };
+}
+
+export function catalogComponent(name) {
+  const source = catalog();
+  const contract = source.components[name];
+  if (!contract) {
+    const known = Object.keys(source.components);
+    throw new Error(`unknown component '${name}'; known: ${known.join(", ")}`);
+  }
+  return { component: name, contract };
+}

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>__TITLE__ · SSWorld</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="/engine/SSmap.js"></script>
+  <script src="/runtime/qtloader.js"></script>
+  <script src="/runtime/integer-codec.js"></script>
+  <script src="/runtime/expression-runtime.js"></script>
+  <script src="/runtime/ssdl-builtin-catalog-v1.js"></script>
+  <script src="/runtime/ssdl-builtins.js"></script>
+</head>
+<body data-runtime="loading">
+  <div id="screen"></div>
+  <main class="panel">
+    <div class="eyebrow">SSWorld · SceneModule/1</div>
+    <h1>__TITLE__</h1>
+    <p class="hint" id="hint">正在连接 SSEngine WebGPU…</p>
+    <dl class="readout">
+      <dt>logical state</dt><dd id="logical-state">loading</dd>
+      <dt>generation</dt><dd id="generation">—</dd>
+      <dt>last batch</dt><dd id="last-batch">—</dd>
+    </dl>
+  </main>
+  <div class="status" id="status">SSEngine WebGPU · RIGHT-HANDED / Z-UP</div>
+
+  <script type="module">
+    import { SceneModuleHost } from "/runtime/scene-module-host.mjs";
+    import { SceneRuntimeBridge } from "/runtime/scene-runtime-bridge.mjs";
+
+    const moduleUrl = new URL("./scene.mjs", import.meta.url).href;
+    const manifestUrl = new URL("./showcase.manifest.json", import.meta.url).href;
+    let engineConfig;
+    let host;
+    let watchToken = null;
+    let loadPromise = null;
+    let pollInFlight = false;
+
+    const ui = Object.freeze({
+      state: document.getElementById("logical-state"),
+      generation: document.getElementById("generation"),
+      batch: document.getElementById("last-batch"),
+      hint: document.getElementById("hint"),
+    });
+
+    function showFailure(error) {
+      console.error(error, error.sceneModuleReceipt || "");
+      const retained = window.SSWorld?.ok === true;
+      document.body.dataset.runtime = retained ? "ready" : "failed";
+      ui.hint.textContent = error.message;
+      document.getElementById("status").textContent = retained
+        ? "热更新失败 · 上一 generation 保持运行"
+        : "首次加载失败";
+    }
+
+    function renderCanvas() {
+      return document.getElementById("qt-shadow-container")
+        ?.shadowRoot?.querySelector("canvas.qt-window-canvas") || null;
+    }
+
+    async function waitForRenderCanvas() {
+      for (let frame = 0; frame < 120; frame += 1) {
+        const canvas = renderCanvas();
+        if (canvas) return canvas;
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      throw new Error("SSEngine render canvas was not mounted");
+    }
+
+    function loadGeneration() {
+      if (loadPromise) return loadPromise;
+      loadPromise = (async () => {
+        try {
+          const manifest = await fetch(manifestUrl, { cache: "no-store" }).then((response) => response.json());
+          const receipt = await host.loadAndAdopt({
+            scopeId: "ssworld-project",
+            url: moduleUrl,
+            manifest,
+            executionProfile: "trusted-local",
+          });
+          window.SSWorld = {
+            ok: true,
+            host,
+            receipt,
+            snapshot: () => host.snapshotGeneration("ssworld-project"),
+            reload: loadGeneration,
+            dispose: () => host.disposeScope("ssworld-project"),
+          };
+          document.getElementById("status").textContent = "SSEngine WebGPU · hot reload ready";
+        } catch (error) {
+          showFailure(error);
+        }
+      })().finally(() => { loadPromise = null; });
+      return loadPromise;
+    }
+
+    async function pollChanges() {
+      if (pollInFlight) return;
+      pollInFlight = true;
+      try {
+        const query = new URLSearchParams({ path: "__WATCH_PATH__" });
+        const response = await fetch(`/__ssdl_dev/version?${query}`, { cache: "no-store" });
+        if (!response.ok) {
+          const detail = await response.json();
+          if (detail.error === "compile_failed") showFailure(new Error(detail.message));
+          return;
+        }
+        const { token } = await response.json();
+        if (watchToken !== null && token !== watchToken) await loadGeneration();
+        watchToken = token;
+      } catch (_) {
+        // A plain static server is supported; it simply has no live reload endpoint.
+      } finally {
+        pollInFlight = false;
+      }
+    }
+
+    window.initScene = async () => {
+      const canvas = await waitForRenderCanvas();
+      host = new SceneModuleHost({
+        contextFactory: ({ scopeId, generation, executionProfile, manifest: moduleManifest }) => {
+          const builtinRuntime = window.SSEngineSSDLBuiltins.createRuntime({
+            Module: engineConfig,
+            viewer: window.GlobalViewer,
+            expressionRuntime: window.SSEngineSSDLExpressionRuntime,
+            anchor: { lon: __ANCHOR_LON__, lat: __ANCHOR_LAT__, height: __ANCHOR_HEIGHT__ },
+            modelScopeId: `${scopeId}:${generation}`,
+          });
+          const runtime = new SceneRuntimeBridge(builtinRuntime, {
+            interactionRoot: document.getElementById("screen"),
+            scopeId,
+            generation,
+            executionProfile,
+            sceneIRDigest: moduleManifest.scene_ir_digest,
+            bindingIRDigest: moduleManifest.binding_ir_digest,
+          });
+          return {
+            runtime,
+            ownedResources: [runtime],
+            viewer: window.GlobalViewer,
+            canvas,
+            interactionRoot: document.getElementById("screen"),
+            document,
+            window,
+            ui,
+            anchor: runtime.anchor,
+            capabilities: ["scene.write", "scene.readback", "dom", "project.assets"],
+            catalogDigest: builtinRuntime.capabilities().builtin_catalog_digest,
+            runtimeAbiDigest: builtinRuntime.capabilities().scene_module_runtime_abi_digest,
+            manifest: moduleManifest,
+            executionProfile,
+          };
+        },
+        minimumReadback: async (_record, snapshot) => snapshot,
+      });
+
+      await loadGeneration();
+      await pollChanges();
+      setInterval(pollChanges, 800);
+    };
+
+    (async () => {
+      try {
+        engineConfig = {
+          locateFile: (name) => name === "SSmap.wasm" ? "/engine/SSmap.wasm" : name,
+          qt: { entryFunction: window.SSmap_entry, containerElements: [document.getElementById("screen")] },
+        };
+        await qtLoad(engineConfig);
+      } catch (error) {
+        showFailure(error);
+      }
+    })();
+  </script>
+</body>
+</html>

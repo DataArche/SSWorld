@@ -1,0 +1,30 @@
+{
+  "name": "ssworld-mcp",
+  "version": "0.1.0",
+  "description": "SSWorld MCP server: author, compile and preview SSDL 3D geo scenes on the SSEngine WebGPU runtime from any agent app.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": {
+    "ssworld-mcp": "bin/ssworld-mcp.mjs"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DataArche/SSWorld.git"
+  },
+  "files": [
+    "bin",
+    "src",
+    "ssdl",
+    "template",
+    "engine",
+    "assets",
+    "engine.lock.json",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

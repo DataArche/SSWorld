@@ -1,0 +1,1782 @@
+{
+  "schema_version": "BuiltinCatalog/1",
+  "components": {
+    "Behavior": {
+      "members": {
+        "duration": {
+          "value_type": "scalar",
+          "unit": "ms",
+          "required": false
+        },
+        "easing": {
+          "value_type": "string",
+          "required": false
+        },
+        "enabled": {
+          "value_type": "boolean",
+          "required": false
+        },
+        "property": {
+          "value_type": "string",
+          "required": true
+        },
+        "target": {
+          "value_type": "object_ref",
+          "required": true,
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createBehavior",
+      "adapter": "behavior",
+      "implicit_target": true
+    },
+    "Box": {
+      "members": {
+        "position": {
+          "value_type": "vector3",
+          "unit": "m",
+          "runtime_property": "transform.position"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "runtime_property": "transform.scale"
+        },
+        "rotation": {
+          "value_type": "quaternion",
+          "runtime_property": "transform.rotation",
+          "unit": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "parent": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "color": {
+          "value_type": "color",
+          "runtime_property": "material.color"
+        },
+        "opacity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "runtime_property": "material.opacity"
+        },
+        "width": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "depth": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "height": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        }
+      },
+      "factory": "createBox",
+      "adapter": "geometry",
+      "params": [
+        "width",
+        "depth",
+        "height"
+      ]
+    },
+    "Scene": {
+      "members": {},
+      "factory": "createScene",
+      "adapter": "scene"
+    },
+    "State": {
+      "members": {
+        "name": {
+          "value_type": "string",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "when": {
+          "value_type": "boolean",
+          "required": false
+        }
+      },
+      "factory": "createState",
+      "adapter": "direct"
+    },
+    "Plane": {
+      "members": {
+        "position": {
+          "value_type": "vector3",
+          "unit": "m",
+          "runtime_property": "transform.position"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "runtime_property": "transform.scale"
+        },
+        "rotation": {
+          "value_type": "quaternion",
+          "runtime_property": "transform.rotation",
+          "unit": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "parent": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "color": {
+          "value_type": "color",
+          "runtime_property": "material.color"
+        },
+        "opacity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "runtime_property": "material.opacity"
+        },
+        "width": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "depth": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        }
+      },
+      "factory": "createPlane",
+      "adapter": "geometry",
+      "params": [
+        "width",
+        "depth"
+      ]
+    },
+    "Sphere": {
+      "members": {
+        "position": {
+          "value_type": "vector3",
+          "unit": "m",
+          "runtime_property": "transform.position"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "runtime_property": "transform.scale"
+        },
+        "rotation": {
+          "value_type": "quaternion",
+          "runtime_property": "transform.rotation",
+          "unit": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "parent": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "color": {
+          "value_type": "color",
+          "runtime_property": "material.color"
+        },
+        "opacity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "runtime_property": "material.opacity"
+        },
+        "radius": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "segments": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createSphere",
+      "adapter": "geometry",
+      "params": [
+        "radius",
+        "segments"
+      ]
+    },
+    "Cylinder": {
+      "members": {
+        "position": {
+          "value_type": "vector3",
+          "unit": "m",
+          "runtime_property": "transform.position"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "runtime_property": "transform.scale"
+        },
+        "rotation": {
+          "value_type": "quaternion",
+          "runtime_property": "transform.rotation",
+          "unit": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "parent": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "color": {
+          "value_type": "color",
+          "runtime_property": "material.color"
+        },
+        "opacity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "runtime_property": "material.opacity"
+        },
+        "radius": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "height": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "segments": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createCylinder",
+      "adapter": "geometry",
+      "params": [
+        "radius",
+        "height",
+        "segments"
+      ]
+    },
+    "Cone": {
+      "members": {
+        "position": {
+          "value_type": "vector3",
+          "unit": "m",
+          "runtime_property": "transform.position"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "runtime_property": "transform.scale"
+        },
+        "rotation": {
+          "value_type": "quaternion",
+          "runtime_property": "transform.rotation",
+          "unit": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "parent": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "color": {
+          "value_type": "color",
+          "runtime_property": "material.color"
+        },
+        "opacity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "runtime_property": "material.opacity"
+        },
+        "radius": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "height": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "segments": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createCone",
+      "adapter": "geometry",
+      "params": [
+        "radius",
+        "height",
+        "segments"
+      ]
+    },
+    "Polyline": {
+      "members": {
+        "position": {
+          "value_type": "vector3",
+          "unit": "m",
+          "runtime_property": "transform.position"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "runtime_property": "transform.scale"
+        },
+        "rotation": {
+          "value_type": "quaternion",
+          "runtime_property": "transform.rotation",
+          "unit": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "parent": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "color": {
+          "value_type": "color",
+          "runtime_property": "material.color"
+        },
+        "opacity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "runtime_property": "material.opacity"
+        },
+        "points": {
+          "value_type": "vector3_list",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "width": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        }
+      },
+      "factory": "createPolyline",
+      "adapter": "geometry",
+      "params": [
+        "points",
+        "width"
+      ]
+    },
+    "Polygon": {
+      "members": {
+        "position": {
+          "value_type": "vector3",
+          "unit": "m",
+          "runtime_property": "transform.position"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "runtime_property": "transform.scale"
+        },
+        "rotation": {
+          "value_type": "quaternion",
+          "runtime_property": "transform.rotation",
+          "unit": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "parent": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "color": {
+          "value_type": "color",
+          "runtime_property": "material.color"
+        },
+        "opacity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "runtime_property": "material.opacity"
+        },
+        "outer": {
+          "value_type": "vector3_list",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "holes": {
+          "value_type": "ring_list",
+          "unit": "m",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createPolygon",
+      "adapter": "geometry",
+      "params": [
+        "outer",
+        "holes"
+      ]
+    },
+    "ExtrudedPolygon": {
+      "members": {
+        "position": {
+          "value_type": "vector3",
+          "unit": "m",
+          "runtime_property": "transform.position"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "runtime_property": "transform.scale"
+        },
+        "rotation": {
+          "value_type": "quaternion",
+          "runtime_property": "transform.rotation",
+          "unit": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "parent": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "color": {
+          "value_type": "color",
+          "runtime_property": "material.color"
+        },
+        "opacity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "runtime_property": "material.opacity"
+        },
+        "outer": {
+          "value_type": "vector3_list",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "holes": {
+          "value_type": "ring_list",
+          "unit": "m",
+          "update_class": "create_only"
+        },
+        "height": {
+          "value_type": "scalar",
+          "unit": "m",
+          "update_class": "create_only",
+          "required": true
+        },
+        "cap": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createExtrudedPolygon",
+      "adapter": "geometry",
+      "params": [
+        "outer",
+        "holes",
+        "height",
+        "cap"
+      ]
+    },
+    "Texture": {
+      "members": {
+        "source": {
+          "value_type": "asset_ref",
+          "asset_kind": "texture",
+          "required": true,
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createTexture",
+      "adapter": "direct"
+    },
+    "Model": {
+      "members": {
+        "source": {
+          "value_type": "asset_ref",
+          "asset_kind": "model",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "baseColorTexture": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "materialSlot": {
+          "value_type": "string",
+          "update_class": "create_only"
+        },
+        "position": {
+          "value_type": "vector3",
+          "unit": "m",
+          "runtime_property": "transform.position"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "runtime_property": "transform.scale"
+        },
+        "rotation": {
+          "value_type": "quaternion",
+          "runtime_property": "transform.rotation",
+          "unit": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "parent": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createModel",
+      "adapter": "model"
+    },
+    "Group": {
+      "members": {
+        "position": {
+          "value_type": "vector3",
+          "unit": "m",
+          "runtime_property": "transform.position"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "runtime_property": "transform.scale"
+        },
+        "rotation": {
+          "value_type": "quaternion",
+          "runtime_property": "transform.rotation",
+          "unit": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "parent": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createGroup",
+      "adapter": "group"
+    },
+    "PrincipledMaterial": {
+      "members": {
+        "target": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "baseColor": {
+          "value_type": "color"
+        },
+        "opacity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "metalness": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "roughness": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        }
+      },
+      "factory": "createPrincipledMaterial",
+      "adapter": "material",
+      "implicit_target": true
+    },
+    "NumberAnimation": {
+      "members": {
+        "target": {
+          "value_type": "object_ref",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "property": {
+          "value_type": "string",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "from": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "to": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only"
+        },
+        "duration": {
+          "value_type": "scalar",
+          "unit": "ms",
+          "update_class": "create_only"
+        },
+        "loops": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "running": {
+          "value_type": "boolean"
+        },
+        "paused": {
+          "value_type": "boolean"
+        },
+        "alwaysRunToEnd": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        },
+        "easing.type": {
+          "value_type": "string",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createNumberAnimation",
+      "adapter": "animation",
+      "signals": [
+        "onStarted",
+        "onStopped",
+        "onFinished",
+        "onRunningChanged",
+        "onPausedChanged"
+      ],
+      "commands": [
+        "start",
+        "stop",
+        "restart",
+        "pause",
+        "resume"
+      ]
+    },
+    "Vector3dAnimation": {
+      "members": {
+        "target": {
+          "value_type": "object_ref",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "property": {
+          "value_type": "string",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "from": {
+          "value_type": "vector3",
+          "unit": "m",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "to": {
+          "value_type": "vector3",
+          "unit": "m",
+          "update_class": "create_only"
+        },
+        "duration": {
+          "value_type": "scalar",
+          "unit": "ms",
+          "update_class": "create_only"
+        },
+        "loops": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "running": {
+          "value_type": "boolean"
+        },
+        "paused": {
+          "value_type": "boolean"
+        },
+        "alwaysRunToEnd": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        },
+        "easing.type": {
+          "value_type": "string",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createVector3dAnimation",
+      "adapter": "animation",
+      "signals": [
+        "onStarted",
+        "onStopped",
+        "onFinished",
+        "onRunningChanged",
+        "onPausedChanged"
+      ],
+      "commands": [
+        "start",
+        "stop",
+        "restart",
+        "pause",
+        "resume"
+      ]
+    },
+    "ColorAnimation": {
+      "members": {
+        "target": {
+          "value_type": "object_ref",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "property": {
+          "value_type": "string",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "from": {
+          "value_type": "color",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "to": {
+          "value_type": "color",
+          "update_class": "create_only"
+        },
+        "duration": {
+          "value_type": "scalar",
+          "unit": "ms",
+          "update_class": "create_only"
+        },
+        "loops": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "running": {
+          "value_type": "boolean"
+        },
+        "paused": {
+          "value_type": "boolean"
+        },
+        "alwaysRunToEnd": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        },
+        "easing.type": {
+          "value_type": "string",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createColorAnimation",
+      "adapter": "animation",
+      "signals": [
+        "onStarted",
+        "onStopped",
+        "onFinished",
+        "onRunningChanged",
+        "onPausedChanged"
+      ],
+      "commands": [
+        "start",
+        "stop",
+        "restart",
+        "pause",
+        "resume"
+      ]
+    },
+    "RotationAnimation": {
+      "members": {
+        "target": {
+          "value_type": "object_ref",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "property": {
+          "value_type": "string",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "from": {
+          "value_type": "scalar",
+          "unit": "deg",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "to": {
+          "value_type": "scalar",
+          "unit": "deg",
+          "update_class": "create_only"
+        },
+        "duration": {
+          "value_type": "scalar",
+          "unit": "ms",
+          "update_class": "create_only"
+        },
+        "loops": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "running": {
+          "value_type": "boolean"
+        },
+        "paused": {
+          "value_type": "boolean"
+        },
+        "alwaysRunToEnd": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        },
+        "easing.type": {
+          "value_type": "string",
+          "update_class": "create_only"
+        },
+        "direction": {
+          "value_type": "string",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createRotationAnimation",
+      "adapter": "animation",
+      "signals": [
+        "onStarted",
+        "onStopped",
+        "onFinished",
+        "onRunningChanged",
+        "onPausedChanged"
+      ],
+      "commands": [
+        "start",
+        "stop",
+        "restart",
+        "pause",
+        "resume"
+      ]
+    },
+    "QuaternionAnimation": {
+      "members": {
+        "target": {
+          "value_type": "object_ref",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "property": {
+          "value_type": "string",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "from": {
+          "value_type": "quaternion",
+          "required": true,
+          "unit": "scalar",
+          "update_class": "create_only"
+        },
+        "to": {
+          "value_type": "quaternion",
+          "unit": "scalar",
+          "update_class": "create_only"
+        },
+        "duration": {
+          "value_type": "scalar",
+          "unit": "ms",
+          "update_class": "create_only"
+        },
+        "loops": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "running": {
+          "value_type": "boolean"
+        },
+        "paused": {
+          "value_type": "boolean"
+        },
+        "alwaysRunToEnd": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        },
+        "easing.type": {
+          "value_type": "string",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createQuaternionAnimation",
+      "adapter": "animation",
+      "signals": [
+        "onStarted",
+        "onStopped",
+        "onFinished",
+        "onRunningChanged",
+        "onPausedChanged"
+      ],
+      "commands": [
+        "start",
+        "stop",
+        "restart",
+        "pause",
+        "resume"
+      ]
+    },
+    "ParallelAnimation": {
+      "members": {
+        "running": {
+          "value_type": "boolean"
+        },
+        "paused": {
+          "value_type": "boolean"
+        },
+        "alwaysRunToEnd": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        },
+        "loops": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        }
+      },
+      "factory": "createParallelAnimation",
+      "adapter": "animation_group",
+      "signals": [
+        "onStarted",
+        "onStopped",
+        "onFinished"
+      ],
+      "commands": [
+        "start",
+        "stop",
+        "restart",
+        "pause",
+        "resume"
+      ]
+    },
+    "SequentialAnimation": {
+      "members": {
+        "running": {
+          "value_type": "boolean"
+        },
+        "paused": {
+          "value_type": "boolean"
+        },
+        "alwaysRunToEnd": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        },
+        "loops": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        }
+      },
+      "factory": "createSequentialAnimation",
+      "adapter": "animation_group",
+      "signals": [
+        "onStarted",
+        "onStopped",
+        "onFinished"
+      ],
+      "commands": [
+        "start",
+        "stop",
+        "restart",
+        "pause",
+        "resume"
+      ]
+    },
+    "PauseAnimation": {
+      "members": {
+        "duration": {
+          "value_type": "scalar",
+          "unit": "ms",
+          "required": true
+        }
+      },
+      "factory": "createPauseAnimation",
+      "adapter": "animation_definition"
+    },
+    "TapHandler": {
+      "members": {
+        "target": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "enabled": {
+          "value_type": "boolean"
+        }
+      },
+      "factory": "createTapHandler",
+      "adapter": "interaction",
+      "signals": [
+        "onTapped"
+      ],
+      "implicit_target": true
+    },
+    "HoverHandler": {
+      "members": {
+        "target": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "enabled": {
+          "value_type": "boolean"
+        },
+        "hovered": {
+          "value_type": "boolean",
+          "read_only": true
+        }
+      },
+      "factory": "createHoverHandler",
+      "adapter": "interaction",
+      "signals": [
+        "onHoveredChanged"
+      ],
+      "implicit_target": true
+    },
+    "Timer": {
+      "members": {
+        "interval": {
+          "value_type": "scalar",
+          "unit": "ms",
+          "divisor": 1
+        },
+        "repeat": {
+          "value_type": "boolean"
+        },
+        "running": {
+          "value_type": "boolean"
+        },
+        "triggeredOnStart": {
+          "value_type": "boolean"
+        }
+      },
+      "factory": "createTimer",
+      "adapter": "direct",
+      "signals": [
+        "onTriggered"
+      ],
+      "commands": [
+        "start",
+        "stop",
+        "restart"
+      ]
+    },
+    "DirectionalLight": {
+      "members": {
+        "intensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "indirectLightingIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "volumetricScatteringIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "lightColor": {
+          "value_type": "color"
+        },
+        "castShadows": {
+          "value_type": "boolean"
+        },
+        "useTemperature": {
+          "value_type": "boolean"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "temperature": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "mobility": {
+          "value_type": "string"
+        },
+        "position": {
+          "value_type": "vector3",
+          "unit": "m"
+        },
+        "rotation": {
+          "value_type": "vector3",
+          "unit": "deg"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar"
+        },
+        "lightSourceAngle": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "lightSourceSoftAngle": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "atmosphereSunLightIndex": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "atmosphereSunLight": {
+          "value_type": "boolean"
+        },
+        "sunAzimuth": {
+          "value_type": "scalar",
+          "unit": "deg"
+        },
+        "sunElevation": {
+          "value_type": "scalar",
+          "unit": "deg"
+        }
+      },
+      "factory": "createDirectionalLight",
+      "adapter": "direct"
+    },
+    "PointLight": {
+      "members": {
+        "intensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "indirectLightingIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "volumetricScatteringIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "lightColor": {
+          "value_type": "color"
+        },
+        "castShadows": {
+          "value_type": "boolean"
+        },
+        "useTemperature": {
+          "value_type": "boolean"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "temperature": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "mobility": {
+          "value_type": "string"
+        },
+        "position": {
+          "value_type": "vector3",
+          "unit": "m"
+        },
+        "rotation": {
+          "value_type": "vector3",
+          "unit": "deg"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar"
+        },
+        "attenuationRadius": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "sourceRadius": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "softSourceRadius": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "sourceLength": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "intensityUnits": {
+          "value_type": "string"
+        }
+      },
+      "factory": "createPointLight",
+      "adapter": "direct"
+    },
+    "SpotLight": {
+      "members": {
+        "intensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "indirectLightingIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "volumetricScatteringIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "lightColor": {
+          "value_type": "color"
+        },
+        "castShadows": {
+          "value_type": "boolean"
+        },
+        "useTemperature": {
+          "value_type": "boolean"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "temperature": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "mobility": {
+          "value_type": "string"
+        },
+        "position": {
+          "value_type": "vector3",
+          "unit": "m"
+        },
+        "rotation": {
+          "value_type": "vector3",
+          "unit": "deg"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar"
+        },
+        "attenuationRadius": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "sourceRadius": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "softSourceRadius": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "sourceLength": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "intensityUnits": {
+          "value_type": "string"
+        },
+        "innerConeAngle": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "outerConeAngle": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        }
+      },
+      "factory": "createSpotLight",
+      "adapter": "direct"
+    },
+    "RectLight": {
+      "members": {
+        "intensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "indirectLightingIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "volumetricScatteringIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "lightColor": {
+          "value_type": "color"
+        },
+        "castShadows": {
+          "value_type": "boolean"
+        },
+        "useTemperature": {
+          "value_type": "boolean"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "temperature": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "mobility": {
+          "value_type": "string"
+        },
+        "position": {
+          "value_type": "vector3",
+          "unit": "m"
+        },
+        "rotation": {
+          "value_type": "vector3",
+          "unit": "deg"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar"
+        },
+        "attenuationRadius": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "intensityUnits": {
+          "value_type": "string"
+        },
+        "sourceWidth": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "sourceHeight": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "barnDoorAngle": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "barnDoorLength": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        }
+      },
+      "factory": "createRectLight",
+      "adapter": "direct"
+    },
+    "SkyLight": {
+      "members": {
+        "intensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "indirectLightingIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "volumetricScatteringIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "lightColor": {
+          "value_type": "color"
+        },
+        "lowerHemisphereColor": {
+          "value_type": "color"
+        },
+        "realTimeCapture": {
+          "value_type": "boolean"
+        },
+        "lowerHemisphereIsBlack": {
+          "value_type": "boolean"
+        },
+        "mobility": {
+          "value_type": "string"
+        }
+      },
+      "factory": "createSkyLight",
+      "adapter": "direct"
+    },
+    "SkyAtmosphere": {
+      "members": {
+        "groundAlbedo": {
+          "value_type": "color"
+        },
+        "multiScatteringFactor": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "rayleighScatteringScale": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "rayleighExponentialDistribution": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "mieScatteringScale": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "mieAbsorptionScale": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "mieAnisotropy": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "mieExponentialDistribution": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "otherAbsorptionScale": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "skyLuminanceFactor": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "aerialPespectiveViewDistanceScale": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "heightFogContribution": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "transmittanceMinLightElevationAngle": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "aerialPerspectiveStartDepth": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "rayleighScattering": {
+          "value_type": "vector3",
+          "unit": "scalar"
+        },
+        "mieScattering": {
+          "value_type": "vector3",
+          "unit": "scalar"
+        },
+        "mieAbsorption": {
+          "value_type": "vector3",
+          "unit": "scalar"
+        },
+        "otherAbsorption": {
+          "value_type": "vector3",
+          "unit": "scalar"
+        }
+      },
+      "factory": "createSkyAtmosphere",
+      "adapter": "direct"
+    },
+    "VolumetricCloud": {
+      "members": {
+        "layerBottomAltitude": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "layerHeight": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "tracingStartMaxDistance": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "tracingMaxDistance": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "viewSampleCountScale": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "reflectionSampleCountScale": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "shadowViewSampleCountScale": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "shadowReflectionSampleCountScale": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "shadowTracingDistance": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "stopTracingTransmittanceThreshold": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "usePerSampleAtmosphericLightTransmittance": {
+          "value_type": "boolean"
+        },
+        "skyLightCloudBottomOcclusion": {
+          "value_type": "boolean"
+        }
+      },
+      "factory": "createVolumetricCloud",
+      "adapter": "direct"
+    },
+    "ExponentialHeightFog": {
+      "members": {
+        "fogDensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "fogHeightFalloff": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "fogMaxOpacity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "startDistance": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "fogCutoffDistance": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "directionalInscatteringExponent": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "directionalInscatteringStartDistance": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "fogInscatteringColor": {
+          "value_type": "color"
+        },
+        "directionalInscatteringColor": {
+          "value_type": "color"
+        },
+        "inscatteringTextureTint": {
+          "value_type": "color"
+        }
+      },
+      "factory": "createExponentialHeightFog",
+      "adapter": "direct"
+    },
+    "PostProcessVolume": {
+      "members": {
+        "enabled": {
+          "value_type": "boolean"
+        },
+        "unbound": {
+          "value_type": "boolean"
+        },
+        "priority": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "blendRadius": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "blendWeight": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.autoExposureBias": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.bloomIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.vignetteIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.filmSlope": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.filmToe": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.filmShoulder": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.autoExposureMethod": {
+          "value_type": "string"
+        },
+        "settings.bloomMethod": {
+          "value_type": "string"
+        }
+      },
+      "factory": "createPostProcessVolume",
+      "adapter": "direct"
+    },
+    "CameraView": {
+      "members": {
+        "label": {
+          "value_type": "string",
+          "update_class": "create_only"
+        },
+        "longitude": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only"
+        },
+        "latitude": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only"
+        },
+        "height": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only"
+        },
+        "duration": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only"
+        },
+        "heading": {
+          "value_type": "scalar",
+          "unit": "deg",
+          "update_class": "create_only"
+        },
+        "pitch": {
+          "value_type": "scalar",
+          "unit": "deg",
+          "update_class": "create_only"
+        },
+        "roll": {
+          "value_type": "scalar",
+          "unit": "deg",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createCameraView",
+      "adapter": "direct",
+      "commands": [
+        "activate"
+      ]
+    },
+    "Camera": {
+      "members": {
+        "initialView": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createCamera",
+      "adapter": "camera"
+    },
+    "Label": {
+      "members": {
+        "text": {
+          "value_type": "string",
+          "required": true
+        },
+        "anchor.longitude": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "anchor.latitude": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "required": true,
+          "update_class": "create_only"
+        },
+        "anchor.altitude": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "fontColor": {
+          "value_type": "color",
+          "update_class": "create_only"
+        },
+        "backgroundColor": {
+          "value_type": "color",
+          "update_class": "create_only"
+        },
+        "strokeColor": {
+          "value_type": "color",
+          "update_class": "create_only"
+        },
+        "fontSize": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "divisor": 1,
+          "update_class": "create_only"
+        },
+        "bold": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        },
+        "italic": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        },
+        "underline": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        },
+        "lineToGround": {
+          "value_type": "boolean",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createLabel",
+      "adapter": "direct"
+    }
+  },
+  "property_types": {
+    "bool": {
+      "value_type": "boolean",
+      "unit": null
+    },
+    "degrees": {
+      "value_type": "scalar",
+      "unit": "deg"
+    },
+    "duration": {
+      "value_type": "scalar",
+      "unit": "ms"
+    },
+    "length": {
+      "value_type": "scalar",
+      "unit": "m"
+    },
+    "radians": {
+      "value_type": "scalar",
+      "unit": "rad"
+    },
+    "real": {
+      "value_type": "scalar",
+      "unit": "scalar"
+    },
+    "string": {
+      "value_type": "string",
+      "unit": null
+    }
+  },
+  "unavailable_components": {
+    "SunSky": "environment.sun_position.ue_4_27 solver is not implemented",
+    "LightComponent": "abstract component",
+    "Animation": "abstract component",
+    "PropertyAnimation": "use a typed animation component"
+  }
+}
