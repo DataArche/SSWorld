@@ -175,6 +175,62 @@ export class SceneRuntimeBridge {
     this.graph = null;
     this.interactionRoot = options.interactionRoot || null;
     this.catalog = options.catalog || runtime.builtinCatalog || null;
+    // Host logic reachable from SSDL `Iface.method(arg: expr)` actions; validated against the
+    // scene's host_interfaces contract when the graph is installed, never evaluated as code.
+    this.hostInterfaces = options.hostInterfaces || null;
+    this.hostCallErrors = [];
+  }
+
+  /** Throws host_interface_missing unless every declared interface method is implemented by the page. */
+  assertHostInterfaces(declared) {
+    for (const [name, iface] of Object.entries(declared || {})) {
+      const implementation = this.hostInterfaces?.[name];
+      invariant(implementation && typeof implementation === "object",
+        `scene declares host interface '${name}' but the page provided no implementation (SceneRuntimeBridge option hostInterfaces.${name})`,
+        "host_interface_missing");
+      for (const method of Object.keys(iface.methods || {})) {
+        invariant(typeof implementation[method] === "function",
+          `scene declares host interface method '${name}.${method}' but the page implementation has no such function`,
+          "host_interface_missing");
+      }
+    }
+  }
+
+  /** Runs one compiled call action against the page implementation; errors are recorded and re-thrown. */
+  invokeHost(action, args) {
+    const implementation = this.hostInterfaces?.[action.interface]?.[action.method];
+    invariant(typeof implementation === "function",
+      `host interface ${action.interface}.${action.method} is not implemented`, "host_interface_missing");
+    try {
+      implementation(args);
+    } catch (error) {
+      if (this.hostCallErrors.length >= 20) this.hostCallErrors.shift();
+      this.hostCallErrors.push({ interface: action.interface, method: action.method, args: clone(args),
+        message: String(error?.message || error).slice(0, 500), generation: this.generation, at: Date.now() });
+      throw Object.assign(new Error(`host call ${action.interface}.${action.method} failed: ${error?.message || error}`),
+        { code: "host_call_failed", cause: error });
+    }
+  }
+
+  /** Logical state of the installed graph: declared scene properties, State.when values, host call errors. */
+  logicalState() {
+    const properties = {}, states = {};
+    for (const [id, component] of this.graph?.components || []) {
+      if (component?.component_type === "LogicalPropertyBag") {
+        for (const [name] of Object.entries(component.values || {})) properties[name] = clone(this.runtime.readLogical(component, name));
+      } else if (component?.component_type === "State") {
+        states[id] = clone(this.runtime.readLogical(component, "when"));
+      }
+    }
+    return { scope_id: this.scopeId, generation: this.generation, properties, states, host_call_errors: this.hostCallErrors.slice() };
+  }
+
+  /** Writes one declared scene property through the event transaction (rejected values leave the scene untouched). */
+  writeLogical(property, value) {
+    invariant(this.graph && !this.graph.disposed, "no installed graph", "scene_graph_missing");
+    const receipt = this.commitEventBatch([{ target: this.graph.sceneIR.scope_id, property, value }]);
+    invariant(receipt.ok, `logical write ${property} was rejected (${receipt.status})`, "logical_write_rejected");
+    return receipt;
   }
 
   #installBindings(graph, bindingIR) {
@@ -212,6 +268,7 @@ export class SceneRuntimeBridge {
     this.graph = graph;
     const root = sceneIR.nodes.find((node) => node.type === "Scene");
     invariant(root, "SceneIR/5 root Scene is missing");
+    this.assertHostInterfaces(sceneIR.host_interfaces);
     graph.own(root.id, this.runtime.createScene({ id: root.id, key: `${root.id}:${this.generation}` }));
     if (sceneIR.logical_properties?.length) {
       const bag = this.runtime.createPropertyBag({

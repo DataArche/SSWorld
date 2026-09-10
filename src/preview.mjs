@@ -140,7 +140,7 @@ async function versionEndpoint(query, response) {
     for (const item of readdirSync(current, { withFileTypes: true })) {
       const absolute = path.join(current, item.name);
       if (item.isDirectory()) walk(absolute);
-      else if (item.name.endsWith(".ssdl")) stamp = Math.max(stamp, statSync(absolute).mtimeMs);
+      else if (item.name.endsWith(".ssdl") || (current === directory && ["logic.mjs", "host_interfaces.json"].includes(item.name))) stamp = Math.max(stamp, statSync(absolute).mtimeMs);
     }
   })(directory);
   if (!existsSync(generated) || stamp > statSync(generated).mtimeMs) {

@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { PROJECTS_ROOT, TEMPLATE_ROOT } from "./paths.mjs";
-import { compileProject, buildSourceProject, CompileError } from "./compile.mjs";
+import { compileProject, buildSourceProject, CompileError, HOST_INTERFACES_FILE } from "./compile.mjs";
 import { locateNode, editNodeInText } from "./diagnose.mjs";
 
 const NAME_RE = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
@@ -23,9 +23,13 @@ export function sourcePath(directory, file) {
   const target = path.resolve(directory, file);
   const relative = path.relative(directory, target);
   if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("file must stay inside the project");
-  if (!target.endsWith(".ssdl")) throw new Error("only .ssdl source files are readable/writable through this tool");
+  if (!isSourceFile(relative)) throw new Error(`only .ssdl files, ${HOST_LOGIC_FILE} and ${HOST_INTERFACES_FILE} are readable/writable through this tool`);
   return target;
 }
+
+/** Host logic (page-owned JavaScript) and its contract live next to scene.ssdl and are editable like sources. */
+export const HOST_LOGIC_FILE = "logic.mjs";
+export const isSourceFile = (relative) => relative.endsWith(".ssdl") || relative === HOST_LOGIC_FILE || relative === HOST_INTERFACES_FILE;
 
 const digestOf = (data) => createHash("sha256").update(data).digest("hex");
 
@@ -86,7 +90,10 @@ function listSourceFiles(directory) {
     for (const item of readdirSync(current, { withFileTypes: true })) {
       const absolute = path.join(current, item.name);
       if (item.isDirectory()) walk(absolute);
-      else if (item.name.endsWith(".ssdl")) files.push(path.relative(directory, absolute).split(path.sep).join("/"));
+      else {
+        const relative = path.relative(directory, absolute).split(path.sep).join("/");
+        if (isSourceFile(relative)) files.push(relative);
+      }
     }
   })(directory);
   return files.sort();
@@ -107,13 +114,17 @@ export async function sourceState(directory) {
   const manifest = readManifest(directory);
   const project = await buildSourceProject(directory);
   const compiled = existsSync(path.join(directory, "scene.generated.mjs"));
+  const hostFile = path.join(directory, HOST_INTERFACES_FILE);
+  const hostDigest = existsSync(hostFile) ? `sha256:${digestOf(readFileSync(hostFile))}` : null;
+  const hostStale = compiled && Object.hasOwn(manifest, "host_interfaces_digest") && manifest.host_interfaces_digest !== hostDigest;
   return {
     source_digest: project.source_digest,
     compiled_source_digest: manifest.source_digest || null,
     scene_ir_digest: manifest.scene_ir_digest || null,
     compiled_at: manifest.compiled_at || null,
+    host_interfaces_digest: hostDigest,
     compiled,
-    stale: !compiled || (manifest.source_digest ? manifest.source_digest !== project.source_digest : null),
+    stale: !compiled || hostStale || (manifest.source_digest ? manifest.source_digest !== project.source_digest : null),
   };
 }
 

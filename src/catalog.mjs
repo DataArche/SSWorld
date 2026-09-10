@@ -23,7 +23,28 @@ export function catalogSummary() {
   }]));
   return { language: "SSDL/QML-Subset/0.3", catalog_digest: digest, coordinate_system: "right_handed_z_up", units: "metres, degrees for lon/lat",
     conventions: CONVENTIONS, schema_version: source.schema_version, components, unavailable_components: unavailable(source),
+    logic: logicContract(source),
     batch_hint: "ssworld_catalog { components: [...], detail: 'compact' } reads several contracts in one call; pass if_digest to skip an unchanged catalog" };
+}
+
+/** The scene-logic surface: declared properties, expressions, handler actions, host interfaces, page access. */
+export function logicContract(source) {
+  return {
+    declarations: { syntax: "on the Scene root: `property <type> <name>: <literal>`", types: Object.keys(source.property_types || {}),
+      example: "Scene { id: main; property real score: 0; property bool armed: true; property string phase: \"idle\" ... }" },
+    expressions: { operators: ["+", "-", "*", "/", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "!", "?:"], functions: ["min", "max", "clamp", "lerp"],
+      note: "scalar arithmetic and comparisons only; strings and colours compare with === / !==; no string concatenation, no function definitions" },
+    handlers: { syntax: "TapHandler { onTapped: { <action>; ... } } (also HoverHandler / Timer signals)", actions: [
+      "assignment: `score = score + 1`, `box.visible = false`, `selected.when = !selected.when` (checked against the target's type; earlier actions are visible to later ones, all committed as one transaction)",
+      "host call: `Game.hit(targetId: \"balloonA\", score: score)` where Game.hit is declared in host_interfaces.json; runs after the transaction commits, arguments evaluated with the new values",
+    ], budget: "at most 32 actions per handler" },
+    host_interfaces: { file: "host_interfaces.json (project root, editable through ssworld_source_write)",
+      shape: { Game: { methods: { hit: { args: [{ name: "targetId", type: "string" }, { name: "score", type: "real" }] }, reset: { args: [] } } } },
+      implementation: "logic.mjs (project root): `export function createHostInterfaces(api) { return { Game: { hit({ targetId, score }) { ... }, reset() { ... } } }; }`; api.logical.read() / api.logical.write(name, value) reach the declared properties through the event transaction; api.generation identifies the hot-reload generation",
+      rules: "compile fails with host_interface_unknown / host_method_unknown / host_arg_missing / host_arg_unknown when SSDL and the contract disagree; the page refuses to mount (host_interface_missing) when logic.mjs lacks a declared method; callbacks are synchronous, return nothing, must not build geometry (write declared properties instead); a throwing callback is recorded in logical.host_call_errors and surfaces as a runtime error",
+      hot_reload: "logic.mjs is re-imported for every generation (module state resets); declared properties restart at their initial values on every compile" },
+    page_access: "window.SSWorld.logical.read() -> { properties, states, host_call_errors }; window.SSWorld.logical.write(name, value); the same object is returned by ssworld_capture_frame as `logic` and by ssworld_preview as page.status.logic",
+  };
 }
 
 function unavailable(source) {

@@ -34,16 +34,18 @@
     const manifestUrl = new URL("./showcase.manifest.json", import.meta.url).href;
     let engineConfig;
     let host;
+    let currentBridge = null;
     let watchToken = null;
     let loadPromise = null;
     let pollInFlight = false;
 
-    const ui = Object.freeze({
+    const ui = {
       state: document.getElementById("logical-state"),
       generation: document.getElementById("generation"),
       batch: document.getElementById("last-batch"),
       hint: document.getElementById("hint"),
-    });
+      logicalLine: null, // installed by scene.mjs once a generation is mounted
+    };
 
     // Runtime evidence for the ssworld MCP: errors since the last generation load, plus a status
     // heartbeat the preview server keeps per project (POST /__ssworld/sync). Commands queued by
@@ -74,6 +76,8 @@
         device_pixel_ratio: window.devicePixelRatio || 1,
         // Which compiled scene the page is actually running (from the SceneModuleHost receipt).
         loaded: window.SSWorld?.receipt ? { generation: window.SSWorld.receipt.generation ?? null, scene_ir_digest: window.SSWorld.receipt.scene_ir_digest ?? null } : null,
+        // Declared scene properties / State.when / host call errors, as the running generation holds them.
+        logic: (() => { try { return window.SSWorld?.logical ? window.SSWorld.logical.read() : null; } catch (error) { return { error: error.message }; } })(),
       };
     }
 
@@ -212,6 +216,7 @@
     async function sync() {
       if (syncInFlight) return;
       syncInFlight = true;
+      if (ui.logicalLine && document.body.dataset.runtime === "ready") { try { ui.state.textContent = ui.logicalLine(); } catch (_) {} }
       try {
         const response = await fetch("/__ssworld/sync", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ project: __NAME_JSON__, client, status: pageStatus(), results: pendingResults }) });
@@ -265,11 +270,17 @@
             manifest,
             executionProfile: "trusted-local",
           });
+          const bridge = currentBridge;
           window.SSWorld = {
             ok: true,
             host,
             receipt,
             snapshot: () => host.snapshotGeneration("ssworld-project"),
+            // Scene logic of the running generation: declared properties, State.when, host call errors.
+            logical: {
+              read: () => bridge.logicalState(),
+              write: (name, value) => { const out = bridge.writeLogical(name, value); if (ui.logicalLine) ui.state.textContent = ui.logicalLine(); return out; },
+            },
             reload: loadGeneration,
             dispose: () => host.disposeScope("ssworld-project"),
           };
@@ -321,6 +332,7 @@
             sceneIRDigest: moduleManifest.scene_ir_digest,
             bindingIRDigest: moduleManifest.binding_ir_digest,
           });
+          currentBridge = runtime;
           return {
             runtime,
             ownedResources: [runtime],

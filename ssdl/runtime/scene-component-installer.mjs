@@ -37,17 +37,24 @@ export async function installComponents(bridge, graph, sceneIR, catalog) {
     return { type:type.value_type === 'color' ? 'string' : type.value_type, unit:type.unit,
       value:type.value_type === 'scalar' ? Math.round(value * type.divisor) : value };
   };
+  const decode = (result, expected) => expected.value_type === 'vector3' || expected.value_type === 'quaternion'
+    ? Object.fromEntries((expected.value_type === 'quaternion' ? ['x','y','z','w'] : ['x','y','z']).map((axis,i) => [axis,result.value[i].value / expected.divisor]))
+    : expected.value_type === 'scalar' ? result.value / expected.divisor : result.value;
   const execute = actions => {
-    // Evaluate sequential assignments against a local transaction overlay.
+    // Evaluate sequential assignments against a local transaction overlay; host calls run after the
+    // batch commits, with arguments evaluated against the same overlay (they see the new values).
     const writes = [], overlay = new Map(), calls = [];
+    const resolve = reference => overlay.get(reference.segments.join('\0')) || typedReference(reference);
     for (const action of actions) {
+      if (action.kind === 'call') {
+        const args = Object.fromEntries(action.args.map(arg => [arg.name, decode(runtime.expressionEvaluate(arg.expression, resolve), arg.expected)]));
+        calls.push(() => bridge.invokeHost(action, args));
+        continue;
+      }
       const target = graph.get(action.target.node);
       if (action.kind === 'invoke') { calls.push(() => target[action.method]()); continue; }
-      const result = runtime.expressionEvaluate(action.expression, reference => overlay.get(reference.segments.join('\0')) || typedReference(reference));
-      const expected = action.expected;
-      const value = expected.value_type === 'vector3' || expected.value_type === 'quaternion'
-        ? Object.fromEntries((expected.value_type === 'quaternion' ? ['x','y','z','w'] : ['x','y','z']).map((axis,i) => [axis,result.value[i].value / expected.divisor]))
-        : expected.value_type === 'scalar' ? result.value / expected.divisor : result.value;
+      const result = runtime.expressionEvaluate(action.expression, resolve);
+      const value = decode(result, action.expected);
       overlay.set([action.target.node,action.target.property].join('\0'),result);
       const prior = writes.find(item => item.target === target && item.property === action.target.property);
       if (prior) prior.value = value;

@@ -10,7 +10,7 @@ import { startPreview, projectUrl, fetchPageStatus, pageCommand } from "./previe
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { catalogSummary, catalogComponent, catalogComponents, catalogDigest } from "./catalog.mjs";
-import { CLIP_PLANE_POLICY } from "./runtime-support.mjs";
+import { CLIP_PLANE_POLICY, FOV_POLICY } from "./runtime-support.mjs";
 import { CompileError } from "./compile.mjs";
 
 const SUPPORTED_PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
@@ -18,7 +18,7 @@ const SUPPORTED_PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 export const INSTRUCTIONS = `SSWorld: author 3D geographic scenes with the SSDL scene description language (a QML-like subset, right-handed Z-up, metres) and run them on the SSEngine WebGPU runtime.
 Workflow: ssworld_catalog (index, or components: [...] with detail 'compact' for several contracts at once) -> ssworld_project_create -> ssworld_source_read (mode 'metadata' for digests/sizes, 'node' for one node, offset/limit for ranges) -> ssworld_source_patch / ssworld_source_batch (atomic multi-edit, optional compile+rollback) / ssworld_source_write -> ssworld_compile (real diagnostics + budget usage) -> ssworld_scene_inspect (hierarchy, extent, requested camera) -> ssworld_preview (URL to open in a WebGPU browser) -> ssworld_capture_frame (screenshot + stats + receipt binding the frame to source/IR digests + requested vs effective camera + runtime errors mapped to scene.ssdl:line).
 Compile success means the scene is well-formed, not that it looks right; open the preview, then call ssworld_capture_frame and look at the image before reporting. Every result carries next: {action, reason, ...} naming the next step; 'open_webgpu_viewer' means the client must open next.url in a visible WebGPU browser tab (a client capability, not an SSWorld tool). reference_match stays not_evaluated unless a comparison was actually run.
-Conventions: local metres, x east / y north / z up around the project anchor; geometry rotation quaternions are [x, y, z, w], environment component rotation is Euler degrees; CameraView takes position/lookAt in local metres (or longitude/latitude/height), fov in vertical degrees; ${CLIP_PLANE_POLICY}.`;
+Conventions: local metres, x east / y north / z up around the project anchor; geometry rotation quaternions are [x, y, z, w], environment component rotation is Euler degrees; CameraView takes position/lookAt in local metres (or longitude/latitude/height), fov in HORIZONTAL degrees (the vertical fov follows the aspect); ${CLIP_PLANE_POLICY}. Scene logic: 'property real score: 0' on the Scene root, handler assignments with arithmetic, comparisons (>=, <=, ===, !==) in bindings, and 'Iface.method(arg: expr)' host calls declared in host_interfaces.json + implemented in logic.mjs; ssworld_catalog.logic documents the surface, ssworld_capture_frame returns the live values as 'logic'.`;
 
 const log = (line) => process.stderr.write(`[ssworld-mcp] ${line}\n`);
 
@@ -83,7 +83,7 @@ const TOOLS = [
     name: "ssworld_source_read",
     description: "Read project source. Default mode 'content' returns the file text bounded by max_chars (default 100000) with has_more/next_offset; offset (1-based line) + limit read a range. mode 'metadata' returns every file's digest/bytes/lines plus compile state (source_digest vs compiled_source_digest, stale) without any text. node: '<id>' returns just the block declaring that node (file, line range, text, compiled properties). file '*' reads every .ssdl file.",
     inputSchema: { type: "object", required: ["project"], properties: {
-      project: { type: "string" }, file: { type: "string", description: "Relative .ssdl path; default scene.ssdl; '*' for all files." },
+      project: { type: "string" }, file: { type: "string", description: "Relative .ssdl path, logic.mjs or host_interfaces.json; default scene.ssdl; '*' for all files." },
       mode: { type: "string", enum: ["content", "metadata", "node"], description: "Default content." },
       offset: { type: "integer", minimum: 1, description: "First line to return (1-based)." },
       limit: { type: "integer", minimum: 1, description: "Number of lines to return." },
@@ -95,7 +95,7 @@ const TOOLS = [
   },
   {
     name: "ssworld_source_write",
-    description: "Replace a whole .ssdl file. Pass expected_digest from ssworld_source_read (or 'new' for a new component file). For edits prefer ssworld_source_patch / ssworld_source_batch. Does not compile; call ssworld_compile next. Editing the .ssdl files in the project directory with any other file tool also works (ssworld_compile always rebuilds from disk) but bypasses the digest lock.",
+    description: "Replace a whole .ssdl file (or logic.mjs / host_interfaces.json for host logic and its contract). Pass expected_digest from ssworld_source_read (or 'new' for a new component file). For edits prefer ssworld_source_patch / ssworld_source_batch. Does not compile; call ssworld_compile next. Editing the .ssdl files in the project directory with any other file tool also works (ssworld_compile always rebuilds from disk) but bypasses the digest lock.",
     inputSchema: { type: "object", required: ["project", "file", "content", "expected_digest"], properties: {
       project: { type: "string" }, file: { type: "string" }, content: { type: "string", description: "Full new file content (UTF-8, ≤1 MiB)." },
       expected_digest: { type: "string", description: "sha256 hex from the last read, or 'new'." } }, additionalProperties: false },
@@ -174,7 +174,7 @@ const TOOLS = [
   },
   {
     name: "ssworld_capture_frame",
-    description: "Screenshot the project's open preview page through the engine: an offscreen WebGPU render at the requested width x height (vertical fov kept, aspect follows the request, no scaling/cropping, the interactive view is untouched). Returns the PNG as image content (also saved under captures/), pixel statistics (luma percentiles, exposure tails, colour-class coverage overall and per 3x3 region, top colours), a receipt binding the frame to the source/IR digests and page generation (in_sync false + staleness when the page runs an older compile), framing details, runtime errors since the last hot reload mapped to scene.ssdl:line, and camera {effective pose, source, requested (from the scene's CameraView), deviation with reasons}. reference_match is always not_evaluated (no reference comparison is run). Requires the viewer_url from ssworld_preview to be open and visible; returns page_not_open otherwise.",
+    description: "Screenshot the project's open preview page through the engine: an offscreen WebGPU render at the requested width x height (horizontal fov kept, the vertical fov follows the requested aspect, no scaling/cropping, the interactive view is untouched). Returns the PNG as image content (also saved under captures/), pixel statistics (luma percentiles, exposure tails, colour-class coverage overall and per 3x3 region, top colours), a receipt binding the frame to the source/IR digests and page generation (in_sync false + staleness when the page runs an older compile), framing details, runtime errors since the last hot reload mapped to scene.ssdl:line, camera {effective pose, source, requested (from the scene's CameraView), deviation with reasons}, and `logic` (declared scene properties, State.when values and host call errors as the page holds them right now, so `score === 8` can be asserted without reading pixels). reference_match is always not_evaluated (no reference comparison is run). Requires the viewer_url from ssworld_preview to be open and visible; returns page_not_open otherwise.",
     inputSchema: { type: "object", required: ["project"], properties: {
       project: { type: "string" },
       width: { type: "integer", minimum: 64, maximum: 4096, description: "Capture width in pixels; default 800." },
@@ -236,12 +236,12 @@ const TOOLS = [
       // Framing: what the engine did with the requested size (verified against LiRenderSystem offscreen path).
       const effective = result.camera && !result.camera.error ? result.camera : null;
       const aspect = requestedWidth / requestedHeight;
-      const vfov = effective?.fov ?? null;
+      const hfov = effective?.fov ?? null;
       const framing = { mode: "offscreen_render_at_requested_size", requested: { width: requestedWidth, height: requestedHeight },
         output: { width: stats.width, height: stats.height }, interactive_canvas: status.canvas ? { ...status.canvas, device_pixel_ratio: status.device_pixel_ratio ?? null } : null,
-        projection: { aspect: Number(aspect.toFixed(4)), vertical_fov_deg: vfov, horizontal_fov_deg: vfov ? Number((2 * Math.atan(Math.tan(vfov * Math.PI / 360) * aspect) * 180 / Math.PI).toFixed(2)) : null },
+        projection: { aspect: Number(aspect.toFixed(4)), horizontal_fov_deg: hfov, vertical_fov_deg: hfov ? Number((2 * Math.atan(Math.tan(hfov * Math.PI / 360) / aspect) * 180 / Math.PI).toFixed(2)) : null, note: FOV_POLICY },
         scaling: "none", crop: null, interactive_view_restored: true,
-        note: "the engine renders one extra frame into an offscreen target of the requested size; the camera keeps its vertical fov and pose, the aspect follows the request, the on-screen canvas and controller are not modified" };
+        note: "the engine renders one extra frame into an offscreen target of the requested size; the camera keeps its horizontal fov and pose, the vertical fov follows the requested aspect, the on-screen canvas and controller are not modified" };
 
       // Camera: effective pose from the page vs what the scene asked for.
       const ir = readIR(directory);
@@ -281,6 +281,7 @@ const TOOLS = [
       return {
         payload: {
           ok: true, project, capture_path: file, receipt, framing, stats, camera, runtime: status,
+          logic: status.logic ?? null,
           render_verified: verified,
           reference_match: { status: "not_evaluated", method: null, metrics: null, note: "no reference image comparison is performed by this tool" },
           verdict: verified ? (receipt.in_sync ? "frame captured from the running scene with no runtime errors; judge composition from the image and stats.regions"

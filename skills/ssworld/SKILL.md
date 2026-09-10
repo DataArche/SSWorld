@@ -1,7 +1,7 @@
 ---
 name: ssworld
 description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.3.0
+version: 1.4.0
 author: SSWorld
 license: MIT
 metadata:
@@ -23,13 +23,13 @@ metadata:
 | `ssworld_project_list` | 列出已有项目（`~/.ssworld/projects`） |
 | `ssworld_project_create` | 新项目：`{"name":"MyScene","longitude":114.06,"latitude":22.54,"height":150}`，自动编译；从零写场景传 `"template":"empty"`（只含 Scene + 本地相机） |
 | `ssworld_source_read` | 读源码 + `digest`；默认最多 10 万字符，超出给 `has_more`/`next_offset`，用 `offset`/`limit` 分段；只要 digest/行数/是否过期用 `{"mode":"metadata"}`；只看一个节点用 `{"node":"sun"}`；`{"file":"*"}` 读全部文件 |
-| `ssworld_source_write` | 整文件写回，必须带上次读到的 `expected_digest`（新文件传 `"new"`） |
+| `ssworld_source_write` | 整文件写回，必须带上次读到的 `expected_digest`（新文件传 `"new"`）；除 `.ssdl` 外还能写 `host_interfaces.json`（宿主接口合同）和 `logic.mjs`（宿主逻辑） |
 | `ssworld_source_patch` | 局部改：`{"project":"…","file":"scene.ssdl","old_string":"fov: 50","new_string":"fov: 45","expected_digest":"…"}`，`old_string` 必须唯一（含空白），多处用 `replace_all` |
 | `ssworld_source_batch` | 多处原子修改：`{"project":"…","expected_digest":"…","validate":"compile","edits":[{"node_id":"sun","set":{"intensity":1.7}},{"node_id":"photoView","set":{"fov":48,"lookAt":[0,220,210]},"unset":["farPlane"]},{"old_string":"…","new_string":"…"}]}`；任一条失败什么都不写，`validate: compile` 编译失败自动回滚。值用 JSON 数字/字符串/布尔/`[x,y,z]`，id/枚举/绑定表达式用 `{"raw":"photoView"}` |
 | `ssworld_scene_inspect` | 不渲染看场景：预算占比、最大的子树、叶子节点按类型计数、每个源文件贡献的节点数、几何体包围盒（最低底面/最高顶面）、场景要求的相机（含由 lookAt 推出的 heading/pitch） |
-| `ssworld_compile` | 编译，失败返回 `scene.ssdl:行:列: 代码: 信息`；成功带 `node_count` 与预算 `usage` |
+| `ssworld_compile` | 编译，失败返回 `scene.ssdl:行:列: 代码: 信息`；成功带 `node_count`、预算 `usage` 与 `logic`（声明的属性、State、宿主调用清单） |
 | `ssworld_preview` | 启动本地预览并返回 `viewer_url`，`page.connected` 说明页面是否已打开 |
-| `ssworld_capture_frame` | 对已打开的预览页截图（引擎按请求尺寸离屏渲染一帧，垂直 fov 不变、无拉伸），返回图片、像素统计、`receipt`（这一帧对应的源码/IR digest 与页面 generation，`in_sync: false` 时 `staleness` 说明为什么不是最新）、`framing`、运行时错误、相机 `effective`/`requested`/`deviation`；`{"project":"MyScene"}`，可选 `width`/`height`/`settle_ms` |
+| `ssworld_capture_frame` | 对已打开的预览页截图（引擎按请求尺寸离屏渲染一帧，水平 fov 不变、垂直 fov 随宽高比变、无拉伸），返回图片、像素统计、`receipt`（这一帧对应的源码/IR digest 与页面 generation，`in_sync: false` 时 `staleness` 说明为什么不是最新）、`framing`、运行时错误、相机 `effective`/`requested`/`deviation`、`logic`（页面此刻的逻辑属性值与 State.when，可直接断言 `score === 8`）；`{"project":"MyScene"}`，可选 `width`/`height`/`settle_ms` |
 | `ssworld_engine_status` | 引擎是否已安装；`{"install":true}` 立即下载 |
 
 ## 标准流程
@@ -46,12 +46,17 @@ metadata:
 ## SSDL 语义要点
 
 - **右手 Z-up，单位米**：X 东、Y 北、Z 上。Box 的 width/depth/height 对应 X/Y/Z，`position` 是中心点，底面贴地要 `z = height/2`。场景原点在项目锚点（经纬度）处，局部坐标以米偏移。
-- **相机用局部坐标构图**：`CameraView { id: v; position: [60, -80, 40]; lookAt: [0, 0, 12]; fov: 50 }` + `Camera { initialView: v }`。`position`/`lookAt` 与节点同一坐标系（米），`lookAt` 自动推出 heading/pitch；也可显式 `heading`（0 = 北，顺时针）/ `pitch`（负 = 俯视）/ `roll`。`nearPlane`/`farPlane` 会被引擎按相机高度每帧重算，写了也不生效。`longitude/latitude/height` 只在需要飞到别处时用，与 `position` 二选一。低机位街景：z 取 1.5–3 米，`fov` 45–60。
+- **相机用局部坐标构图**：`CameraView { id: v; position: [60, -80, 40]; lookAt: [0, 0, 12]; fov: 50 }` + `Camera { initialView: v }`（`fov` 是水平视场角）。`position`/`lookAt` 与节点同一坐标系（米），`lookAt` 自动推出 heading/pitch；也可显式 `heading`（0 = 北，顺时针）/ `pitch`（负 = 俯视）/ `roll`。`nearPlane`/`farPlane` 会被引擎按相机高度每帧重算，写了也不生效。`longitude/latitude/height` 只在需要飞到别处时用，与 `position` 二选一。低机位街景：z 取 1.5–3 米，`fov` 45–60。
 - **几何体 rotation 是四元数 `[x, y, z, w]`**（w 在最后，单位四元数 `[0,0,0,1]`）；绕 Z 转 θ 度写 `[0, 0, sin(θ/2), cos(θ/2)]`。要转动就用 `RotationAnimation`。`DirectionalLight`/`SkyAtmosphere` 等环境组件的 `rotation` 是欧拉角度 `[x, y, z]`，太阳方向优先用 `sunAzimuth/sunElevation`。`intensity` 是无量纲倍率（默认 1），不是勒克斯。
 - **重复结构先组件化**：立面格栅、树、路灯写成 `Tower.ssdl`/`Tree.ssdl` 这类组件文件，在入口里 `Tree { id: tree1; position: [...] }` 多次使用，id 用语义名（`civicRoof`、`eastTower`）而不是 `b123`；`ssworld_scene_inspect` 的 `by_file`/`largest_subtrees` 能看出哪部分吃掉预算。
 - **每个节点给唯一 `id`**，尤其是自定义组件文件里的多个同类兄弟；匿名节点在组件内会报 `duplicate_id`。
 - **DirectionalLight 两种模式**：`atmosphereSunLight: true` 接管天空太阳，只能改 `intensity/lightColor/castShadows/temperature/indirectLightingIntensity/volumetricScatteringIntensity` 和 `sunAzimuth/sunElevation`；`lightSourceAngle`/`lightSourceSoftAngle`/`cloudScatteredLuminanceScale` 只有 `atmosphereSunLight` 不为 true 的自有灯才能写，编译器会以 `runtime_unsupported` 拒绝错误组合。
-- QML 风格：`id`、属性绑定表达式、`State { when }`、组件文件。事件处理器只能做受检的属性赋值，不是任意 JavaScript。
+- QML 风格：`id`、属性绑定表达式、`State { when }`、组件文件。事件处理器只能做受检的属性赋值和已声明的宿主调用，不是任意 JavaScript。
+- **场景逻辑（计分、阶段、胜负）用逻辑属性，不用"8 盏灯"**：在 `Scene` 根上声明 `property real score: 0` / `property bool armed: true` / `property string phase: "idle"`（类型 real/bool/string/length/degrees/duration/radians）；处理器里 `score = score + 1`，绑定里 `when: score >= 8 && misses < 3`（支持 `+ - * / === !== < <= > >= && || ! ?:` 与 `min/max/clamp/lerp`，只有数值算术，没有字符串拼接）。一个处理器里的多条赋值是一笔事务，任一失败整批回滚。截图返回的 `logic.properties` 就是这些值。
+- **规则需要 JS 时走宿主接口，不把几何搬进 JS**：先写 `host_interfaces.json`（`{"Game":{"methods":{"hit":{"args":[{"name":"targetId","type":"string"}]},"reset":{"args":[]}}}}`），再写 `logic.mjs`（`export function createHostInterfaces(api) { return { Game: { hit({ targetId }) { … api.logical.write("score", n) … }, reset() {} } }; }`），SSDL 里 `TapHandler { onTapped: { Game.hit(targetId: "balloonA"); } }`。未声明的接口/方法/参数在编译期报 `host_interface_unknown` / `host_method_unknown` / `host_arg_missing`；`logic.mjs` 缺实现页面拒绝加载（`host_interface_missing`）。回调同步、无返回值，只能通过 `api.logical.write` 改场景状态；抛错会记进 `logic.host_call_errors` 并出现在 `runtime.errors`。热重载时 `logic.mjs` 重新导入、逻辑属性回到初值。
+- **`CameraView.fov` 是水平视场角**：垂直视场角 = 2·atan(tan(fov/2)/宽高比)，同一个 fov 在宽画面上看到的天空更少；算"哪个物体在画面内"要按水平 fov。
+- **`Label` 不能用**：引擎要加载 `assets/font/msyh.ttc` 而包里没有字体，写了整个场景加载失败（编译器现在直接报 `runtime_unsupported`）；文字放 `index.html` 浮层（记得给浮层 `pointer-events: none`，否则会挡住点击），或用几何体拼。
+- **动画/Behavior 不能指向 `Group`**：Group 是定位器不是 SceneObject，编译报 `property_not_animatable`；把动画目标改成 Group 里的几何体。
 - 动画：`NumberAnimation` / `Vector3dAnimation` / `RotationAnimation` / `ColorAnimation` / `QuaternionAnimation`，`duration` 毫秒，循环 `loops: Animation.Infinite`，`running` 可绑定状态。目标属性必须在目录允许的注册表内，编译器会拒绝其它组合。
 - 交互：`TapHandler { onTapped: { ... } }`、`HoverHandler`；灯光/材质/环境先查目录，`supported: false` 的不要用。
 - 默认预算 2048 原生对象 / 256 绑定 / 128 处理器 / 32 计时器；大场景先用少量体块出画面，再加细节。
@@ -76,7 +81,7 @@ Scene {
 
 ## 边界
 
-- `ssworld_source_write` 只写项目内 `.ssdl`；页面排版、锚点、默认相机在项目目录的 `index.html` / `scene.mjs`（路径在 `ssworld_project_create` 返回的 `directory`），需要时用文件工具改。几何、材质、动画、事件一律留在 SSDL，不要搬进宿主 JS。
+- `ssworld_source_write` 只写项目内 `.ssdl`、`host_interfaces.json`、`logic.mjs`；页面排版、锚点、默认相机在项目目录的 `index.html` / `scene.mjs`（路径在 `ssworld_project_create` 返回的 `directory`），需要时用文件工具改。几何、材质、动画、事件一律留在 SSDL，JS 只做数据与规则，不要在 JS 里建几何或直接操作引擎。
 - `SkyAtmosphere.skyLuminanceFactor`、`rayleighScattering` 等散射项是三维向量 `[r, g, b]`，不是标量；写错编译期就会报 `type_mismatch`。`SunSky` 不可用，改用 `SkyAtmosphere` + `DirectionalLight { atmosphereSunLight: true; sunAzimuth; sunElevation }`。
 - 不要删除或覆盖用户已有项目；`ssworld_project_create` 对重名会直接报错。
 - 最终回复给出：项目名与源码路径、`viewer_url`、截图路径（`capture_path`）与从图上看到的内容、运行时错误（如有），以及没验证的部分。

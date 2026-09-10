@@ -11,6 +11,8 @@ MemberName = head:Identifier tail:("." Identifier)* {return [head,...tail.map(x=
 Handler = name:$("on" [A-Z] [A-Za-z_0-9]*) H ":" H body:("{" _ actions:(Action _)* "}" {return actions.map(x=>x[0]);} / action:Action {return [action];}) {return at({kind:'handler',name,actions:body});}
 Action = target:MemberName H "=" !"=" H value:Expression End {return at({kind:'assignment',target:target.split('.'),value});}
  / target:MemberName H "(" H ")" End {return at({kind:'invoke',target:target.split('.')});}
+ / target:MemberName H "(" H args:(h:NamedArg t:(H "," H NamedArg)* {return [h,...t.map(x=>x[3])];}) H ")" End {return at({kind:'call',target:target.split('.'),args});}
+NamedArg = name:Identifier H ":" H value:Expression {return at({kind:'argument',name,value});}
 Declaration = req:("required" ![A-Za-z_0-9] H)? "property" ![A-Za-z_0-9] H type:PropertyType H name:Identifier H value:(":" H e:Expression {return e;})? End {if(req&&value)bad('required_property_default');return at({kind:'declaration',type,name,required:!!req,value});}
 PropertyType = name:Identifier {if(!['real','bool','string','length','radians','degrees','duration','url'].includes(name))bad('unsupported_property_type');return name;}
 End = H (";" / Newline / &"}")
@@ -18,7 +20,7 @@ Expression = Conditional
 Conditional = test:Or tail:(H "?" H yes:Expression H ":" H no:Expression {return [yes,no];})? {return tail?at({kind:'op',op:'select',args:[test,...tail]}):test;}
 Or = h:And t:(H "||" H And)* {return binary(h,t.map(x=>[x[0],'or',x[2],x[3]]));}
 And = h:Compare t:(H "&&" H Compare)* {return binary(h,t.map(x=>[x[0],'and',x[2],x[3]]));}
-Compare = h:Sum t:(H op:("===" / "<" / ">") H Sum)* {return binary(h,t.map(x=>[x[0],{'===':'equals','<':'lt','>':'gt'}[x[1]],x[2],x[3]]));}
+Compare = h:Sum t:(H op:("===" / "!==" / "<=" / ">=" / "<" / ">") H Sum)* {return binary(h,t.map(x=>[x[0],{'===':'equals','!==':'nequals','<=':'lte','>=':'gte','<':'lt','>':'gt'}[x[1]],x[2],x[3]]));}
 Sum = h:Product t:(H ("+" / "-") H Product)* {return binary(h,t.map(x=>[x[0],x[1]==='+'?'add':'sub',x[2],x[3]]));}
 Product = h:Unary t:(H ("*" / "/") H Unary)* {return binary(h,t.map(x=>[x[0],x[1]==='*'?'mul':'div',x[2],x[3]]));}
 Unary = "!" H a:Unary {return at({kind:'op',op:'not',args:[a]});} / "-" H a:Unary {return at({kind:'negative',arg:a});} / Primary

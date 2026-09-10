@@ -1,5 +1,6 @@
 // In-process SSDL 0.3 compilation, mirroring src/ssdl/compiler/src/compile-showcase.mjs.
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -76,14 +77,16 @@ export async function compileProject(directory, { name, budgets } = {}) {
   const manifestPath = path.join(directory, "showcase.manifest.json");
   const hybrid = JSON.parse(await readFile(manifestPath, "utf8"));
   const project = await buildSourceProject(directory);
+  const host = await readHostInterfaces(directory);
   let result;
   try {
     result = compileSceneModuleProject(project, {
       entry: "scene.generated.mjs", mapName: "scene.generated.mjs.map",
       name: name || hybrid.name, budgets: budgets || hybrid.budgets,
+      hostInterfaces: host.contract,
     });
   } catch (error) {
-    const diagnostic = error?.diagnostic || {};
+    const diagnostic = error?.diagnostic || (error?.code === "host_interfaces_invalid" ? { file: HOST_INTERFACES_FILE, line: 1, column: 1 } : {});
     const location = diagnostic.file ? `${diagnostic.file}:${diagnostic.line || 1}:${diagnostic.column || 1}: ` : "";
     const code = error?.code ? `${error.code}: ` : "";
     throw new CompileError(`${location}${code}${error?.message || String(error)}`, { ...diagnostic, code: error?.code });
@@ -107,6 +110,7 @@ export async function compileProject(directory, { name, budgets } = {}) {
     catalog_digest: generated.catalog_digest, runtime_abi_digest: generated.runtime_abi_digest,
     scene_ir_digest: generated.scene_ir_digest, binding_ir_digest: generated.binding_ir_digest,
     source_digest: project.source_digest, compiled_at: new Date().toISOString(),
+    host_interfaces_digest: host.digest,
   });
   hybrid.module_digest = hash(await readFile(path.join(directory, hybrid.entry)));
   await writeFile(manifestPath, JSON.stringify(hybrid, null, 2) + "\n", "utf8");
@@ -117,5 +121,35 @@ export async function compileProject(directory, { name, budgets } = {}) {
     source_digest: project.source_digest, source_files: project.files.map((file) => file.path),
     node_count: Array.isArray(result.scene_ir?.nodes) ? result.scene_ir.nodes.length : undefined,
     usage: budgetUsage(result, budgets || hybrid.budgets),
+    logic: logicSummary(result.scene_ir),
+  };
+}
+
+export const HOST_INTERFACES_FILE = "host_interfaces.json";
+
+/** Optional host_interfaces.json next to scene.ssdl: the contract SSDL `Iface.method(...)` actions are checked against. */
+export async function readHostInterfaces(directory) {
+  const file = path.join(directory, HOST_INTERFACES_FILE);
+  if (!existsSync(file)) return { contract: null, digest: null };
+  const raw = await readFile(file, "utf8");
+  try {
+    return { contract: JSON.parse(raw), digest: hash(raw) };
+  } catch (error) {
+    throw new CompileError(`${HOST_INTERFACES_FILE}:1:1: host_interfaces_invalid: ${error.message}`, { code: "host_interfaces_invalid", file: HOST_INTERFACES_FILE, line: 1, column: 1 });
+  }
+}
+
+/** What the compiled scene exposes to host JS and the capture receipt: declared properties, states, host calls. */
+export function logicSummary(sceneIR) {
+  const nodes = sceneIR?.nodes || [];
+  const calls = [];
+  for (const node of nodes) for (const handler of node.handlers || []) for (const action of handler.actions || []) {
+    if (action.kind === "call") calls.push({ node: node.id, signal: handler.signal, call: `${action.interface}.${action.method}` });
+  }
+  return {
+    properties: (sceneIR?.logical_properties || []).map((item) => ({ name: item.property, value_type: item.value_type, unit: item.unit, initial: item.value })),
+    states: nodes.filter((node) => node.type === "State").map((node) => node.id),
+    host_interfaces: sceneIR?.host_interfaces ? Object.fromEntries(Object.entries(sceneIR.host_interfaces).map(([name, iface]) => [name, Object.keys(iface.methods)])) : null,
+    host_calls: calls,
   };
 }

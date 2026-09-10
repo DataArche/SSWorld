@@ -65,6 +65,14 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.match(sun.body.contract.members.lightSourceAngle.runtime_writable, /atmosphereSunLight/);
   const view = await client.call("ssworld_catalog", { component: "CameraView" });
   for (const member of ["position", "lookAt", "fov", "nearPlane", "farPlane"]) assert.ok(view.body.contract.members[member], `CameraView.${member}`);
+  assert.match(view.body.contract.members.fov.note, /horizontal field of view/);
+  assert.match(catalog.body.conventions.field_of_view, /horizontal/);
+  assert.deepEqual(catalog.body.logic.declarations.types, ["bool", "degrees", "duration", "length", "radians", "real", "string"]);
+  assert.ok(catalog.body.logic.expressions.operators.includes(">="));
+  assert.match(catalog.body.logic.host_interfaces.implementation, /createHostInterfaces/);
+  const label = await client.call("ssworld_catalog", { component: "Label" });
+  assert.equal(label.body.runtime_supported, false);
+  assert.match(label.body.runtime_note, /SDF font/);
   const box = await client.call("ssworld_catalog", { component: "Box" });
   assert.ok(box.body.contract.properties || box.body.contract, "component contract");
   const unknown = await client.call("ssworld_catalog", { component: "Nope" });
@@ -256,7 +264,58 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.match(skyCompile.body.message, /scene\.ssdl:2:.*type_mismatch/);
   assert.equal(skyCompile.body.next.action, "fix_source");
   assert.equal(skyCompile.body.next.line, 2);
-  const restore = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: read.body.content, expected_digest: skyWrite.body.digest });
+  // Runtime facts promoted to compile-time diagnostics: Label needs a font the package does not ship,
+  // and animations cannot target a Group (locator, not a SceneObject).
+  const labelScene = "Scene { id: main\n Label { id: sign; text: \"hi\"; anchor.longitude: 114; anchor.latitude: 22 }\n}";
+  const labelWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: labelScene, expected_digest: skyWrite.body.digest });
+  assert.equal(labelWrite.isError, false, JSON.stringify(labelWrite.body));
+  const labelCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(labelCompile.isError, true);
+  assert.equal(labelCompile.body.diagnostic.code, "runtime_unsupported");
+  assert.equal(labelCompile.body.diagnostic.node, "sign");
+  assert.match(labelCompile.body.message, /SDF font/);
+  const groupScene = "Scene { id: main\n Group { id: g; position: [0, 0, 0]; Box { id: b; width: 1; depth: 1; height: 1 } }\n Vector3dAnimation { target: g; property: \"position\"; from: [0, 0, 0]; to: [1, 0, 0]; duration: 100 }\n}";
+  const groupWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: groupScene, expected_digest: labelWrite.body.digest });
+  const groupCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(groupCompile.isError, true);
+  assert.match(groupCompile.body.message, /scene\.ssdl:3:.*property_not_animatable.*Group is not a live SceneObject/);
+
+  // Scene logic: declared properties, comparison sugar, host calls checked against host_interfaces.json.
+  const contract = JSON.stringify({ Game: { methods: { hit: { args: [{ name: "targetId", type: "string" }, { name: "score", type: "real" }] }, reset: { args: [] } } } }, null, 2);
+  const contractWrite = await client.call("ssworld_source_write", { project: "demo", file: "host_interfaces.json", content: contract, expected_digest: "new" });
+  assert.equal(contractWrite.isError, false, JSON.stringify(contractWrite.body));
+  const logicWrite = await client.call("ssworld_source_write", { project: "demo", file: "logic.mjs", content: "export function createHostInterfaces(api) { return { Game: { hit() {}, reset() {} } }; }\n", expected_digest: "new" });
+  assert.equal(logicWrite.isError, false, JSON.stringify(logicWrite.body));
+  const logicScene = `Scene { id: main; property real score: 0
+ State { id: won; name: "won"; when: score >= 2 }
+ Box { id: b; width: 1; depth: 1; height: 1
+  TapHandler { id: tap; onTapped: { score = score + 1; Game.hit(targetId: "b", score: score); } }
+ }
+}`;
+  const logicSceneWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: logicScene, expected_digest: groupWrite.body.digest });
+  const logicCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(logicCompile.isError, false, JSON.stringify(logicCompile.body));
+  assert.deepEqual(logicCompile.body.logic, { properties: [{ name: "score", value_type: "scalar", unit: "scalar", initial: 0 }], states: ["won"],
+    host_interfaces: { Game: ["hit", "reset"] }, host_calls: [{ node: "tap", signal: "onTapped", call: "Game.hit" }] });
+  const logicMeta = await client.call("ssworld_source_read", { project: "demo", mode: "metadata" });
+  assert.deepEqual(logicMeta.body.files.map((item) => item.file), ["host_interfaces.json", "logic.mjs", "scene.ssdl"]);
+  assert.equal(logicMeta.body.stale, false);
+  const badCall = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: logicScene.replace("Game.hit(targetId: \"b\", score: score)", "Game.nope()"), expected_digest: logicSceneWrite.body.digest });
+  const badCallCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(badCallCompile.isError, true);
+  assert.equal(badCallCompile.body.diagnostic.code, "host_method_unknown");
+  assert.equal(badCallCompile.body.next.action, "fix_source");
+  assert.equal(badCallCompile.body.next.line, 4);
+  const badContract = await client.call("ssworld_source_write", { project: "demo", file: "host_interfaces.json", content: "{ not json", expected_digest: contractWrite.body.digest });
+  const badContractMeta = await client.call("ssworld_source_read", { project: "demo", mode: "metadata" });
+  assert.equal(badContractMeta.body.stale, true, "a changed contract makes the compile stale");
+  const badContractCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(badContractCompile.isError, true);
+  assert.equal(badContractCompile.body.diagnostic.code, "host_interfaces_invalid");
+  assert.equal(badContractCompile.body.next.file, "host_interfaces.json");
+  const contractRestore = await client.call("ssworld_source_write", { project: "demo", file: "host_interfaces.json", content: contract, expected_digest: badContract.body.digest });
+  assert.equal(contractRestore.isError, false);
+  const restore = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: read.body.content, expected_digest: badCall.body.digest });
   assert.equal(restore.isError, false);
 
   const good = read.body.content.replace("width: 24", "width: 40");
@@ -294,7 +353,8 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const png = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVQI12P4z8DwHwyBFJDxHwzhTAAB1Qv/N+qaVAAAAABJRU5ErkJggg==";
   const manifest = JSON.parse(readFileSync(path.join(HOME, "projects", "demo", "showcase.manifest.json"), "utf8"));
   const status = { state: "ready", generation: "1", errors: [], hint: "ok", visibility: "visible", canvas: { width: 1474, height: 1857 }, device_pixel_ratio: 1.25,
-    loaded: { generation: 1, scene_ir_digest: manifest.scene_ir_digest } };
+    loaded: { generation: 1, scene_ir_digest: manifest.scene_ir_digest },
+    logic: { scope_id: "ssworld-project", generation: 1, properties: { score: 3 }, states: { selected: false }, host_call_errors: [] } };
   const sync = (results = []) => fetch(syncUrl, { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project: "demo", client: "fake", status, results }) }).then((r) => r.json());
   assert.deepEqual((await sync()).commands, []);
@@ -335,8 +395,12 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.deepEqual(captureBody.framing.requested, { width: 640, height: 360 });
   assert.equal(captureBody.framing.mode, "offscreen_render_at_requested_size");
   assert.deepEqual(captureBody.framing.interactive_canvas, { width: 1474, height: 1857, device_pixel_ratio: 1.25 });
-  assert.equal(captureBody.framing.projection.vertical_fov_deg, 50);
-  assert.ok(captureBody.framing.projection.horizontal_fov_deg > 75);
+  // LiCamera.fov is horizontal; the vertical fov follows the requested aspect (16:9 here).
+  assert.equal(captureBody.framing.projection.horizontal_fov_deg, 50);
+  assert.ok(Math.abs(captureBody.framing.projection.vertical_fov_deg - 29.4) < 0.2, JSON.stringify(captureBody.framing.projection));
+  assert.match(captureBody.framing.note, /horizontal fov/);
+  assert.equal(captureBody.logic.properties.score, 3, "live logical state rides along with the frame");
+  assert.deepEqual(captureBody.logic.states, { selected: false });
   assert.equal(captureBody.reference_match.status, "not_evaluated");
   assert.equal(captureBody.camera.requested.view, "startView");
   assert.equal(captureBody.camera.deviation.fov.ok, true);

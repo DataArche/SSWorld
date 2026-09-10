@@ -154,6 +154,12 @@ function compileExpression(ast, expected, symbols, dependencies) {
       compileExpression(children[2], expected, symbols, dependencies),
     ] };
   }
+  if (["gte", "lte", "nequals"].includes(op)) {
+    // Desugared so ExpressionAST/2 (frozen interpreter) stays byte-for-byte: a >= b is !(a < b).
+    if (expected.value_type !== "boolean") fail("type_mismatch", ast);
+    const base = { gte: "lt", lte: "gt", nequals: "equals" }[op];
+    return { op: "not", args: [compileExpression({ ...ast, op: base }, expected, symbols, dependencies)] };
+  }
   const booleanOps = new Set(["not", "and", "or", "equals", "lt", "gt"]);
   let operandType = ["not", "and", "or"].includes(op) ? typeSpec("boolean") : expected;
   if (["equals", "lt", "gt"].includes(op)) {
@@ -177,6 +183,56 @@ function decode(result, expected, ast) {
   return result.value;
 }
 
+const isPlainObject = (value) => value && typeof value === "object" && !Array.isArray(value);
+
+/** host_interfaces contract: { Name: { methods: { method: { args: [{ name, type }], returns?: "void" } } } }. */
+function validateHostInterfaces(raw) {
+  if (raw === undefined || raw === null) return null;
+  const invalid = (detail) => fail("host_interfaces_invalid", null, detail);
+  if (!isPlainObject(raw)) invalid("host_interfaces must be an object keyed by interface name");
+  const types = Object.keys(catalog.property_types).join("/");
+  const out = {};
+  for (const [name, iface] of Object.entries(raw)) {
+    if (!ID.test(name) || !isPlainObject(iface) || !isPlainObject(iface.methods)) invalid(`host interface '${name}' needs { methods: { <method>: { args: [{ name, type }] } } }`);
+    const methods = {};
+    for (const [method, signature] of Object.entries(iface.methods)) {
+      if (!ID.test(method) || !isPlainObject(signature) || (signature.args !== undefined && !Array.isArray(signature.args))) invalid(`${name}.${method} needs { args: [...] }`);
+      const args = (signature.args || []).map((arg) => {
+        if (!isPlainObject(arg) || !ID.test(arg.name || "") || !Object.hasOwn(catalog.property_types, arg.type)) invalid(`${name}.${method}: every arg needs { name, type } with type one of ${types}`);
+        return { name: arg.name, type: arg.type };
+      });
+      if (new Set(args.map((arg) => arg.name)).size !== args.length) invalid(`${name}.${method} repeats an argument name`);
+      if (signature.returns !== undefined && signature.returns !== "void") invalid(`${name}.${method}: only returns: "void" is supported (host calls are fire-and-forget)`);
+      methods[method] = { args, returns: "void" };
+    }
+    out[name] = { methods };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function compileHostCall(action, symbols, hostInterfaces) {
+  const [name, ...rest] = action.target;
+  const method = rest.join(".");
+  const iface = hostInterfaces?.[name];
+  if (!iface) fail("host_interface_unknown", action, `'${name}' is neither a node with commands nor an interface declared in host_interfaces${hostInterfaces ? ` (declared: ${Object.keys(hostInterfaces).join(", ")})` : " (no host_interfaces.json in the project)"}`);
+  const signature = iface.methods[method];
+  if (!signature) fail("host_method_unknown", action, `${name}.${method} is not declared; declared methods: ${Object.keys(iface.methods).join(", ") || "(none)"}`);
+  const supplied = new Map();
+  for (const arg of action.args) {
+    if (supplied.has(arg.name)) fail("host_arg_duplicate", arg, `${name}.${method}: argument '${arg.name}' given twice`);
+    if (!signature.args.some((item) => item.name === arg.name)) fail("host_arg_unknown", arg, `${name}.${method} has no argument '${arg.name}'; expected ${signature.args.map((item) => item.name).join(", ") || "no arguments"}`);
+    supplied.set(arg.name, arg);
+  }
+  const args = signature.args.map((declared) => {
+    const given = supplied.get(declared.name);
+    if (!given) fail("host_arg_missing", action, `${name}.${method} requires argument '${declared.name}' (${declared.type})`);
+    const descriptor = catalog.property_types[declared.type];
+    const expected = typeSpec(descriptor.value_type, descriptor.unit);
+    return { name: declared.name, expected, expression: compileExpression(given.value, expected, symbols, new Set()) };
+  });
+  return { kind: "call", interface: name, method, args };
+}
+
 function runtimeProperty(component, property) {
   return catalog.components[component]?.members[property]?.runtime_property || property;
 }
@@ -185,6 +241,7 @@ function compileDocument(document, source, options = {}) {
   if (document.root.type !== "Scene") fail("unsupported_component_root", document.root);
   const rootFields = assignments(document.root);
   const rootId = nodeId(document.root, rootFields);
+  const hostInterfaces = validateHostInterfaces(options.hostInterfaces);
   const declarations = new Map();
   const symbols = { rootId, declarations, nodes: new Map([[rootId, document.root]]), types: new Map() };
   const logicalProperties = [];
@@ -343,8 +400,11 @@ function compileDocument(document, source, options = {}) {
         const property = runtimeProperty(targetType, literalValue(propertyField.value));
         const native = propertyRegistry.properties.find(item => item.property === property && item.animatable && item.targets.includes("object"));
         const kind = {NumberAnimation:"scalar",Vector3dAnimation:"vec3",QuaternionAnimation:"quat",RotationAnimation:"quat",ColorAnimation:"color"}[child.type];
+        // The runtime animates SceneObjects only (Group is a locator handle and Model is not registered as animatable).
+        if (catalog.components[targetType]?.adapter === "group")
+          fail("property_not_animatable", propertyField, `${child.type} cannot animate ${targetType} '${targetId}': Group is not a live SceneObject in this runtime; animate the child geometry instead`);
         if (!native || (kind && native.value_type !== kind)
-            || !["geometry","group"].includes(catalog.components[targetType]?.adapter))
+            || catalog.components[targetType]?.adapter !== "geometry")
           fail("property_not_animatable", propertyField, `${child.type} cannot animate ${targetType}.${property}`);
       }
     }
@@ -356,6 +416,9 @@ function compileDocument(document, source, options = {}) {
       usedSignals.add(handler.name);
       if (handler.actions.length > 32) fail('handler_budget', handler);
       const actions = handler.actions.map(action => {
+        // `Iface.method(name: expr)` and the zero-argument `Iface.method()` both call host logic when Iface is not a node.
+        if (action.kind === 'call' || (action.kind === 'invoke' && action.target.length === 2 && !symbols.nodes.has(action.target[0])))
+          return compileHostCall({ ...action, args: action.args || [] }, symbols, hostInterfaces);
         const targetId = action.target.length === 1 ? rootId : action.target[0];
         const targetType = symbols.nodes.get(targetId)?.type;
         const author = action.target.length === 1 ? action.target[0] : action.target.slice(1).join('.');
@@ -440,6 +503,7 @@ function compileDocument(document, source, options = {}) {
     compiler: PROFILE,
     logical_properties: logicalProperties.sort((a, b) => compare(a.property, b.property)),
     nodes: sceneNodes.sort((a, b) => compare(a.id, b.id)),
+    ...(hostInterfaces ? { host_interfaces: hostInterfaces } : {}),
   };
   const bindingIR = {
     schema_version: "BindingIR/2",

@@ -31,10 +31,24 @@ Manual registration for any other client:
 | `ssworld_source_patch` | exact-span edit (`old_string` → `new_string`, uniqueness checked, `replace_all` opt-in) with the same digest guard |
 | `ssworld_source_batch` | atomic multi-edit: text patches and node-level `{node_id, set, unset}` across files; all validated in memory before anything is written; `validate: compile` + rollback restores the previous sources on a failed compile |
 | `ssworld_scene_inspect` | compiled-scene facts without rendering: budget ratio, subtrees by size, leaf children by type, nodes per source file, primitive extent, the requested camera (lookAt-derived heading/pitch); render stats honestly `unavailable` |
-| `ssworld_compile` | SSDL 0.3 compiler with real diagnostics, `node_count` and budget `usage`; catalog/runtime mismatches are compile errors |
+| `ssworld_compile` | SSDL 0.3 compiler with real diagnostics, `node_count`, budget `usage` and `logic` (declared properties, states, host calls); catalog/runtime mismatches are compile errors (Label without a font, animations targeting a Group, undeclared host calls) |
 | `ssworld_preview` | starts the local preview server, returns `http://127.0.0.1:8880/projects/<name>/index.html`, whether the page is open and a structured `next` (`open_webgpu_viewer` / `capture_frame` / `bring_page_to_front`) |
-| `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`, the scene's `requested` camera and a `deviation` with reasons (clip planes are engine-managed); `receipt` binding the frame to source/IR digests and the page generation (`in_sync`, `staleness`); `framing` describing the offscreen render at the requested size; `reference_match` always `not_evaluated`; PNG returned as image content and saved to `captures/` |
+| `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`, the scene's `requested` camera and a `deviation` with reasons (clip planes are engine-managed); `receipt` binding the frame to source/IR digests and the page generation (`in_sync`, `staleness`); `framing` describing the offscreen render at the requested size (horizontal fov kept, vertical follows the aspect); `logic` with the page's live declared properties / `State.when` / host call errors; `reference_match` always `not_evaluated`; PNG returned as image content and saved to `captures/` |
 | `ssworld_engine_status` | engine pair installed? (`install: true` to download) |
+
+### Scene logic and host interfaces
+
+Scene state is declared on the `Scene` root (`property real score: 0`, types `real/bool/string/length/degrees/duration/radians`),
+changed by handler assignments (`score = score + 1`, one transaction per handler) and read by bindings
+(`when: score >= 8 && misses < 3`; operators `+ - * / === !== < <= > >= && || ! ?:`, functions `min/max/clamp/lerp`).
+Host JavaScript is reached only through declared calls: `host_interfaces.json` holds the contract
+(`{"Game":{"methods":{"hit":{"args":[{"name":"targetId","type":"string"}]}}}}`), `logic.mjs` implements it
+(`export function createHostInterfaces(api) { return { Game: { hit({ targetId }) { api.logical.write("score", …) } } }; }`),
+and SSDL calls it with `TapHandler { onTapped: { Game.hit(targetId: "balloonA"); } }`. Mismatches are compile errors
+(`host_interface_unknown`, `host_method_unknown`, `host_arg_missing`, `host_arg_unknown`); a missing implementation refuses to
+mount (`host_interface_missing`); callbacks are synchronous, return nothing and change the scene only through
+`api.logical.write`. `window.SSWorld.logical.read()/write()` expose the same state on the page; `ssworld_capture_frame` returns it as `logic`.
+`logic.mjs` is re-imported on every hot reload and declared properties restart at their initial values.
 
 Hermes also receives the `skills/ssworld` skill (copied to `$HERMES_HOME/skills/ssworld`) so it picks the server on its own for 3D-scene requests.
 

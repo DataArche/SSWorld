@@ -77,6 +77,7 @@ export function emitSceneModule(compilation, options = {}) {
     binding_ir_digest: compilation.binding_ir_digest,
     module_digest: textDigest(moduleSource),
     budgets: options.budgets || { native_objects: 32, bindings: 32, handlers: 8, timers: 8 },
+    ...(compilation.scene_ir.host_interfaces ? { host_interfaces: compilation.scene_ir.host_interfaces } : {}),
   });
   return Object.freeze({
     module: moduleSource,
