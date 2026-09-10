@@ -3,7 +3,8 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { PROJECTS_ROOT, TEMPLATE_ROOT } from "./paths.mjs";
-import { compileProject } from "./compile.mjs";
+import { compileProject, buildSourceProject, CompileError } from "./compile.mjs";
+import { locateNode, editNodeInText } from "./diagnose.mjs";
 
 const NAME_RE = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 export const DEFAULT_BUDGETS = { native_objects: 2048, bindings: 256, handlers: 128, timers: 32 };
@@ -73,13 +74,13 @@ export async function createProject(name, { anchor = DEFAULT_ANCHOR, title, temp
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   manifest.name = name;
   manifest.budgets = DEFAULT_BUDGETS;
+  manifest.anchor = anchor;
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
   const compiled = await compileProject(directory, { name, budgets: DEFAULT_BUDGETS });
   return { project: name, directory, anchor, template, ...compiled };
 }
 
-export function readSource(name, file = "scene.ssdl") {
-  const directory = projectDir(name);
+function listSourceFiles(directory) {
   const files = [];
   (function walk(current) {
     for (const item of readdirSync(current, { withFileTypes: true })) {
@@ -88,13 +89,84 @@ export function readSource(name, file = "scene.ssdl") {
       else if (item.name.endsWith(".ssdl")) files.push(path.relative(directory, absolute).split(path.sep).join("/"));
     }
   })(directory);
-  files.sort();
-  if (file === "*") {
-    const contents = files.map((item) => { const data = readFileSync(path.join(directory, item)); return { file: item, content: data.toString("utf8"), digest: digestOf(data) }; });
-    return { project: name, files, sources: contents };
+  return files.sort();
+}
+
+function fileMeta(directory, file) {
+  const data = readFileSync(path.join(directory, file));
+  const text = data.toString("utf8");
+  return { file, digest: digestOf(data), bytes: data.length, lines: text.length ? text.split("\n").length - (text.endsWith("\n") ? 1 : 0) : 0 };
+}
+
+function readManifest(directory) {
+  try { return JSON.parse(readFileSync(path.join(directory, "showcase.manifest.json"), "utf8")); } catch { return {}; }
+}
+
+/** Compile-state summary shared by metadata reads, inspect and the capture receipt. */
+export async function sourceState(directory) {
+  const manifest = readManifest(directory);
+  const project = await buildSourceProject(directory);
+  const compiled = existsSync(path.join(directory, "scene.generated.mjs"));
+  return {
+    source_digest: project.source_digest,
+    compiled_source_digest: manifest.source_digest || null,
+    scene_ir_digest: manifest.scene_ir_digest || null,
+    compiled_at: manifest.compiled_at || null,
+    compiled,
+    stale: !compiled || (manifest.source_digest ? manifest.source_digest !== project.source_digest : null),
+  };
+}
+
+const DEFAULT_MAX_CHARS = 100000;
+
+/**
+ * Read source. mode 'content' (default) returns text bounded by max_chars / offset+limit lines with
+ * has_more/next_offset; 'metadata' returns digests, sizes and compile state without text; 'node'
+ * returns the block that declares node id (source range + compiled properties).
+ */
+export async function readSource(name, file = "scene.ssdl", { mode = "content", offset = 1, limit, maxChars = DEFAULT_MAX_CHARS, node } = {}) {
+  const directory = projectDir(name);
+  const files = listSourceFiles(directory);
+  if (node) mode = "node";
+  if (!["content", "metadata", "node"].includes(mode)) throw new Error("mode must be 'content', 'metadata' or 'node'");
+  if (mode === "metadata") {
+    const metas = files.map((item) => fileMeta(directory, item));
+    return { project: name, mode, files: metas, total_bytes: metas.reduce((sum, meta) => sum + meta.bytes, 0), ...(await sourceState(directory)) };
   }
-  const data = readFileSync(sourcePath(directory, file));
-  return { project: name, file, content: data.toString("utf8"), digest: digestOf(data), files };
+  if (mode === "node") {
+    if (!node) throw new Error("node id required for mode 'node'");
+    const hits = locateNode(directory, node);
+    if (!hits.length) throw Object.assign(new Error(`node '${node}' not found in ${files.join(", ")}`), { code: "node_not_found" });
+    let properties = null;
+    try { properties = (JSON.parse(readFileSync(path.join(directory, "scene.ir.json"), "utf8")).nodes || []).find((item) => item.id === node)?.properties ?? null; } catch {}
+    const [first] = hits;
+    return { project: name, mode, node, file: first.file, type: first.type, line_start: first.line_start, line_end: first.line_end,
+      content: first.text, digest: fileMeta(directory, first.file).digest, compiled_properties: properties,
+      ...(hits.length > 1 ? { duplicates: hits.slice(1).map((hit) => `${hit.file}:${hit.line_start}`) } : {}) };
+  }
+  const readOne = (item) => {
+    const data = readFileSync(sourcePath(directory, item));
+    const text = data.toString("utf8");
+    const lines = text.split("\n");
+    const total = lines.length - (text.endsWith("\n") ? 1 : 0);
+    const from = Math.max(1, Math.trunc(offset) || 1);
+    let count = limit ? Math.max(1, Math.trunc(limit)) : total - from + 1;
+    let chunk = lines.slice(from - 1, from - 1 + count);
+    let content = chunk.join("\n") + (from - 1 + count <= total - 1 || text.endsWith("\n") ? "\n" : "");
+    let truncated = false;
+    if (content.length > maxChars) {
+      let acc = 0, kept = 0;
+      for (const line of chunk) { if (acc + line.length + 1 > maxChars) break; acc += line.length + 1; kept += 1; }
+      chunk = chunk.slice(0, Math.max(1, kept)); count = chunk.length; content = chunk.join("\n") + "\n"; truncated = true;
+    }
+    const next = from + count;
+    const hasMore = next <= total;
+    return { file: item, content, digest: digestOf(data), bytes: data.length, lines: total,
+      range: { offset: from, count, lines: total }, has_more: hasMore, ...(hasMore ? { next_offset: next } : {}),
+      ...(truncated ? { truncated: true, truncated_reason: `max_chars ${maxChars}` } : {}) };
+  };
+  if (file === "*") return { project: name, files, sources: files.map(readOne) };
+  return { project: name, ...readOne(file), files };
 }
 
 function commitSource(target, data) {
@@ -136,6 +208,92 @@ export function writeSource(name, file, content, expectedDigest) {
   if (data.length > 1024 * 1024) throw new Error("source exceeds 1 MiB");
   commitSource(target, data);
   return { ok: true, project: name, file, digest: digestOf(data), compiled: false, next_action: "call ssworld_compile" };
+}
+
+
+/**
+ * Apply several edits atomically. edits: [{file?, old_string, new_string, replace_all?} | {file?, node_id, set?, unset?}].
+ * Every edit is applied in memory first; any failure leaves the disk untouched. expected_digests: {file: digest}
+ * (or expected_digest for a single-file batch). validate: 'none' | 'compile'; rollback_on_validation_error restores
+ * the previous sources (and recompiles them) when the compile fails.
+ */
+export async function batchEdit(name, { edits, expectedDigests = {}, expectedDigest, validate = "none", rollbackOnValidationError = true } = {}) {
+  const directory = projectDir(name);
+  if (!Array.isArray(edits) || !edits.length) throw new Error("edits must be a non-empty array");
+  if (!["none", "compile"].includes(validate)) throw new Error("validate must be 'none' or 'compile'");
+  const files = listSourceFiles(directory);
+  const texts = new Map(); // file -> { before: Buffer, text }
+  const load = (file) => {
+    if (!texts.has(file)) {
+      const target = sourcePath(directory, file);
+      if (!existsSync(target)) throw Object.assign(new Error(`${file} does not exist`), { code: "file_missing", extra: { file } });
+      const before = readFileSync(target);
+      texts.set(file, { before, text: before.toString("utf8") });
+    }
+    return texts.get(file);
+  };
+  const guards = { ...expectedDigests };
+  if (expectedDigest) {
+    const named = [...new Set(edits.map((edit) => edit.file).filter(Boolean))];
+    if (named.length > 1) throw new Error("expected_digest only works for a single-file batch; pass expected_digests {file: digest}");
+    guards[named[0] || "scene.ssdl"] = expectedDigest;
+  }
+  for (const [file, digest] of Object.entries(guards)) {
+    const actual = digestOf(load(file).before);
+    if (digest !== actual) throw Object.assign(new Error(`${file} changed since it was read; call ssworld_source_read again`), { code: "digest_mismatch", extra: { file, digest: actual } });
+  }
+  const applied = [];
+  edits.forEach((edit, index) => {
+    const fail = (message, code, extra = {}) => { throw Object.assign(new Error(`edit ${index}: ${message}`), { code, extra: { edit_index: index, ...extra } }); };
+    try {
+      if (edit.node_id) {
+        let file = edit.file;
+        if (!file) {
+          const owners = files.filter((item) => locateNode(directory, edit.node_id).some((hit) => hit.file === item));
+          if (!owners.length) fail(`node '${edit.node_id}' not found`, "node_not_found");
+          if (owners.length > 1) fail(`node '${edit.node_id}' is declared in ${owners.join(", ")}; pass file`, "node_ambiguous");
+          file = owners[0];
+        }
+        const slot = load(file);
+        const result = editNodeInText(slot.text, edit.node_id, { set: edit.set || {}, unset: edit.unset || [] });
+        slot.text = result.text;
+        applied.push({ index, file, node_id: edit.node_id, set: result.set, inserted: result.inserted, unset: result.unset, line: result.file_line });
+      } else {
+        const file = edit.file || "scene.ssdl";
+        if (typeof edit.old_string !== "string" || !edit.old_string.length) fail("old_string must be a non-empty string", "invalid_edit");
+        const slot = load(file);
+        const occurrences = slot.text.split(edit.old_string).length - 1;
+        if (occurrences === 0) fail(`old_string not found in ${file}`, "patch_not_found", { file });
+        if (occurrences > 1 && !edit.replace_all) fail(`old_string occurs ${occurrences} times in ${file}`, "patch_ambiguous", { file, occurrences });
+        const line = slot.text.slice(0, slot.text.indexOf(edit.old_string)).split("\n").length;
+        slot.text = edit.replace_all ? slot.text.split(edit.old_string).join(edit.new_string ?? "") : slot.text.replace(edit.old_string, () => edit.new_string ?? "");
+        applied.push({ index, file, replaced: occurrences, line });
+      }
+    } catch (error) {
+      if (error.code) throw error;
+      fail(error.message, "invalid_edit");
+    }
+  });
+  const changed = [...texts.entries()].filter(([, slot]) => slot.text !== slot.before.toString("utf8"));
+  for (const [, slot] of changed) if (Buffer.byteLength(slot.text, "utf8") > 1024 * 1024) throw new Error("source exceeds 1 MiB");
+  const restore = () => { for (const [file, slot] of changed) commitSource(sourcePath(directory, file), slot.before); };
+  try { for (const [file, slot] of changed) commitSource(sourcePath(directory, file), Buffer.from(slot.text, "utf8")); }
+  catch (error) { restore(); throw Object.assign(new Error(`write failed, previous sources restored: ${error.message}`), { code: "write_failed" }); }
+  const out = { ok: true, project: name, edits_applied: applied,
+    files: changed.map(([file, slot]) => ({ file, digest_before: digestOf(slot.before), digest: digestOf(Buffer.from(slot.text, "utf8")) })), compiled: false };
+  if (validate !== "compile") return { ...out, next_action: "call ssworld_compile" };
+  try {
+    const compiled = await compileProject(directory);
+    return { ...out, compiled: true, compile: compiled };
+  } catch (error) {
+    const diagnostic = error instanceof CompileError ? { message: error.message, ...error.diagnostic } : { message: String(error.message || error) };
+    if (!rollbackOnValidationError) return { ...out, ok: false, compiled: false, compile_failed: diagnostic, rolled_back: false, next_action: "sources were written but do not compile; fix them and call ssworld_compile" };
+    restore();
+    let recompiled = null;
+    try { recompiled = await compileProject(directory); } catch { recompiled = null; }
+    throw Object.assign(new Error(`compile failed after the batch, sources rolled back: ${diagnostic.message}`), { code: "validation_failed",
+      extra: { compile_failed: diagnostic, rolled_back: true, files: changed.map(([file, slot]) => ({ file, digest: digestOf(slot.before) })), previous_recompiled: Boolean(recompiled) } });
+  }
 }
 
 export async function compileNamed(name) {

@@ -106,6 +106,7 @@ export async function compileProject(directory, { name, budgets } = {}) {
     compiler_profile: generated.compiler_profile, compiler_profile_digest: generated.compiler_profile_digest,
     catalog_digest: generated.catalog_digest, runtime_abi_digest: generated.runtime_abi_digest,
     scene_ir_digest: generated.scene_ir_digest, binding_ir_digest: generated.binding_ir_digest,
+    source_digest: project.source_digest, compiled_at: new Date().toISOString(),
   });
   hybrid.module_digest = hash(await readFile(path.join(directory, hybrid.entry)));
   await writeFile(manifestPath, JSON.stringify(hybrid, null, 2) + "\n", "utf8");

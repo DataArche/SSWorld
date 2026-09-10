@@ -71,6 +71,9 @@
         errors: errors.slice(),
         visibility: document.visibilityState,
         canvas: (() => { const c = renderCanvas(); return c ? { width: c.width, height: c.height } : null; })(),
+        device_pixel_ratio: window.devicePixelRatio || 1,
+        // Which compiled scene the page is actually running (from the SceneModuleHost receipt).
+        loaded: window.SSWorld?.receipt ? { generation: window.SSWorld.receipt.generation ?? null, scene_ir_digest: window.SSWorld.receipt.scene_ir_digest ?? null } : null,
       };
     }
 

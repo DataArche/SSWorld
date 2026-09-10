@@ -24,14 +24,16 @@ Manual registration for any other client:
 
 | tool | purpose |
 |------|---------|
-| `ssworld_catalog` | component index / one component's full contract |
+| `ssworld_catalog` | component index / one contract / `components: [...]` in one call (`detail: compact` hoists shared members); `catalog_digest` + `if_digest` for cache hits; units and rotation conventions annotated per member |
 | `ssworld_project_list` | projects in `~/.ssworld/projects` |
 | `ssworld_project_create` | new runnable project (anchored at lon/lat/height), compiled |
-| `ssworld_source_read` / `ssworld_source_write` | digest-guarded reads (`file: "*"` for all files) and whole-file writes of `.ssdl` sources; editing the files on disk with any tool also works, `ssworld_compile` rebuilds from disk |
+| `ssworld_source_read` / `ssworld_source_write` | bounded reads (`max_chars`, `offset`/`limit` with `has_more`/`next_offset`; `mode: metadata` for digests, sizes and compile staleness without text; `node: "<id>"` for one block; `file: "*"` for all files) and whole-file writes of `.ssdl` sources; editing the files on disk with any tool also works (`ssworld_compile` rebuilds from disk) but bypasses the digest lock |
 | `ssworld_source_patch` | exact-span edit (`old_string` → `new_string`, uniqueness checked, `replace_all` opt-in) with the same digest guard |
+| `ssworld_source_batch` | atomic multi-edit: text patches and node-level `{node_id, set, unset}` across files; all validated in memory before anything is written; `validate: compile` + rollback restores the previous sources on a failed compile |
+| `ssworld_scene_inspect` | compiled-scene facts without rendering: budget ratio, subtrees by size, leaf children by type, nodes per source file, primitive extent, the requested camera (lookAt-derived heading/pitch); render stats honestly `unavailable` |
 | `ssworld_compile` | SSDL 0.3 compiler with real diagnostics, `node_count` and budget `usage`; catalog/runtime mismatches are compile errors |
-| `ssworld_preview` | starts the local preview server, returns `http://127.0.0.1:8880/projects/<name>/index.html` and whether the page is open |
-| `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`; PNG returned as image content and saved to `captures/` |
+| `ssworld_preview` | starts the local preview server, returns `http://127.0.0.1:8880/projects/<name>/index.html`, whether the page is open and a structured `next` (`open_webgpu_viewer` / `capture_frame` / `bring_page_to_front`) |
+| `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`, the scene's `requested` camera and a `deviation` with reasons (clip planes are engine-managed); `receipt` binding the frame to source/IR digests and the page generation (`in_sync`, `staleness`); `framing` describing the offscreen render at the requested size; `reference_match` always `not_evaluated`; PNG returned as image content and saved to `captures/` |
 | `ssworld_engine_status` | engine pair installed? (`install: true` to download) |
 
 Hermes also receives the `skills/ssworld` skill (copied to `$HERMES_HOME/skills/ssworld`) so it picks the server on its own for 3D-scene requests.

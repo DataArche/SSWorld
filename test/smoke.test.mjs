@@ -50,7 +50,8 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const list = await client.request("tools/list", {});
   const names = list.result.tools.map((tool) => tool.name);
   assert.deepEqual(names, ["ssworld_catalog", "ssworld_project_list", "ssworld_project_create", "ssworld_source_read",
-    "ssworld_source_write", "ssworld_source_patch", "ssworld_compile", "ssworld_preview", "ssworld_capture_frame", "ssworld_engine_status"]);
+    "ssworld_source_write", "ssworld_source_patch", "ssworld_source_batch", "ssworld_compile", "ssworld_scene_inspect", "ssworld_preview", "ssworld_capture_frame", "ssworld_engine_status"]);
+  for (const tool of list.result.tools) assert.equal(tool.rich, undefined, `${tool.name} leaks internal flags`);
   for (const tool of list.result.tools) assert.equal(tool.inputSchema.type, "object", tool.name);
 
   const catalog = await client.call("ssworld_catalog");
@@ -68,6 +69,33 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.ok(box.body.contract.properties || box.body.contract, "component contract");
   const unknown = await client.call("ssworld_catalog", { component: "Nope" });
   assert.equal(unknown.isError, true);
+  assert.equal(unknown.body.error, "unknown_component");
+  // Batch + compact + digest: one call for several contracts, shared members hoisted, unknown names reported per item.
+  assert.match(catalog.body.catalog_digest, /^sha256:/);
+  const cached = await client.call("ssworld_catalog", { if_digest: catalog.body.catalog_digest });
+  assert.deepEqual(cached.body, { catalog_digest: catalog.body.catalog_digest, unchanged: true });
+  const batch = await client.call("ssworld_catalog", { components: ["Box", "Sphere", "DirectionalLight", "CameraView", "SunSky"], detail: "compact" });
+  assert.equal(batch.isError, false, JSON.stringify(batch.body));
+  assert.equal(batch.body.catalog_digest, catalog.body.catalog_digest);
+  assert.deepEqual(Object.keys(batch.body.components), ["Box", "Sphere", "DirectionalLight", "CameraView"]);
+  assert.equal(batch.body.unknown[0].component, "SunSky");
+  assert.match(batch.body.unknown[0].alternative, /atmosphereSunLight/);
+  assert.equal(batch.body.shared_members, undefined, "CameraView.position is create_only, so nothing is shared by all four");
+  assert.equal(batch.body.components.Box.members.position, "vector3 m");
+  const geometry = await client.call("ssworld_catalog", { components: ["Box", "Sphere", "Cylinder"], detail: "compact" });
+  assert.equal(geometry.body.shared_members.position, "vector3 m", "position is declared identically by all three and hoisted");
+  assert.equal(geometry.body.shared_members.rotation, "quaternion");
+  assert.equal(geometry.body.components.Box.members.position, undefined);
+  assert.equal(geometry.body.components.Box.members.width, "scalar m create_only");
+  assert.match(geometry.body.components.Sphere.members.radius, /^scalar m/);
+  assert.match(batch.body.components.DirectionalLight.member_notes.rotation, /Euler degrees/);
+  assert.match(batch.body.components.DirectionalLight.member_notes.intensity, /multiplier/);
+  assert.match(batch.body.components.CameraView.member_notes.longitude, /WGS84 degrees/);
+  assert.match(batch.body.components.CameraView.member_notes.farPlane, /not honoured/);
+  const fullBatch = await client.call("ssworld_catalog", { components: ["Box", "DirectionalLight"] });
+  assert.match(fullBatch.body.components.Box.contract.members.rotation.note, /quaternion \[x, y, z, w\]/);
+  assert.match(fullBatch.body.components.DirectionalLight.contract.members.rotation.note, /Euler/);
+  assert.equal(fullBatch.body.components.Box.contract.members.position.value_type, "vector3");
 
   const created = await client.call("ssworld_project_create", { name: "demo", longitude: 116.39, latitude: 39.9, height: 50 });
   assert.equal(created.isError, false, JSON.stringify(created.body));
@@ -101,6 +129,31 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const read = await client.call("ssworld_source_read", { project: "demo" });
   assert.match(read.body.content, /Scene \{/);
   assert.deepEqual(read.body.files, ["scene.ssdl"]);
+  assert.equal(read.body.has_more, false);
+  assert.equal(read.body.range.offset, 1);
+  assert.equal(read.body.lines, read.body.content.split("\n").length - 1);
+  // Bounded reads: metadata without text, line ranges with cursors, max_chars truncation, node lookup.
+  const meta = await client.call("ssworld_source_read", { project: "demo", mode: "metadata" });
+  assert.equal(meta.body.content, undefined);
+  assert.equal(meta.body.files[0].digest, read.body.digest);
+  assert.equal(meta.body.files[0].lines, read.body.lines);
+  assert.equal(meta.body.stale, false, JSON.stringify(meta.body));
+  assert.equal(meta.body.compiled_source_digest, created.body.source_digest);
+  const range = await client.call("ssworld_source_read", { project: "demo", offset: 2, limit: 3 });
+  assert.deepEqual(range.body.content.split("\n").slice(0, -1), read.body.content.split("\n").slice(1, 4));
+  assert.equal(range.body.has_more, true);
+  assert.equal(range.body.next_offset, 5);
+  const capped = await client.call("ssworld_source_read", { project: "demo", max_chars: 1000 });
+  assert.equal(capped.body.truncated, undefined, "1000 chars is enough for the starter scene");
+  const tiny = await client.call("ssworld_source_read", { project: "demo", max_chars: 1000, limit: 1000 });
+  assert.equal(tiny.isError, false);
+  const nodeRead = await client.call("ssworld_source_read", { project: "demo", node: "cube" });
+  assert.equal(nodeRead.body.type, "Box");
+  assert.match(nodeRead.body.content, /^Box \{/);
+  assert.ok(nodeRead.body.line_end > nodeRead.body.line_start);
+  assert.ok(nodeRead.body.compiled_properties.some((item) => item.property === "width"));
+  const noNode = await client.call("ssworld_source_read", { project: "demo", node: "nope" });
+  assert.equal(noNode.body.error, "node_not_found");
   const all = await client.call("ssworld_source_read", { project: "demo", file: "*" });
   assert.deepEqual(all.body.sources.map((item) => item.file), ["scene.ssdl"]);
   assert.equal(all.body.sources[0].digest, read.body.digest);
@@ -119,6 +172,63 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(stalePatch.body.error, "digest_mismatch");
   const undo = await client.call("ssworld_source_patch", { project: "demo", file: "scene.ssdl", old_string: "fov: 45", new_string: "fov: 50", expected_digest: patched.body.digest });
   assert.equal(undo.body.digest, read.body.digest, "patching back restores the original digest");
+
+  // Batch: node-level sets, text patches, all-or-nothing, compile validation with rollback.
+  const badBatch = await client.call("ssworld_source_batch", { project: "demo", expected_digest: read.body.digest, edits: [
+    { node_id: "startView", set: { fov: 60 } }, { old_string: "no such text", new_string: "y" }] });
+  assert.equal(badBatch.isError, true);
+  assert.equal(badBatch.body.error, "patch_not_found");
+  assert.equal(badBatch.body.edit_index, 1);
+  assert.equal((await client.call("ssworld_source_read", { project: "demo" })).body.digest, read.body.digest, "a failing batch writes nothing");
+  const staleBatch = await client.call("ssworld_source_batch", { project: "demo", expected_digest: "bad", edits: [{ node_id: "startView", set: { fov: 60 } }] });
+  assert.equal(staleBatch.body.error, "digest_mismatch");
+  const goodBatch = await client.call("ssworld_source_batch", { project: "demo", expected_digests: { "scene.ssdl": read.body.digest }, validate: "compile", edits: [
+    { node_id: "startView", set: { fov: 60, lookAt: [0, 0, 10] } },
+    { node_id: "cube", set: { height: 30, visible: true } },
+    { old_string: "roughness: 0.3", new_string: "roughness: 0.6" }] });
+  assert.equal(goodBatch.isError, false, JSON.stringify(goodBatch.body));
+  assert.equal(goodBatch.body.compiled, true);
+  assert.equal(goodBatch.body.files[0].digest_before, read.body.digest);
+  assert.deepEqual(goodBatch.body.edits_applied[1].inserted, ["visible"]);
+  const written = readFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), "utf8");
+  assert.match(written, /fov: 60/);
+  assert.match(written, /lookAt: \[0, 0, 10\]/);
+  assert.match(written, /height: 30/);
+  assert.match(written, /visible: true/);
+  assert.match(written, /roughness: 0.6/);
+  assert.equal(goodBatch.body.compile.usage.node_types.Box, 1);
+  const unsetBatch = await client.call("ssworld_source_batch", { project: "demo", expected_digest: goodBatch.body.files[0].digest, validate: "compile", edits: [{ node_id: "cube", unset: ["visible", "nope"] }] });
+  assert.equal(unsetBatch.isError, false, JSON.stringify(unsetBatch.body));
+  assert.deepEqual(unsetBatch.body.edits_applied[0].unset, ["visible"]);
+  const afterBatch = readFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), "utf8");
+  assert.doesNotMatch(afterBatch, /visible: true/);
+  assert.match(afterBatch, /height: 30/);
+  const rolled = await client.call("ssworld_source_batch", { project: "demo", validate: "compile", edits: [{ node_id: "cube", set: { width: { raw: "" } } }] });
+  assert.equal(rolled.isError, true);
+  assert.equal(rolled.body.error, "validation_failed");
+  assert.equal(rolled.body.rolled_back, true);
+  assert.equal(readFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), "utf8"), afterBatch, "rollback restores the previous sources");
+  assert.equal(rolled.body.previous_recompiled, true);
+  const inspected = await client.call("ssworld_scene_inspect", { project: "demo" });
+  assert.equal(inspected.isError, false, JSON.stringify(inspected.body));
+  assert.equal(inspected.body.root.type, "Scene");
+  assert.equal(inspected.body.budget.native_objects.limit, 2048);
+  assert.equal(inspected.body.child_subtrees[0].id, "cube");
+  assert.deepEqual(inspected.body.bounds.max, [12, 12, 27]);
+  assert.equal(inspected.body.bounds.highest_top.id, "cube");
+  assert.equal(inspected.body.requested_camera.fov, 60);
+  assert.deepEqual(inspected.body.requested_camera.position, [60, -80, 40]);
+  assert.ok(Math.abs(inspected.body.requested_camera.heading - 323.13) < 0.1, String(inspected.body.requested_camera.heading));
+  assert.ok(inspected.body.requested_camera.pitch < -15 && inspected.body.requested_camera.pitch > -18);
+  assert.ok(Math.abs(inspected.body.requested_camera.latitude - 39.9) < 0.01);
+  assert.equal(inspected.body.source.stale, false);
+  assert.equal(inspected.body.render_stats.draw_calls, "unavailable");
+  assert.deepEqual(inspected.body.by_file, { "scene.ssdl": inspected.body.node_count });
+  const restoreBatch = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: read.body.content, expected_digest: unsetBatch.body.files[0].digest });
+  assert.equal(restoreBatch.isError, false);
+  assert.equal(restoreBatch.body.next.action, "compile");
+  const staleMeta = await client.call("ssworld_source_read", { project: "demo", mode: "metadata" });
+  assert.equal(staleMeta.body.stale, true, "sources changed after the batch compile");
 
   const stale = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: "x", expected_digest: "bad" });
   assert.equal(stale.isError, true);
@@ -144,6 +254,8 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const skyCompile = await client.call("ssworld_compile", { project: "demo" });
   assert.equal(skyCompile.isError, true);
   assert.match(skyCompile.body.message, /scene\.ssdl:2:.*type_mismatch/);
+  assert.equal(skyCompile.body.next.action, "fix_source");
+  assert.equal(skyCompile.body.next.line, 2);
   const restore = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: read.body.content, expected_digest: skyWrite.body.digest });
   assert.equal(restore.isError, false);
 
@@ -166,17 +278,23 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(preview.body.viewer_url, `http://127.0.0.1:${PORT}/projects/demo/index.html`);
   assert.equal(preview.body.render_verified, false);
   assert.equal(preview.body.page.connected, false);
+  assert.equal(preview.body.next.action, "open_webgpu_viewer");
+  assert.equal(preview.body.next.url, preview.body.viewer_url);
+  assert.equal(preview.body.next.blocking, true);
 
   // No page open yet: the capture tool must say so instead of hanging.
   const notOpen = await client.call("ssworld_capture_frame", { project: "demo" });
   assert.equal(notOpen.isError, true);
   assert.equal(notOpen.body.error, "page_not_open");
   assert.equal(notOpen.body.viewer_url, preview.body.viewer_url);
+  assert.equal(notOpen.body.next.action, "open_webgpu_viewer");
 
   // A fake page: heartbeat through /__ssworld/sync, answer the capture command with a 2x2 PNG.
   const syncUrl = `http://127.0.0.1:${PORT}/__ssworld/sync`;
   const png = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVQI12P4z8DwHwyBFJDxHwzhTAAB1Qv/N+qaVAAAAABJRU5ErkJggg==";
-  const status = { state: "ready", generation: "1", errors: [], hint: "ok", visibility: "visible" };
+  const manifest = JSON.parse(readFileSync(path.join(HOME, "projects", "demo", "showcase.manifest.json"), "utf8"));
+  const status = { state: "ready", generation: "1", errors: [], hint: "ok", visibility: "visible", canvas: { width: 1474, height: 1857 }, device_pixel_ratio: 1.25,
+    loaded: { generation: 1, scene_ir_digest: manifest.scene_ir_digest } };
   const sync = (results = []) => fetch(syncUrl, { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project: "demo", client: "fake", status, results }) }).then((r) => r.json());
   assert.deepEqual((await sync()).commands, []);
@@ -189,7 +307,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
       assert.equal(command.params.width, 640);
       await sync([{ id: command.id, ok: true, png_base64: png,
         stats: { width: 2, height: 2, distinct_colors: 4, non_black_ratio: 1, overexposed_ratio: 0, mean_luma: 90 },
-        camera: { heading: 0 }, status }]);
+        camera: { heading: 323.1, pitch: -15.6, fov: 50, longitude: 116.3907, latitude: 39.89928, height: 90, near_plane: 0.5, far_plane: 68453 }, status }]);
     }
   }, 100);
   t.after(() => clearInterval(pump));
@@ -207,6 +325,39 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(image?.mimeType, "image/png");
   assert.equal(image?.data, png);
   assert.equal(captureBody.camera.source, "scene");
+  // Receipt binds the frame to the compile on disk and the page generation; framing states what the engine did.
+  assert.equal(captureBody.receipt.in_sync, true, JSON.stringify(captureBody.receipt));
+  assert.equal(captureBody.receipt.scene_ir_digest, manifest.scene_ir_digest);
+  assert.equal(captureBody.receipt.page_scene_ir_digest, manifest.scene_ir_digest);
+  assert.equal(captureBody.receipt.compiled_source_digest, captureBody.receipt.source_digest);
+  assert.match(captureBody.receipt.image_sha256, /^[0-9a-f]{64}$/);
+  assert.equal(captureBody.receipt.capture_path, captureBody.capture_path);
+  assert.deepEqual(captureBody.framing.requested, { width: 640, height: 360 });
+  assert.equal(captureBody.framing.mode, "offscreen_render_at_requested_size");
+  assert.deepEqual(captureBody.framing.interactive_canvas, { width: 1474, height: 1857, device_pixel_ratio: 1.25 });
+  assert.equal(captureBody.framing.projection.vertical_fov_deg, 50);
+  assert.ok(captureBody.framing.projection.horizontal_fov_deg > 75);
+  assert.equal(captureBody.reference_match.status, "not_evaluated");
+  assert.equal(captureBody.camera.requested.view, "startView");
+  assert.equal(captureBody.camera.deviation.fov.ok, true);
+  assert.ok(captureBody.camera.deviation.heading_error_deg < 0.1, JSON.stringify(captureBody.camera.deviation));
+  assert.ok(captureBody.camera.deviation.position_error_m < 5, JSON.stringify(captureBody.camera.deviation));
+  assert.equal(captureBody.next.action, "judge_frame", JSON.stringify(captureBody.next));
+  // Same page, but the sources moved on disk: the receipt must say the frame is behind.
+  writeFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), good.replace("width: 40", "width: 41"));
+  const pump1b = setInterval(async () => {
+    const { commands } = await sync();
+    for (const command of commands) await sync([{ id: command.id, ok: true, png_base64: png,
+      stats: { width: 2, height: 2, distinct_colors: 4, non_black_ratio: 1, overexposed_ratio: 0, mean_luma: 90 }, camera: { heading: 0, fov: 50 }, status }]);
+  }, 100);
+  t.after(() => clearInterval(pump1b));
+  const behind = await client.call("ssworld_capture_frame", { project: "demo", timeout_ms: 5000 });
+  clearInterval(pump1b);
+  assert.equal(behind.isError, false, JSON.stringify(behind.body));
+  assert.equal(behind.body.receipt.in_sync, false);
+  assert.match(behind.body.receipt.staleness[0], /changed since the last compile/);
+  assert.equal(behind.body.next.action, "recompile_and_recapture");
+  writeFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), good);
 
   // A failed load: duplicated errors collapse to one, get mapped to the scene.ssdl line, and the camera is flagged as the engine default.
   const failedStatus = { ...status, state: "failed", hint: "SkyAtmosphere.skyLuminanceFactor must be a vector", errors: [
@@ -228,6 +379,9 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.deepEqual(failedCapture.body.runtime.errors[0].source, { file: "scene.ssdl", line: 5, column: 5, node: "sky" });
   assert.equal(failedCapture.body.camera.source, "engine_default");
   assert.match(failedCapture.body.verdict, /scene\.ssdl:5:5/);
+  assert.equal(failedCapture.body.next.action, "fix_source");
+  assert.equal(failedCapture.body.next.line, 5);
+  assert.equal(failedCapture.body.receipt.in_sync, false);
   writeFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), good);
 
   // A page that stopped syncing (tab closed) is reported as not open again after the heartbeat goes stale.

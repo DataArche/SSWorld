@@ -1,6 +1,9 @@
 // Runtime capability facts the catalog alone cannot express. The catalog says what the compiler
 // accepts; the engine decides what it can actually write. Everything here was verified against the
-// native EnvironmentFacade (ssdl_environment_bindings.cpp) and the SSDL browser runtime.
+// native EnvironmentFacade (ssdl_environment_bindings.cpp), lirendersystem.cpp and the SSDL browser runtime.
+
+/** Bumped whenever the notes below change meaning, so catalog_digest moves with them. */
+export const NOTES_VERSION = 2;
 
 // DirectionalLight with atmosphereSunLight: true adopts the engine's scene sun (LiSun), which only
 // exposes the LiLight base properties. The owned-light-only members fail at runtime with
@@ -12,38 +15,62 @@ export const UNAVAILABLE_ALTERNATIVES = Object.freeze({
   SunSky: "use SkyAtmosphere + DirectionalLight { atmosphereSunLight: true; sunAzimuth: <deg, 0 = north clockwise>; sunElevation: <deg above horizon> } for a sun that drives the sky",
 });
 
+// LiRenderSystem recomputes both clip planes every frame from the camera's height above the
+// ellipsoid: far = horizon distance * 1.01, near = max(0.5 m, far * 2e-5). CameraView.nearPlane /
+// farPlane are applied once and then overridden, so the capture receipt reports them as engine-managed.
+export const CLIP_PLANE_POLICY = "engine recomputes nearPlane/farPlane every frame from camera height (far = horizon distance x 1.01, near = max(0.5, far x 2e-5)); CameraView.nearPlane/farPlane are not honoured by this runtime";
+
 export const CONVENTIONS = Object.freeze({
   coordinate_system: "right-handed, Z-up; x east, y north, z up, metres; local origin is the project anchor",
-  quaternion_order: "[x, y, z, w] (w last); identity is [0, 0, 0, 1]",
-  euler_free_rotation: "prefer RotationAnimation / Vector3dAnimation for animated turns; static rotation is a quaternion",
+  quaternion_order: "[x, y, z, w] (w last); identity is [0, 0, 0, 1]; only geometry/Model/Group rotation is a quaternion",
+  environment_rotation: "DirectionalLight/SkyAtmosphere/fog/cloud `rotation` is Euler degrees [x, y, z] (UE convention), not a quaternion; prefer sunAzimuth/sunElevation for the sun",
+  euler_free_rotation: "prefer RotationAnimation / Vector3dAnimation for animated turns; static geometry rotation is a quaternion",
   camera: "CameraView.position/lookAt are local metres in the same frame as node positions; heading 0 = north, clockwise; pitch negative = looking down; fov is vertical degrees",
+  clip_planes: CLIP_PLANE_POLICY,
   ids: "every node in a component file needs a unique explicit id; anonymous siblings collide inside custom components",
-  editing: "ssworld_source_patch edits one span by exact match; ssworld_source_write replaces a file; writing the .ssdl files in the project directory with any other tool also works, because ssworld_compile always rebuilds from disk and refreshes the digest",
+  editing: "ssworld_source_patch edits one span by exact match; ssworld_source_batch applies several patches / node property sets atomically (optionally compiling and rolling back); ssworld_source_write replaces a file; writing the .ssdl files in the project directory with any other tool also works because ssworld_compile always rebuilds from disk, but such writes are not protected by the digest lock",
+  units_tag: "a descriptor's `unit` is the compiler's wire tag ('scalar' means untagged), not always the physical unit; the member note names the physical unit where they differ",
 });
 
 /** Member-level notes merged into ssworld_catalog output. */
-export function memberNotes(component, member) {
+export function memberNotes(component, member, descriptor = {}) {
   if (component === "DirectionalLight" && SUN_ONLY_UNSUPPORTED.includes(member)) {
     return { runtime_writable: "only when atmosphereSunLight is not true (owned light); the adopted scene sun rejects it" };
   }
   if (component === "DirectionalLight" && ["sunAzimuth", "sunElevation"].includes(member)) {
-    return { runtime_writable: "only when atmosphereSunLight: true" };
+    return { runtime_writable: "only when atmosphereSunLight: true", note: member === "sunAzimuth" ? "degrees, 0 = north, clockwise (local ENU at the anchor)" : "degrees above the horizon" };
+  }
+  if (member === "intensity" && /Light$/.test(component)) {
+    return { note: "dimensionless multiplier on the light's radiance; engine default 1.0; not lux/candela (see intensityUnits where present)" };
   }
   if (component === "CameraView") {
     const notes = {
       position: "camera position in local metres relative to the anchor (x east, y north, z up); mutually exclusive with longitude/latitude/height",
       lookAt: "aim point in local metres; derives heading/pitch unless they are set explicitly",
       fov: "vertical field of view in degrees, 1..170 (engine default 65)",
-      nearPlane: "near clip distance in metres (> 0)",
-      farPlane: "far clip distance in metres (> nearPlane)",
-      longitude: "WGS84 degrees; use position instead when composing a local scene",
+      nearPlane: `near clip distance in metres (> 0); ${CLIP_PLANE_POLICY}`,
+      farPlane: `far clip distance in metres (> nearPlane); ${CLIP_PLANE_POLICY}`,
+      longitude: "WGS84 degrees (unit tag 'scalar' is the wire encoding); use position instead when composing a local scene",
+      latitude: "WGS84 degrees (unit tag 'scalar' is the wire encoding)",
+      height: "metres above the WGS84 ellipsoid",
       heading: "degrees, 0 = north, clockwise",
       pitch: "degrees, -90 = straight down, 0 = horizon",
     };
     return notes[member] ? { note: notes[member] } : null;
   }
-  if (member === "rotation") return { note: `quaternion ${CONVENTIONS.quaternion_order}` };
+  if (member === "rotation") {
+    return descriptor.value_type === "quaternion"
+      ? { note: `quaternion ${CONVENTIONS.quaternion_order.split(";")[0]}` }
+      : { note: "Euler degrees [x, y, z] (UE component convention); not a quaternion" };
+  }
   return null;
+}
+
+/** Component-level notes merged into ssworld_catalog output. */
+export function componentNotes(name) {
+  if (name === "DirectionalLight") return { runtime_note: "atmosphereSunLight: true adopts the engine sun (drives the sky); only intensity/lightColor/castShadows/temperature/indirect/volumetric and sunAzimuth/sunElevation are writable on it. Leave it false for an owned light with full members." };
+  if (name === "CameraView") return { runtime_note: `${CONVENTIONS.camera}. ${CLIP_PLANE_POLICY}` };
+  return {};
 }
 
 /** Post-compile check of the scene IR for combinations the compiler accepts but the engine rejects. */
