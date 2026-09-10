@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
@@ -50,13 +50,16 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const list = await client.request("tools/list", {});
   const names = list.result.tools.map((tool) => tool.name);
   assert.deepEqual(names, ["ssworld_catalog", "ssworld_project_list", "ssworld_project_create", "ssworld_source_read",
-    "ssworld_source_write", "ssworld_compile", "ssworld_preview", "ssworld_capture_frame", "ssworld_engine_status"]);
+    "ssworld_source_write", "ssworld_source_patch", "ssworld_compile", "ssworld_preview", "ssworld_capture_frame", "ssworld_engine_status"]);
   for (const tool of list.result.tools) assert.equal(tool.inputSchema.type, "object", tool.name);
 
   const catalog = await client.call("ssworld_catalog");
   assert.equal(catalog.isError, false);
   assert.ok(catalog.body.components.Box?.supported, "Box must be a supported component");
   assert.match(catalog.body.conventions.quaternion_order, /\[x, y, z, w\]/);
+  assert.match(catalog.body.unavailable_components.SunSky.alternative, /atmosphereSunLight/);
+  const sky = await client.call("ssworld_catalog", { component: "SkyAtmosphere" });
+  assert.equal(sky.body.contract.members.skyLuminanceFactor.value_type, "vector3", "catalog must agree with the runtime (vector3)");
   const sun = await client.call("ssworld_catalog", { component: "DirectionalLight" });
   assert.match(sun.body.contract.members.lightSourceAngle.runtime_writable, /atmosphereSunLight/);
   const view = await client.call("ssworld_catalog", { component: "CameraView" });
@@ -82,14 +85,40 @@ test("ssworld-mcp end to end over stdio", async (t) => {
 
   const duplicate = await client.call("ssworld_project_create", { name: "demo" });
   assert.equal(duplicate.isError, true);
+  assert.match(created.body.usage.native_objects.limit + "", /^\d+$/);
+  assert.ok(created.body.usage.node_types.Box >= 1);
+  const empty = await client.call("ssworld_project_create", { name: "blank", template: "empty" });
+  assert.equal(empty.isError, false, JSON.stringify(empty.body));
+  assert.equal(empty.body.usage.node_types.Box, undefined);
+  assert.ok(empty.body.usage.node_types.CameraView, "empty template keeps a local-frame camera");
+  const badTemplate = await client.call("ssworld_project_create", { name: "blank2", template: "nope" });
+  assert.equal(badTemplate.isError, true);
 
   const listed = await client.call("ssworld_project_list");
-  assert.equal(listed.body.projects.length, 1);
+  assert.equal(listed.body.projects.length, 2);
   assert.equal(listed.body.projects[0].compiled, true);
 
   const read = await client.call("ssworld_source_read", { project: "demo" });
   assert.match(read.body.content, /Scene \{/);
   assert.deepEqual(read.body.files, ["scene.ssdl"]);
+  const all = await client.call("ssworld_source_read", { project: "demo", file: "*" });
+  assert.deepEqual(all.body.sources.map((item) => item.file), ["scene.ssdl"]);
+  assert.equal(all.body.sources[0].digest, read.body.digest);
+
+  // Patch: exact-span edit with the digest guard, uniqueness check and replace_all.
+  const ambiguous = await client.call("ssworld_source_patch", { project: "demo", file: "scene.ssdl", old_string: "24", new_string: "25", expected_digest: read.body.digest });
+  assert.equal(ambiguous.isError, true);
+  assert.equal(ambiguous.body.error, "patch_ambiguous");
+  const missingSpan = await client.call("ssworld_source_patch", { project: "demo", file: "scene.ssdl", old_string: "no such text", new_string: "x" });
+  assert.equal(missingSpan.body.error, "patch_not_found");
+  const patched = await client.call("ssworld_source_patch", { project: "demo", file: "scene.ssdl", old_string: "fov: 50", new_string: "fov: 45", expected_digest: read.body.digest });
+  assert.equal(patched.isError, false, JSON.stringify(patched.body));
+  assert.equal(patched.body.replaced, 1);
+  assert.match(readFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), "utf8"), /fov: 45/);
+  const stalePatch = await client.call("ssworld_source_patch", { project: "demo", file: "scene.ssdl", old_string: "fov: 45", new_string: "fov: 50", expected_digest: read.body.digest });
+  assert.equal(stalePatch.body.error, "digest_mismatch");
+  const undo = await client.call("ssworld_source_patch", { project: "demo", file: "scene.ssdl", old_string: "fov: 45", new_string: "fov: 50", expected_digest: patched.body.digest });
+  assert.equal(undo.body.digest, read.body.digest, "patching back restores the original digest");
 
   const stale = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: "x", expected_digest: "bad" });
   assert.equal(stale.isError, true);
@@ -109,7 +138,13 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(sunCompile.body.diagnostic.code, "runtime_unsupported");
   assert.match(sunCompile.body.message, /lightSourceAngle cannot be written when atmosphereSunLight is true/);
   assert.equal(sunCompile.body.diagnostic.node, "sun");
-  const restore = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: read.body.content, expected_digest: sunWrite.body.digest });
+  // Catalog now says vector3, so a scalar skyLuminanceFactor is a compile-time type_mismatch instead of a runtime crash.
+  const skyScene = "Scene { id: main\n SkyAtmosphere { id: sky; skyLuminanceFactor: 1.2 }\n}";
+  const skyWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: skyScene, expected_digest: sunWrite.body.digest });
+  const skyCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(skyCompile.isError, true);
+  assert.match(skyCompile.body.message, /scene\.ssdl:2:.*type_mismatch/);
+  const restore = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: read.body.content, expected_digest: skyWrite.body.digest });
   assert.equal(restore.isError, false);
 
   const good = read.body.content.replace("width: 24", "width: 40");
@@ -141,7 +176,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   // A fake page: heartbeat through /__ssworld/sync, answer the capture command with a 2x2 PNG.
   const syncUrl = `http://127.0.0.1:${PORT}/__ssworld/sync`;
   const png = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVQI12P4z8DwHwyBFJDxHwzhTAAB1Qv/N+qaVAAAAABJRU5ErkJggg==";
-  const status = { state: "ready", generation: "1", errors: [], hint: "ok" };
+  const status = { state: "ready", generation: "1", errors: [], hint: "ok", visibility: "visible" };
   const sync = (results = []) => fetch(syncUrl, { method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ project: "demo", client: "fake", status, results }) }).then((r) => r.json());
   assert.deepEqual((await sync()).commands, []);
@@ -171,6 +206,29 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const image = captureResponse.result.content.find((item) => item.type === "image");
   assert.equal(image?.mimeType, "image/png");
   assert.equal(image?.data, png);
+  assert.equal(captureBody.camera.source, "scene");
+
+  // A failed load: duplicated errors collapse to one, get mapped to the scene.ssdl line, and the camera is flagged as the engine default.
+  const failedStatus = { ...status, state: "failed", hint: "SkyAtmosphere.skyLuminanceFactor must be a vector", errors: [
+    { kind: "scene_module", message: "SkyAtmosphere.skyLuminanceFactor must be a vector", at: 1 },
+    { kind: "console.error", message: "SkyAtmosphere.skyLuminanceFactor must be a vector [object Object]", at: 2 }] };
+  writeFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), "Scene {\n  id: main\n  SkyAtmosphere {\n    id: sky\n    skyLuminanceFactor: 1\n  }\n}\n");
+  const pump2 = setInterval(async () => {
+    const { commands } = await sync();
+    for (const command of commands) await sync([{ id: command.id, ok: true, png_base64: png,
+      stats: { width: 2, height: 2, distinct_colors: 4, non_black_ratio: 1, overexposed_ratio: 0, mean_luma: 90 },
+      camera: { heading: 0, height: 27393433 }, status: failedStatus }]);
+  }, 100);
+  t.after(() => clearInterval(pump2));
+  const failedCapture = await client.call("ssworld_capture_frame", { project: "demo", timeout_ms: 5000 });
+  clearInterval(pump2);
+  assert.equal(failedCapture.isError, false, JSON.stringify(failedCapture.body));
+  assert.equal(failedCapture.body.runtime.errors.length, 1, "console.error echo is deduplicated");
+  assert.equal(failedCapture.body.runtime.errors[0].repeats, 2);
+  assert.deepEqual(failedCapture.body.runtime.errors[0].source, { file: "scene.ssdl", line: 5, column: 5, node: "sky" });
+  assert.equal(failedCapture.body.camera.source, "engine_default");
+  assert.match(failedCapture.body.verdict, /scene\.ssdl:5:5/);
+  writeFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), good);
 
   // A page that stopped syncing (tab closed) is reported as not open again after the heartbeat goes stale.
   await new Promise((resolve) => setTimeout(resolve, 3200));

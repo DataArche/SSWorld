@@ -1409,7 +1409,7 @@
         },
         "skyLuminanceFactor": {
           "unit": "scalar",
-          "value_type": "scalar"
+          "value_type": "vector3"
         },
         "transmittanceMinLightElevationAngle": {
           "unit": "scalar",

@@ -117,6 +117,19 @@
       const typed = array && typeof array.data === "function" ? array.data() : null;
       return typed && typed.length ? new TextDecoder().decode(new Uint8Array(typed)) : null;
     }
+    // Structured look of a frame so an agent without vision can still reason about composition:
+    // luma percentiles, exposure tails, colour-class coverage overall and per 3x3 region, top colours.
+    function colorClass(r, g, b, luma) {
+      const max = Math.max(r, g, b), min = Math.min(r, g, b), sat = max ? (max - min) / max : 0;
+      if (luma > 200 && sat < 0.18) return "white";
+      if (luma < 40) return "dark";
+      if (sat < 0.15) return "neutral";
+      if (g >= r && g >= b && g - Math.max(r, b) > 12) return "green";
+      if (b >= r && b >= g && b - Math.max(r, g) > 12) return "blue";
+      if (r >= g && r >= b && r - Math.max(g, b) > 12) return r > 150 && g > 90 && b < 90 ? "yellow" : "red";
+      return "other";
+    }
+    const CLASSES = ["green", "blue", "white", "neutral", "dark", "red", "yellow", "other"];
     async function pixelStats(dataUrl) {
       const image = new Image();
       await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(new Error("captured PNG could not be decoded")); image.src = dataUrl; });
@@ -125,19 +138,42 @@
       const context = canvas.getContext("2d", { willReadFrequently: true });
       context.drawImage(image, 0, 0);
       const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+      const width = canvas.width, height = canvas.height, total = width * height;
       const colors = new Set();
-      let nonBlack = 0, sum = 0, bright = 0;
-      const total = canvas.width * canvas.height;
-      for (let i = 0; i < data.length; i += 4) {
+      const histogram = new Uint32Array(256);
+      const quantized = new Map();
+      const classCount = Object.fromEntries(CLASSES.map((name) => [name, 0]));
+      const regions = Array.from({ length: 9 }, () => ({ sum: [0, 0, 0], count: 0, classes: Object.fromEntries(CLASSES.map((name) => [name, 0])) }));
+      let nonBlack = 0, sum = 0, under = 0, over = 0;
+      for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
         const r = data[i], g = data[i + 1], b = data[i + 2];
         const luma = (r * 299 + g * 587 + b * 114) / 1000;
-        sum += luma;
+        sum += luma; histogram[Math.min(255, Math.round(luma))] += 1;
         if (luma > 8) nonBlack += 1;
-        if (luma > 247) bright += 1;
-        if (colors.size < 4096) colors.add((r << 16) | (g << 8) | b);
+        if (luma < 16) under += 1;
+        if (luma > 240) over += 1;
+        if (colors.size < 65536) colors.add((r << 16) | (g << 8) | b);
+        const q = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+        quantized.set(q, (quantized.get(q) || 0) + 1);
+        const cls = colorClass(r, g, b, luma);
+        classCount[cls] += 1;
+        const region = regions[Math.min(2, Math.floor((p / width) * 3 / height)) * 3 + Math.min(2, Math.floor((p % width) * 3 / width))];
+        region.sum[0] += r; region.sum[1] += g; region.sum[2] += b; region.count += 1; region.classes[cls] += 1;
       }
-      return { width: canvas.width, height: canvas.height, distinct_colors: colors.size, non_black_ratio: nonBlack / total,
-        overexposed_ratio: bright / total, mean_luma: sum / total };
+      const percentile = (q) => { let acc = 0; const target = total * q; for (let v = 0; v < 256; v += 1) { acc += histogram[v]; if (acc >= target) return v; } return 255; };
+      const share = (n, d) => Number((n / (d || 1)).toFixed(3));
+      const colormap = [...quantized.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([q, n]) => ({
+        rgb: "#" + [(q >> 8) & 15, (q >> 4) & 15, q & 15].map((v) => (v * 17).toString(16).padStart(2, "0")).join(""), share: share(n, total) }));
+      return {
+        width, height, distinct_colors: colors.size, non_black_ratio: nonBlack / total,
+        overexposed_ratio: over / total, under_exposed_ratio: share(under, total), over_exposed_ratio: share(over, total),
+        mean_luma: sum / total, luma: { p10: percentile(0.1), p50: percentile(0.5), p90: percentile(0.9) },
+        coverage: Object.fromEntries(CLASSES.map((name) => [name, share(classCount[name], total)])),
+        regions: { layout: "3x3 row-major, top-left first", cells: regions.map((region) => ({
+          mean_rgb: region.sum.map((v) => Math.round(v / (region.count || 1))),
+          ...Object.fromEntries(CLASSES.filter((name) => region.classes[name]).map((name) => [name, share(region.classes[name], region.count)])) })) },
+        colormap_top: colormap,
+      };
     }
     async function captureFrame(params = {}) {
       const S = engineConfig;

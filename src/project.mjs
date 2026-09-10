@@ -46,7 +46,16 @@ function render(template, values) {
   return template.replace(/__([A-Z_]+)__/g, (match, key) => (key in values ? values[key] : match));
 }
 
-export async function createProject(name, { anchor = DEFAULT_ANCHOR, title } = {}) {
+const EMPTY_SCENE = `Scene {
+  id: main
+  // Local metres around the anchor (x east, y north, z up). Add nodes here.
+  CameraView { id: startView; position: [60, -80, 40]; lookAt: [0, 0, 0]; fov: 50 }
+  Camera { id: mainCamera; initialView: startView }
+}
+`;
+
+export async function createProject(name, { anchor = DEFAULT_ANCHOR, title, template = "starter" } = {}) {
+  if (!["starter", "empty"].includes(template)) throw new Error(`unknown template '${template}'; use 'starter' or 'empty'`);
   const directory = projectDir(name, { mustExist: false });
   if (existsSync(directory)) throw new Error(`project '${name}' already exists; pick another name or edit it with ssworld_source_write`);
   mkdirSync(directory, { recursive: true });
@@ -59,18 +68,18 @@ export async function createProject(name, { anchor = DEFAULT_ANCHOR, title } = {
     const raw = readFileSync(path.join(TEMPLATE_ROOT, file), "utf8");
     writeFileSync(path.join(directory, file), file === "style.css" ? raw : render(raw, values), "utf8");
   }
+  if (template === "empty") writeFileSync(path.join(directory, "scene.ssdl"), EMPTY_SCENE, "utf8");
   const manifestPath = path.join(directory, "showcase.manifest.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   manifest.name = name;
   manifest.budgets = DEFAULT_BUDGETS;
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
   const compiled = await compileProject(directory, { name, budgets: DEFAULT_BUDGETS });
-  return { project: name, directory, anchor, ...compiled };
+  return { project: name, directory, anchor, template, ...compiled };
 }
 
 export function readSource(name, file = "scene.ssdl") {
   const directory = projectDir(name);
-  const data = readFileSync(sourcePath(directory, file));
   const files = [];
   (function walk(current) {
     for (const item of readdirSync(current, { withFileTypes: true })) {
@@ -79,7 +88,41 @@ export function readSource(name, file = "scene.ssdl") {
       else if (item.name.endsWith(".ssdl")) files.push(path.relative(directory, absolute).split(path.sep).join("/"));
     }
   })(directory);
-  return { project: name, file, content: data.toString("utf8"), digest: digestOf(data), files: files.sort() };
+  files.sort();
+  if (file === "*") {
+    const contents = files.map((item) => { const data = readFileSync(path.join(directory, item)); return { file: item, content: data.toString("utf8"), digest: digestOf(data) }; });
+    return { project: name, files, sources: contents };
+  }
+  const data = readFileSync(sourcePath(directory, file));
+  return { project: name, file, content: data.toString("utf8"), digest: digestOf(data), files };
+}
+
+function commitSource(target, data) {
+  mkdirSync(path.dirname(target), { recursive: true });
+  const temporary = `${target}.${process.pid}.tmp`;
+  writeFileSync(temporary, data);
+  renameSync(temporary, target);
+}
+
+/** Replace one unique occurrence (or every occurrence) of old_string in a source file; digest-guarded like writeSource. */
+export function patchSource(name, file, oldString, newString, expectedDigest, { replaceAll = false } = {}) {
+  const directory = projectDir(name);
+  const target = sourcePath(directory, file);
+  if (!existsSync(target)) throw Object.assign(new Error(`${file} does not exist; use ssworld_source_write with expected_digest 'new'`), { code: "file_missing" });
+  if (typeof oldString !== "string" || !oldString.length) throw new Error("old_string must be a non-empty string");
+  const current = readFileSync(target);
+  const digest = digestOf(current);
+  if (expectedDigest && expectedDigest !== digest) throw Object.assign(new Error("source changed since it was read; call ssworld_source_read again before patching"), { code: "digest_mismatch", extra: { digest } });
+  const text = current.toString("utf8");
+  const occurrences = text.split(oldString).length - 1;
+  if (occurrences === 0) throw Object.assign(new Error(`old_string not found in ${file}; read the file again and copy the text exactly (whitespace included)`), { code: "patch_not_found", extra: { digest } });
+  if (occurrences > 1 && !replaceAll) throw Object.assign(new Error(`old_string occurs ${occurrences} times in ${file}; include more surrounding context or pass replace_all: true`), { code: "patch_ambiguous", extra: { occurrences, digest } });
+  const patched = replaceAll ? text.split(oldString).join(newString) : text.replace(oldString, () => newString);
+  const data = Buffer.from(patched, "utf8");
+  if (data.length > 1024 * 1024) throw new Error("source exceeds 1 MiB");
+  commitSource(target, data);
+  const line = text.slice(0, text.indexOf(oldString)).split("\n").length;
+  return { ok: true, project: name, file, digest: digestOf(data), replaced: occurrences, first_line: line, compiled: false, next_action: "call ssworld_compile" };
 }
 
 export function writeSource(name, file, content, expectedDigest) {
@@ -91,10 +134,7 @@ export function writeSource(name, file, content, expectedDigest) {
   }
   const data = Buffer.from(content, "utf8");
   if (data.length > 1024 * 1024) throw new Error("source exceeds 1 MiB");
-  mkdirSync(path.dirname(target), { recursive: true });
-  const temporary = `${target}.${process.pid}.tmp`;
-  writeFileSync(temporary, data);
-  renameSync(temporary, target);
+  commitSource(target, data);
   return { ok: true, project: name, file, digest: digestOf(data), compiled: false, next_action: "call ssworld_compile" };
 }
 

@@ -49,6 +49,27 @@ export async function buildSourceProject(directory, entry = "scene.ssdl") {
   return project;
 }
 
+const TIMER_TYPES = new Set(["Timer"]);
+/** Declared budget vs what the compiled IR actually uses; limits come from showcase.manifest.json. */
+export function budgetUsage(result, budgets = {}) {
+  const nodes = result.scene_ir?.nodes || [];
+  const used = {
+    native_objects: nodes.length,
+    bindings: (result.binding_ir?.bindings || []).length,
+    handlers: nodes.reduce((sum, node) => sum + (node.handlers?.length || 0), 0),
+    timers: nodes.filter((node) => TIMER_TYPES.has(node.type)).length,
+  };
+  const out = {};
+  for (const [key, value] of Object.entries(used)) {
+    const limit = Number.isFinite(budgets?.[key]) ? budgets[key] : null;
+    out[key] = { used: value, limit, ...(limit ? { ratio: Number((value / limit).toFixed(3)) } : {}) };
+  }
+  const types = {};
+  for (const node of nodes) types[node.type] = (types[node.type] || 0) + 1;
+  out.node_types = types;
+  return out;
+}
+
 /** Compile `directory/scene.ssdl` (+ siblings) into the same directory and refresh showcase.manifest.json. */
 export async function compileProject(directory, { name, budgets } = {}) {
   const { compileSceneModuleProject } = await loadCompiler();
@@ -94,5 +115,6 @@ export async function compileProject(directory, { name, budgets } = {}) {
     catalog_digest: hybrid.catalog_digest, compiler_profile: hybrid.compiler_profile,
     source_digest: project.source_digest, source_files: project.files.map((file) => file.path),
     node_count: Array.isArray(result.scene_ir?.nodes) ? result.scene_ir.nodes.length : undefined,
+    usage: budgetUsage(result, budgets || hybrid.budgets),
   };
 }

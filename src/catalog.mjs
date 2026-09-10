@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { SSDL_ROOT } from "./paths.mjs";
-import { CONVENTIONS, memberNotes } from "./runtime-support.mjs";
+import { CONVENTIONS, UNAVAILABLE_ALTERNATIVES, memberNotes } from "./runtime-support.mjs";
 
 let cached = null;
 function catalog() {
@@ -15,7 +15,12 @@ export function catalogSummary() {
     supported: Boolean(value.factory), adapter: value.adapter ?? null, summary: value.summary || value.description || undefined,
   }]));
   return { language: "SSDL/QML-Subset/0.3", coordinate_system: "right_handed_z_up", units: "metres, degrees for lon/lat",
-    conventions: CONVENTIONS, schema_version: source.schema_version, components, unavailable_components: source.unavailable_components || {} };
+    conventions: CONVENTIONS, schema_version: source.schema_version, components, unavailable_components: unavailable(source) };
+}
+
+function unavailable(source) {
+  return Object.fromEntries(Object.entries(source.unavailable_components || {}).map(([name, reason]) => [name,
+    UNAVAILABLE_ALTERNATIVES[name] ? { reason, alternative: UNAVAILABLE_ALTERNATIVES[name] } : reason]));
 }
 
 export function catalogComponent(name) {

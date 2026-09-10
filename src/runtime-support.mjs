@@ -7,12 +7,18 @@
 // "ue_member_unsupported: DirectionalLight.<member> is not writable in this runtime".
 const SUN_ONLY_UNSUPPORTED = ["lightSourceAngle", "lightSourceSoftAngle", "cloudScatteredLuminanceScale"];
 
+/** What to use instead of a component the runtime does not implement (merged into unavailable_components). */
+export const UNAVAILABLE_ALTERNATIVES = Object.freeze({
+  SunSky: "use SkyAtmosphere + DirectionalLight { atmosphereSunLight: true; sunAzimuth: <deg, 0 = north clockwise>; sunElevation: <deg above horizon> } for a sun that drives the sky",
+});
+
 export const CONVENTIONS = Object.freeze({
   coordinate_system: "right-handed, Z-up; x east, y north, z up, metres; local origin is the project anchor",
   quaternion_order: "[x, y, z, w] (w last); identity is [0, 0, 0, 1]",
   euler_free_rotation: "prefer RotationAnimation / Vector3dAnimation for animated turns; static rotation is a quaternion",
   camera: "CameraView.position/lookAt are local metres in the same frame as node positions; heading 0 = north, clockwise; pitch negative = looking down; fov is vertical degrees",
   ids: "every node in a component file needs a unique explicit id; anonymous siblings collide inside custom components",
+  editing: "ssworld_source_patch edits one span by exact match; ssworld_source_write replaces a file; writing the .ssdl files in the project directory with any other tool also works, because ssworld_compile always rebuilds from disk and refreshes the digest",
 });
 
 /** Member-level notes merged into ssworld_catalog output. */
