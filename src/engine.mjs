@@ -83,9 +83,22 @@ export async function ensureEngine({ log = () => {} } = {}) {
     const base = process.env.SSWORLD_ENGINE_BASE || lock.download_base;
     const url = `${base.replace(/\/?$/, "/")}${asset.name}`;
     log(`downloading ${asset.name} (${(asset.size / 1048576).toFixed(1)} MiB) from ${url}`);
-    await download(url, destination, asset.sha256, (received, total) => {
-      if (total && received === total) log(`${asset.name}: complete`);
-    });
+    let lastError;
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      try {
+        await download(url, destination, asset.sha256, (received, total) => {
+          if (total && received === total) log(`${asset.name}: complete`);
+        });
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (/sha256 mismatch/.test(error.message)) break;
+        log(`${asset.name}: attempt ${attempt} failed (${error.cause?.code || error.message}); retrying`);
+        await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+      }
+    }
+    if (lastError) throw lastError;
   }
   const after = engineStatus();
   if (!after.ready) throw new Error("engine download finished but the pair is still incomplete");
