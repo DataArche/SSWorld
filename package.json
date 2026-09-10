@@ -19,6 +19,7 @@
     "src",
     "ssdl",
     "template",
+    "skills",
     "engine",
     "assets",
     "engine.lock.json",

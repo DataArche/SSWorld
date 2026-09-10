@@ -32,6 +32,7 @@ test("install --local registers the server with every client config", () => {
   assert.match(codex, /\[mcp_servers\.ssworld\]\ncommand = ".*"\nargs = \[".*ssworld-mcp\.mjs"\]/);
   const hermes = readFileSync(path.join(home, ".hermes", "config.yaml"), "utf8");
   assert.match(hermes, /mcp_servers:\n  ssworld:\n    command: ".*"\n    args: \[.*\]\n  other:\n    command: x/);
+  assert.match(readFileSync(path.join(home, ".hermes", "skills", "ssworld", "SKILL.md"), "utf8"), /^name: ssworld$/m);
   const cursor = JSON.parse(readFileSync(path.join(home, ".cursor", "mcp.json"), "utf8"));
   assert.equal(cursor.mcpServers.ssworld.args[0], BIN);
 

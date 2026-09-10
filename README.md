@@ -32,6 +32,8 @@ Manual registration for any other client:
 | `ssworld_preview` | starts the local preview server, returns `http://127.0.0.1:8880/projects/<name>/index.html` |
 | `ssworld_engine_status` | engine pair installed? (`install: true` to download) |
 
+Hermes also receives the `skills/ssworld` skill (copied to `$HERMES_HOME/skills/ssworld`) so it picks the server on its own for 3D-scene requests.
+
 ## CLI
 
 ```

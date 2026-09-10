@@ -1,7 +1,7 @@
 // `ssworld-mcp install`: make this package a global npm install (so agent apps get a stable
 // command), then register it with the chosen agent apps. Config edits are minimal and idempotent.
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { PACKAGE, PACKAGE_ROOT, SERVER_NAME, repositorySlug } from "./paths.mjs";
@@ -100,7 +100,11 @@ const WRITERS = {
     }
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, next.replace(/^\n+/, ""), "utf8");
-    return { client: "hermes", via: file };
+    // Ship the SSWorld skill so Hermes reaches for the server on its own.
+    const skillSource = path.join(PACKAGE_ROOT, "skills", "ssworld");
+    const skillTarget = path.join(hermesHome, "skills", "ssworld");
+    if (existsSync(skillSource)) cpSync(skillSource, skillTarget, { recursive: true });
+    return { client: "hermes", via: file, skill: existsSync(skillSource) ? skillTarget : null };
   },
   cursor(spec) {
     const file = path.join(home, ".cursor", "mcp.json");
