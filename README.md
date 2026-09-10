@@ -27,10 +27,11 @@ Manual registration for any other client:
 | `ssworld_catalog` | component index / one component's full contract |
 | `ssworld_project_list` | projects in `~/.ssworld/projects` |
 | `ssworld_project_create` | new runnable project (anchored at lon/lat/height), compiled |
-| `ssworld_source_read` / `ssworld_source_write` | digest-guarded edits of `.ssdl` sources |
-| `ssworld_compile` | SSDL 0.3 compiler with real diagnostics |
+| `ssworld_source_read` / `ssworld_source_write` | digest-guarded reads (`file: "*"` for all files) and whole-file writes of `.ssdl` sources; editing the files on disk with any tool also works, `ssworld_compile` rebuilds from disk |
+| `ssworld_source_patch` | exact-span edit (`old_string` → `new_string`, uniqueness checked, `replace_all` opt-in) with the same digest guard |
+| `ssworld_compile` | SSDL 0.3 compiler with real diagnostics, `node_count` and budget `usage`; catalog/runtime mismatches are compile errors |
 | `ssworld_preview` | starts the local preview server, returns `http://127.0.0.1:8880/projects/<name>/index.html` and whether the page is open |
-| `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`), pixel stats, runtime errors, camera pose; PNG returned as image content and saved to `captures/` |
+| `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`; PNG returned as image content and saved to `captures/` |
 | `ssworld_engine_status` | engine pair installed? (`install: true` to download) |
 
 Hermes also receives the `skills/ssworld` skill (copied to `$HERMES_HOME/skills/ssworld`) so it picks the server on its own for 3D-scene requests.
