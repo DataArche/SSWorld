@@ -48,6 +48,10 @@
     "Polyline",
     "Polygon",
     "ExtrudedPolygon",
+    "HeightField",
+    "Lathe",
+    "Tube",
+    "Loft",
     "Label",
     "Model",
     "Texture",
@@ -2963,6 +2967,153 @@
     dispose() { return Group.prototype.dispose.call(this); }
   }
 
+  // Parametric mesh generators. Parameters are compile-time constants; each generator is a fixed,
+  // reviewed algorithm producing MeshData/v1 (positions + u32 indices, ccw outward, Z-up, metres).
+  const MESH_MAX_VERTICES = 65535;
+  function meshParams(type, params, allowed) {
+    invariant(params && typeof params === "object", `${type}.params is required`);
+    const unknown = Object.keys(params).find((name) => !allowed.includes(name));
+    invariant(!unknown, `qml_member_unsupported: ${type}.params.${unknown}`);
+    return params;
+  }
+  function meshInteger(value, field, min, max) {
+    invariant(Number.isInteger(value) && value >= min && value <= max, `${field} must be an integer in ${min}..${max}`);
+    return value;
+  }
+  function meshPoints(list, field, min) {
+    invariant(Array.isArray(list) && list.length >= min && list.length <= 256, `${field} must hold ${min}..256 points`);
+    return list.map((point, index) => meshPoint(point, `${field}[${index}]`));
+  }
+  function meshBudget(type, vertices) {
+    invariant(vertices <= MESH_MAX_VERTICES, `${type} would need ${vertices} vertices (limit ${MESH_MAX_VERTICES})`);
+  }
+  // Grid quads between ring k and k+1 (n points each, indexed k*n + j), outward for ccw rings stacked upward.
+  function ringQuads(indices, rings, n, closeRing) {
+    for (let k = 0; k < rings - 1; k += 1) {
+      const last = closeRing ? n : n - 1;
+      for (let j = 0; j < last; j += 1) {
+        const j1 = (j + 1) % n;
+        const a = k * n + j, b = k * n + j1, c = (k + 1) * n + j1, d = (k + 1) * n + j;
+        indices.push(a, b, c, a, c, d);
+      }
+    }
+  }
+  function ringCap(positions, indices, start, n, center, up) {
+    const centerIndex = positions.length;
+    positions.push(center);
+    for (let j = 0; j < n; j += 1) {
+      const a = start + j, b = start + (j + 1) % n;
+      if (up) indices.push(centerIndex, a, b); else indices.push(centerIndex, b, a);
+    }
+  }
+
+  function heightFieldMesh(params) {
+    meshParams("HeightField", params, ["width", "depth", "columns", "rows", "heights"]);
+    const width = finite(params.width, "HeightField.params.width"), depth = finite(params.depth, "HeightField.params.depth");
+    invariant(width > 0 && depth > 0, "HeightField.params.width/depth must be > 0");
+    const columns = meshInteger(params.columns, "HeightField.params.columns", 1, 4096);
+    const rows = meshInteger(params.rows, "HeightField.params.rows", 1, 4096);
+    const count = (columns + 1) * (rows + 1);
+    meshBudget("HeightField", count);
+    invariant(Array.isArray(params.heights) && params.heights.length === count,
+      `HeightField.params.heights needs (columns+1)*(rows+1) = ${count} values`);
+    const positions = [], indices = [];
+    for (let r = 0; r <= rows; r += 1) {
+      for (let c = 0; c <= columns; c += 1) {
+        positions.push({ x: -width / 2 + width * c / columns, y: -depth / 2 + depth * r / rows,
+          z: finite(params.heights[r * (columns + 1) + c], `HeightField.params.heights[${r * (columns + 1) + c}]`) });
+      }
+    }
+    for (let r = 0; r < rows; r += 1) {
+      for (let c = 0; c < columns; c += 1) {
+        const a = r * (columns + 1) + c, b = a + 1, cc = a + columns + 1, d = cc + 1;
+        indices.push(a, b, d, a, d, cc);
+      }
+    }
+    return { positions, indices };
+  }
+
+  function latheMesh(params) {
+    meshParams("Lathe", params, ["profile", "segments", "closed"]);
+    const profile = meshPoints(params.profile, "Lathe.params.profile", 2);
+    const segments = meshInteger(params.segments, "Lathe.params.segments", 3, 256);
+    invariant(profile.every((point) => point.x >= 0), "Lathe.params.profile radius (x) must be >= 0");
+    invariant(params.closed === undefined || typeof params.closed === "boolean", "Lathe.params.closed must be boolean");
+    meshBudget("Lathe", profile.length * segments + 2);
+    const positions = [], indices = [];
+    for (const point of profile) {
+      for (let j = 0; j < segments; j += 1) {
+        const angle = 2 * Math.PI * j / segments;
+        positions.push({ x: point.x * Math.cos(angle), y: point.x * Math.sin(angle), z: point.z });
+      }
+    }
+    ringQuads(indices, profile.length, segments, true);
+    if (params.closed) {
+      const first = profile[0], last = profile[profile.length - 1];
+      if (first.x > 0) ringCap(positions, indices, 0, segments, { x: 0, y: 0, z: first.z }, first.z > last.z);
+      if (last.x > 0) ringCap(positions, indices, (profile.length - 1) * segments, segments, { x: 0, y: 0, z: last.z }, last.z >= first.z);
+    }
+    return { positions, indices };
+  }
+
+  function tubeMesh(params) {
+    meshParams("Tube", params, ["path", "radius", "segments", "closed"]);
+    const path = meshPoints(params.path, "Tube.params.path", 2);
+    const radius = finite(params.radius, "Tube.params.radius");
+    invariant(radius > 0, "Tube.params.radius must be > 0");
+    const segments = meshInteger(params.segments, "Tube.params.segments", 3, 64);
+    invariant(params.closed === undefined || typeof params.closed === "boolean", "Tube.params.closed must be boolean");
+    meshBudget("Tube", path.length * segments + 2);
+    const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+    const cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
+    const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+    const norm = (v, field) => { const l = Math.hypot(v.x, v.y, v.z); invariant(l > 1e-12, field); return { x: v.x / l, y: v.y / l, z: v.z / l }; };
+    const tangents = path.map((point, i) => {
+      const prev = i > 0 ? norm(sub(point, path[i - 1]), "Tube.params.path must not repeat adjacent points") : null;
+      const next = i < path.length - 1 ? norm(sub(path[i + 1], point), "Tube.params.path must not repeat adjacent points") : null;
+      return prev && next ? norm({ x: prev.x + next.x, y: prev.y + next.y, z: prev.z + next.z }, "Tube.params.path folds back on itself") : prev || next;
+    });
+    // Parallel-transport frame: start perpendicular to the first tangent, then rotate minimally.
+    const reference = Math.abs(tangents[0].z) < 0.9 ? { x: 0, y: 0, z: 1 } : { x: 0, y: 1, z: 0 };
+    let normal = norm(cross(reference, tangents[0]), "Tube frame");
+    const positions = [], indices = [];
+    for (let i = 0; i < path.length; i += 1) {
+      if (i > 0) {
+        const projected = { x: normal.x - tangents[i].x * dot(normal, tangents[i]), y: normal.y - tangents[i].y * dot(normal, tangents[i]), z: normal.z - tangents[i].z * dot(normal, tangents[i]) };
+        normal = Math.hypot(projected.x, projected.y, projected.z) > 1e-9 ? norm(projected, "Tube frame") : normal;
+      }
+      const binormal = cross(tangents[i], normal);
+      for (let j = 0; j < segments; j += 1) {
+        const angle = 2 * Math.PI * j / segments, c = Math.cos(angle) * radius, s = Math.sin(angle) * radius;
+        positions.push({ x: path[i].x + normal.x * c + binormal.x * s, y: path[i].y + normal.y * c + binormal.y * s, z: path[i].z + normal.z * c + binormal.z * s });
+      }
+    }
+    ringQuads(indices, path.length, segments, true);
+    if (params.closed) {
+      ringCap(positions, indices, 0, segments, path[0], false);
+      ringCap(positions, indices, (path.length - 1) * segments, segments, path[path.length - 1], true);
+    }
+    return { positions, indices };
+  }
+
+  function loftMesh(params) {
+    meshParams("Loft", params, ["sections", "cap"]);
+    invariant(Array.isArray(params.sections) && params.sections.length >= 2 && params.sections.length <= 128, "Loft.params.sections must hold 2..128 rings");
+    const sections = params.sections.map((ring, index) => meshPoints(ring, `Loft.params.sections[${index}]`, 3));
+    const count = sections[0].length;
+    invariant(sections.every((ring) => ring.length === count), "Loft.params.sections must all have the same number of points");
+    invariant(params.cap === undefined || typeof params.cap === "boolean", "Loft.params.cap must be boolean");
+    meshBudget("Loft", sections.length * count + 2);
+    const positions = sections.flat(), indices = [];
+    ringQuads(indices, sections.length, count, true);
+    if (params.cap) {
+      const centroid = (ring) => ({ x: ring.reduce((sum, p) => sum + p.x, 0) / ring.length, y: ring.reduce((sum, p) => sum + p.y, 0) / ring.length, z: ring.reduce((sum, p) => sum + p.z, 0) / ring.length });
+      ringCap(positions, indices, 0, count, centroid(sections[0]), false);
+      ringCap(positions, indices, (sections.length - 1) * count, count, centroid(sections[sections.length - 1]), true);
+    }
+    return { positions, indices };
+  }
+
   function geometryComponentSpec(type, kind, spec) {
     invariant(spec && typeof spec === "object", `${type} needs a spec`);
     invariant(spec.kind === undefined || spec.kind === kind, `${type}.kind cannot be overridden`);
@@ -2999,6 +3150,19 @@
     constructor(runtime, spec) {
       super(runtime, geometryComponentSpec("Polygon", "polygon", { ...spec, params: polygonParams(spec?.params) }));
     }
+  }
+
+  class HeightField extends SceneObject {
+    constructor(runtime, spec) { super(runtime, geometryComponentSpec("HeightField", "mesh", { ...spec, params: heightFieldMesh(spec?.params) })); }
+  }
+  class Lathe extends SceneObject {
+    constructor(runtime, spec) { super(runtime, geometryComponentSpec("Lathe", "mesh", { ...spec, params: latheMesh(spec?.params) })); }
+  }
+  class Tube extends SceneObject {
+    constructor(runtime, spec) { super(runtime, geometryComponentSpec("Tube", "mesh", { ...spec, params: tubeMesh(spec?.params) })); }
+  }
+  class Loft extends SceneObject {
+    constructor(runtime, spec) { super(runtime, geometryComponentSpec("Loft", "mesh", { ...spec, params: loftMesh(spec?.params) })); }
   }
 
   class ExtrudedPolygon extends SceneObject {
@@ -4430,6 +4594,10 @@
     Polyline: "createPolyline",
     Polygon: "createPolygon",
     ExtrudedPolygon: "createExtrudedPolygon",
+    HeightField: "createHeightField",
+    Lathe: "createLathe",
+    Tube: "createTube",
+    Loft: "createLoft",
   });
 
   class Repeater {
@@ -5845,6 +6013,10 @@
     createCylinder(spec) { return new Cylinder(this, spec); }
     createCone(spec) { return new Cone(this, spec); }
     createPolyline(spec) { return new Polyline(this, spec); }
+    createHeightField(spec) { return new HeightField(this, spec); }
+    createLathe(spec) { return new Lathe(this, spec); }
+    createTube(spec) { return new Tube(this, spec); }
+    createLoft(spec) { return new Loft(this, spec); }
     createPolygon(spec) { return new Polygon(this, spec); }
     createExtrudedPolygon(spec) { return new ExtrudedPolygon(this, spec); }
     createLabel(spec) { return new Label(this, spec); }

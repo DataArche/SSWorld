@@ -233,6 +233,51 @@ function compileHostCall(action, symbols, hostInterfaces) {
   return { kind: "call", interface: name, method, args };
 }
 
+/** Native explicit meshes are capped at 65535 vertices (GeometryFacade MeshData/v1). */
+export const MESH_MAX_VERTICES = 65535;
+const meshFail = (code, message) => { throw Object.assign(new Error(message), { code }); };
+const integer = (value, name, min, max) => {
+  if (!Number.isInteger(value) || value < min || value > max) meshFail("mesh_invalid", `${name} must be an integer in ${min}..${max}`);
+  return value;
+};
+/**
+ * Parametric mesh generators: vertex/triangle counts from the compiled (constant) parameters. The
+ * browser runtime builds the same meshes from the same parameters, so the IR carries parameters only.
+ */
+export const MESH_GENERATORS = Object.freeze({
+  HeightField(props) {
+    const columns = integer(props.columns, "columns", 1, 4096), rows = integer(props.rows, "rows", 1, 4096);
+    if (!(props.width > 0) || !(props.depth > 0)) meshFail("mesh_invalid", "width and depth must be > 0");
+    const expected = (columns + 1) * (rows + 1);
+    if (!Array.isArray(props.heights) || props.heights.length !== expected) meshFail("mesh_invalid", `heights needs (columns+1)*(rows+1) = ${expected} values (row-major, first row at -depth/2), got ${props.heights?.length ?? 0}`);
+    return { vertices: expected, triangles: 2 * columns * rows };
+  },
+  Lathe(props) {
+    const segments = integer(props.segments, "segments", 3, 256);
+    const profile = props.profile || [];
+    if (profile.length < 2) meshFail("mesh_invalid", "profile needs at least 2 points ([radius, 0, height] each)");
+    if (profile.some((point) => point[0] < 0)) meshFail("mesh_invalid", "profile radius (x) must be >= 0");
+    const caps = props.closed ? 2 : 0;
+    return { vertices: profile.length * segments + caps, triangles: 2 * (profile.length - 1) * segments + caps * segments };
+  },
+  Tube(props) {
+    const segments = integer(props.segments, "segments", 3, 64);
+    const path = props.path || [];
+    if (path.length < 2) meshFail("mesh_invalid", "path needs at least 2 points");
+    if (!(props.radius > 0)) meshFail("mesh_invalid", "radius must be > 0");
+    const caps = props.closed ? 2 : 0;
+    return { vertices: path.length * segments + caps, triangles: 2 * (path.length - 1) * segments + caps * segments };
+  },
+  Loft(props) {
+    const sections = props.sections || [];
+    if (sections.length < 2) meshFail("mesh_invalid", "sections needs at least 2 rings");
+    const count = sections[0].length;
+    if (count < 3 || sections.some((ring) => ring.length !== count)) meshFail("mesh_invalid", "every section needs the same number of points (>= 3)");
+    const caps = props.cap ? 2 : 0;
+    return { vertices: sections.length * count + caps, triangles: 2 * (sections.length - 1) * count + caps * count };
+  },
+});
+
 function runtimeProperty(component, property) {
   return catalog.components[component]?.members[property]?.runtime_property || property;
 }
@@ -321,13 +366,16 @@ function compileDocument(document, source, options = {}) {
         properties.push({ property: name, value: target });
         continue;
       }
-      if (["vector3_list", "ring_list", "asset_ref"].includes(descriptor.value_type)) {
+      if (["vector3_list", "ring_list", "asset_ref", "scalar_list"].includes(descriptor.value_type)) {
         // Create-only constants: no bindings, no expressions. Point lists are metres in author order;
         // asset references are project-relative paths resolved against the source project's asset_refs.
         if (containsReference(member.value)) fail("constant_required", member.value);
         const raw = literalValue(member.value);
         let value;
-        if (descriptor.value_type === "asset_ref") {
+        if (descriptor.value_type === "scalar_list") {
+          if (!Array.isArray(raw) || raw.length < 1 || raw.length > 65536 || !raw.every((item) => Number.isFinite(item))) fail("type_mismatch", member.value, `${child.type}.${name} must be a list of 1..65536 finite numbers`);
+          value = raw.slice();
+        } else if (descriptor.value_type === "asset_ref") {
           if (typeof raw !== "string") fail("type_mismatch", member.value);
           const asset = assetRefs.get(raw);
           if (!asset) fail("asset_unresolved", member.value, `${child.type}.${name}: '${raw}' is not in the source project's asset_refs`);
@@ -478,6 +526,15 @@ function compileDocument(document, source, options = {}) {
   }
   for (const [key, pending] of pendingValues) {
     try { read({segments:[key]}); } catch (error) { fail(error.code || 'expression_invalid',pending.ast,error.message); }
+  }
+  for (const node of sceneNodes) {
+    if (!Object.hasOwn(MESH_GENERATORS, node.type)) continue;
+    const raw = rawNodes.find((item) => item.id === node.id);
+    const props = Object.fromEntries(node.properties.map((item) => [item.property, item.value]));
+    let estimate;
+    try { estimate = MESH_GENERATORS[node.type](props); }
+    catch (error) { fail(error.code || "mesh_invalid", raw?.child, `${node.type} '${node.id}': ${error.message}`); }
+    if (estimate.vertices > MESH_MAX_VERTICES) fail("mesh_budget", raw?.child, `${node.type} '${node.id}' would need ${estimate.vertices} vertices (limit ${MESH_MAX_VERTICES}); lower columns/rows/segments`);
   }
   const writers = new Map(bindings.map((binding) => [
     `${binding.target.node}.${binding.target.property}`, binding,

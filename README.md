@@ -36,6 +36,14 @@ Manual registration for any other client:
 | `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`, the scene's `requested` camera and a `deviation` with reasons (clip planes are engine-managed); `receipt` binding the frame to source/IR digests and the page generation (`in_sync`, `staleness`); `framing` describing the offscreen render at the requested size (horizontal fov kept, vertical follows the aspect); `logic` with the page's live declared properties / `State.when` / host call errors; `reference_match` always `not_evaluated`; PNG returned as image content and saved to `captures/` |
 | `ssworld_engine_status` | engine pair installed? (`install: true` to download) |
 
+### Procedural geometry
+
+Four parametric generators compile to constant parameters and are tessellated by the runtime (`MeshData/v1`, ccw outward,
+≤ 65535 vertices per node, `mesh_budget` beyond): `HeightField { width; depth; columns; rows; heights }`,
+`Lathe { profile: [[radius, 0, height] …]; segments; closed }`, `Tube { path; radius; segments; closed }`,
+`Loft { sections: [[ring] …]; cap }`. `ssworld_compile` reports their cost as `usage.mesh`. There are no per-vertex
+functions: arbitrary meshes are managed assets (`Model`).
+
 ### Scene logic and host interfaces
 
 Scene state is declared on the `Scene` root (`property real score: 0`, types `real/bool/string/length/degrees/duration/radians`),

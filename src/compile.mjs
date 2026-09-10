@@ -73,7 +73,7 @@ export function budgetUsage(result, budgets = {}) {
 
 /** Compile `directory/scene.ssdl` (+ siblings) into the same directory and refresh showcase.manifest.json. */
 export async function compileProject(directory, { name, budgets } = {}) {
-  const { compileSceneModuleProject } = await loadCompiler();
+  const { compileSceneModuleProject, MESH_GENERATORS, MESH_MAX_VERTICES } = await loadCompiler();
   const manifestPath = path.join(directory, "showcase.manifest.json");
   const hybrid = JSON.parse(await readFile(manifestPath, "utf8"));
   const project = await buildSourceProject(directory);
@@ -120,9 +120,21 @@ export async function compileProject(directory, { name, budgets } = {}) {
     catalog_digest: hybrid.catalog_digest, compiler_profile: hybrid.compiler_profile,
     source_digest: project.source_digest, source_files: project.files.map((file) => file.path),
     node_count: Array.isArray(result.scene_ir?.nodes) ? result.scene_ir.nodes.length : undefined,
-    usage: budgetUsage(result, budgets || hybrid.budgets),
+    usage: { ...budgetUsage(result, budgets || hybrid.budgets), mesh: meshUsage(result.scene_ir, MESH_GENERATORS, MESH_MAX_VERTICES) },
     logic: logicSummary(result.scene_ir),
   };
+}
+
+/** Generated-mesh cost of the parametric geometry nodes (primitives and models are not tessellated here). */
+export function meshUsage(sceneIR, generators = {}, limit = 65535) {
+  const nodes = [];
+  for (const node of sceneIR?.nodes || []) {
+    if (!Object.hasOwn(generators, node.type)) continue;
+    const props = Object.fromEntries((node.properties || []).map((item) => [item.property, item.value]));
+    try { nodes.push({ id: node.id, type: node.type, ...generators[node.type](props) }); } catch { /* the compiler already rejected it */ }
+  }
+  return { nodes, vertices: nodes.reduce((sum, item) => sum + item.vertices, 0), triangles: nodes.reduce((sum, item) => sum + item.triangles, 0),
+    vertex_limit_per_node: limit, note: "counts the meshes generated from HeightField/Lathe/Tube/Loft parameters; Box/Sphere/... and Model triangles are not estimated" };
 }
 
 export const HOST_INTERFACES_FILE = "host_interfaces.json";

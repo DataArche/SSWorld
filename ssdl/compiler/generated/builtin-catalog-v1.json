@@ -559,6 +559,80 @@
         }
       }
     },
+    "HeightField": {
+      "adapter": "geometry",
+      "factory": "createHeightField",
+      "members": {
+        "color": {
+          "runtime_property": "material.color",
+          "value_type": "color"
+        },
+        "columns": {
+          "required": true,
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "depth": {
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "heights": {
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar_list"
+        },
+        "opacity": {
+          "runtime_property": "material.opacity",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "parent": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "position": {
+          "runtime_property": "transform.position",
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "rotation": {
+          "runtime_property": "transform.rotation",
+          "unit": "scalar",
+          "value_type": "quaternion"
+        },
+        "rows": {
+          "required": true,
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "scale": {
+          "runtime_property": "transform.scale",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "width": {
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        }
+      },
+      "params": [
+        "width",
+        "depth",
+        "columns",
+        "rows",
+        "heights"
+      ]
+    },
     "HoverHandler": {
       "adapter": "interaction",
       "factory": "createHoverHandler",
@@ -643,6 +717,115 @@
           "value_type": "boolean"
         }
       }
+    },
+    "Lathe": {
+      "adapter": "geometry",
+      "factory": "createLathe",
+      "members": {
+        "closed": {
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "color": {
+          "runtime_property": "material.color",
+          "value_type": "color"
+        },
+        "opacity": {
+          "runtime_property": "material.opacity",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "parent": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "position": {
+          "runtime_property": "transform.position",
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "profile": {
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector3_list"
+        },
+        "rotation": {
+          "runtime_property": "transform.rotation",
+          "unit": "scalar",
+          "value_type": "quaternion"
+        },
+        "scale": {
+          "runtime_property": "transform.scale",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "segments": {
+          "required": true,
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        }
+      },
+      "params": [
+        "profile",
+        "segments",
+        "closed"
+      ]
+    },
+    "Loft": {
+      "adapter": "geometry",
+      "factory": "createLoft",
+      "members": {
+        "cap": {
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "color": {
+          "runtime_property": "material.color",
+          "value_type": "color"
+        },
+        "opacity": {
+          "runtime_property": "material.opacity",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "parent": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "position": {
+          "runtime_property": "transform.position",
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "rotation": {
+          "runtime_property": "transform.rotation",
+          "unit": "scalar",
+          "value_type": "quaternion"
+        },
+        "scale": {
+          "runtime_property": "transform.scale",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "sections": {
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "ring_list"
+        },
+        "visible": {
+          "value_type": "boolean"
+        }
+      },
+      "params": [
+        "sections",
+        "cap"
+      ]
     },
     "Model": {
       "adapter": "model",
@@ -1648,6 +1831,71 @@
       },
       "signals": [
         "onTriggered"
+      ]
+    },
+    "Tube": {
+      "adapter": "geometry",
+      "factory": "createTube",
+      "members": {
+        "closed": {
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "color": {
+          "runtime_property": "material.color",
+          "value_type": "color"
+        },
+        "opacity": {
+          "runtime_property": "material.opacity",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "parent": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "path": {
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector3_list"
+        },
+        "position": {
+          "runtime_property": "transform.position",
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "radius": {
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "rotation": {
+          "runtime_property": "transform.rotation",
+          "unit": "scalar",
+          "value_type": "quaternion"
+        },
+        "scale": {
+          "runtime_property": "transform.scale",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "segments": {
+          "required": true,
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        }
+      },
+      "params": [
+        "path",
+        "radius",
+        "segments",
+        "closed"
       ]
     },
     "Vector3dAnimation": {
