@@ -53,6 +53,7 @@ metadata:
 - **重复结构先组件化**：立面格栅、树、路灯写成 `Tower.ssdl`/`Tree.ssdl` 这类组件文件，在入口里 `Tree { id: tree1; position: [...] }` 多次使用，id 用语义名（`civicRoof`、`eastTower`）而不是 `b123`；`ssworld_scene_inspect` 的 `by_file`/`largest_subtrees` 能看出哪部分吃掉预算。
 - **每个节点给唯一 `id`**，尤其是自定义组件文件里的多个同类兄弟；匿名节点在组件内会报 `duplicate_id`。
 - **DirectionalLight 两种模式**：`atmosphereSunLight: true` 接管天空太阳，只能改 `intensity/lightColor/castShadows/temperature/indirectLightingIntensity/volumetricScatteringIntensity` 和 `sunAzimuth/sunElevation`；`lightSourceAngle`/`lightSourceSoftAngle`/`cloudScatteredLuminanceScale` 只有 `atmosphereSunLight` 不为 true 的自有灯才能写，编译器会以 `runtime_unsupported` 拒绝错误组合。
+- **PointLight / SpotLight / RectLight 0.7.4 起可见**（0.7.3 及之前建得起来但不出光）。`intensityUnits: "Lumens"` 时室内一盏 600~3000 lm 够用，上万流明会触发镜头眩光（画面里对称于屏幕中心的一串光斑不是第二盏灯）。`SpotLight`/`RectLight` 沿自身局部 **-X** 出光：`rotation: [0, 0, 0]` 朝西（-X），`[0, 0, 90]` 朝南，`[0, 0, 180]` 朝东，`[0, 0, 270]` 朝北，`[0, -90, 0]` 朝正下、`[0, 90, 0]` 朝天；`attenuationRadius` 是米，锥角 `innerConeAngle/outerConeAngle` 是度。
 - QML 风格：`id`、属性绑定表达式、`State { when }`、组件文件。事件处理器只能做受检的属性赋值和已声明的宿主调用，不是任意 JavaScript。
 - **场景逻辑（计分、阶段、胜负）用逻辑属性，不用"8 盏灯"**：在 `Scene` 根上声明 `property real score: 0` / `property bool armed: true` / `property string phase: "idle"`（类型 real/bool/string/length/degrees/duration/radians）；处理器里 `score = score + 1`，绑定里 `when: score >= 8 && misses < 3`（支持 `+ - * / === !== < <= > >= && || ! ?:` 与 `min/max/clamp/lerp`，只有数值算术，没有字符串拼接）。一个处理器里的多条赋值是一笔事务，任一失败整批回滚。截图返回的 `logic.properties` 就是这些值。**绑定也是逐帧一笔事务**：任何一条绑定的值被目标拒绝（负的 `width`、类型不对、原生拒绝），整批回滚、该绑定失效、相关值停止变化，页面不抛异常，只在 `runtime.errors` 里给 `binding_error`（`节点.属性: 代码: 信息`，映射到源码行）并列进 `logic.bindings.invalid`。分段路径用 `clamp/lerp/min/max` 按进度属性写，不写分支式 `?:` 链，且每个分支都要落在目标合法范围内。`Behavior` 会把目标属性的每次变化按 `duration` 缓动，挂在逐帧变化的属性上会滞后约"速度 × duration"，只用于离散跳变（命中、状态切换），连续运动直接绑定。State 由 `when` 派生，不能写，改它读的属性。每次编译都会热重载页面并把逻辑属性重置为初值（`ssworld_compile` 返回 `hot_reload.logic_reset`），测试中途别编译，或编译后用 `ssworld_logic_write` 恢复局面。
 - **规则需要 JS 时走宿主接口，不把几何搬进 JS**：先写 `host_interfaces.json`（`{"Game":{"methods":{"hit":{"args":[{"name":"targetId","type":"string"}]},"reset":{"args":[]}}}}`），再写 `logic.mjs`（`export function createHostInterfaces(api) { return { Game: { hit({ targetId }) { … api.logical.write("score", n) … }, reset() {} } }; }`），SSDL 里 `TapHandler { onTapped: { Game.hit(targetId: "balloonA"); } }`。未声明的接口/方法/参数在编译期报 `host_interface_unknown` / `host_method_unknown` / `host_arg_missing`；`logic.mjs` 缺实现页面拒绝加载（`host_interface_missing`）。回调同步、无返回值，只能通过 `api.logical.write` 改场景状态；抛错会记进 `logic.host_call_errors` 并出现在 `runtime.errors`。热重载时 `logic.mjs` 重新导入、逻辑属性回到初值。
@@ -84,9 +85,16 @@ Scene {
 }
 ```
 
+## 大体量场景实测要点（城市/园区级，2026-09 实测）
+
+- **子节点父级只能是 Scene / Group / GeoAnchor**：几何体不能当父节点——把 Cone/Box 作为子节点挂在另一个 Box 下会**编译通过**，但页面加载失败：`SceneObject.parent must be a live Scene, Group or GeoAnchor from the same runtime`（receipt 里 `camera.source` 变 `engine_default`、`runtime.errors` 给出该条）。多部件单元要么用 Group 根组件（每实例 +1 原生对象），要么在生成器里把部件平铺成 Scene 同级节点（绝对坐标，省那 1 个对象，旋转部件用逐节点四元数）。
+- **预算成本模型**：`usage.native_objects` 把 Scene/相机/灯/每个 Group/每个几何体都各计 1。实测 1848~1905 节点渲染稳定，1930+ 后置顶运行有风险；1200×900 以上尺寸的 `capture_frame` 在大场景下可能 `saveImage2Base64 timed out`。大场景（>500 实例）用项目内生成器脚本（`gen_*.py`）出源码再 `ssworld_compile`（总是从磁盘重建），别手写；脚本自估节点数会偏 2~10%，以编译收据为准。
+- **截图超时的真凶常常是预览页被节流**：`capture_frame` 报 `saveImage2Base64 timed out` 时先看返回里的 `status.visibility`——为 `"hidden"` 说明页面在后台/被切走（浏览器把 rAF 节流），并非场景问题；先把桌面预览面板 close 再 open（或让窗口可见）再截。连续大场景截图还可能把 MCP 服务拖到 `unreachable`，等 ~1 分钟自动恢复即可，别连击重试。
+- **组件实例参数可以传四元数分量和缩放**：`property real rz: 0` + `rotation: [0, 0, rz, rw]`、`property real sc: 1` + `scale: [sc, sc, sc]` 都可编译通过，是给重复实例（楼、车）加变化的最省事办法。
+
 ## 边界
 
 - `ssworld_source_write` 只写项目内 `.ssdl`、`host_interfaces.json`、`logic.mjs`；页面排版、锚点、默认相机在项目目录的 `index.html` / `scene.mjs`（路径在 `ssworld_project_create` 返回的 `directory`），需要时用文件工具改。模板页面把 WebGPU 画布和信息面板并排摆放，没有任何浮层盖在画布上；自己加的浮层不要压住画布，装饰性浮层给 `pointer-events: none`，否则会吞掉 `TapHandler` 需要的点击。几何、材质、动画、事件一律留在 SSDL，JS 只做数据与规则，不要在 JS 里建几何或直接操作引擎。
-- `SkyAtmosphere.skyLuminanceFactor`、`rayleighScattering` 等散射项是三维向量 `[r, g, b]`，不是标量；写错编译期就会报 `type_mismatch`。`SunSky` 不可用，改用 `SkyAtmosphere` + `DirectionalLight { atmosphereSunLight: true; sunAzimuth; sunElevation }`。
+- `SkyAtmosphere.skyLuminanceFactor`、`rayleighScattering` 等散射项是三维向量 `[r, g, b]`，不是标量；写错编译期就会报 `type_mismatch`。`SunSky` 不可用，改用 `SkyAtmosphere` + `DirectionalLight { atmosphereSunLight: true; sunAzimuth; sunElevation }`（0.7.4 起 `sunAzimuth/sunElevation` 真正驱动太阳与影子；热重载后仍生效）。
 - 不要删除或覆盖用户已有项目；`ssworld_project_create` 对重名会直接报错。
 - 最终回复给出：项目名与源码路径、`viewer_url`、截图路径（`capture_path`）与从图上看到的内容、运行时错误（如有），以及没验证的部分。

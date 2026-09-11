@@ -1,18 +1,18 @@
 {
   "schema_version": "SSWorldEngineLock/1",
-  "engine_id": "ec27187eb455982e",
-  "release": "engine-ec27187eb455982e",
-  "download_base": "https://github.com/DataArche/SSWorld/releases/download/engine-ec27187eb455982e/",
+  "engine_id": "7dbd62b274150cce",
+  "release": "engine-7dbd62b274150cce",
+  "download_base": "https://github.com/DataArche/SSWorld/releases/download/engine-7dbd62b274150cce/",
   "assets": [
     {
       "name": "SSmap.js",
-      "size": 452536,
-      "sha256": "56c74f35e5d4f36d3ee90830074041a995e1eb82b61f971ced48281e4b7c8fe3"
+      "size": 452828,
+      "sha256": "3473c27325b4eda6f4f2a232908dc5f46ae8e9773e2c5cce2e1bcf2ac00a14f4"
     },
     {
       "name": "SSmap.wasm",
-      "size": 54464173,
-      "sha256": "273e1df4b97b2c4eaf079e0e208cd599abe7c92c6755b2ffc6a861457aa8df60"
+      "size": 54586823,
+      "sha256": "6348da4853e2a8a09abc36edcfe919f2b9c7ad2b65b575508f1a27ea326fc035"
     }
   ],
   "source": "SSEngine SDK Emscripten Release build (SSmap.js + SSmap.wasm)"

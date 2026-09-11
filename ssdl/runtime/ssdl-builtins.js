@@ -3728,6 +3728,9 @@
   // Author-facing sun orientation for the atmosphere sun light, in local ENU degrees at the runtime anchor.
   // These are not UE 4.27 members; the runtime converts them to the ECEF direction the native sun consumes.
   const SUN_DIRECTION_MEMBERS = new Set(["sunAzimuth", "sunElevation"]);
+  // The engine sun is page-global. Hot reload mounts the new generation before the
+  // old one is disposed, so only the last writer may release the native direction lock.
+  let sunDirectionOwner = null;
 
   function sunDirectionFromAnchor(anchor, azimuthDeg, elevationDeg) {
     const rad = Math.PI / 180;
@@ -4030,8 +4033,14 @@
       }
       const vector = Vector3.create(direction.x, direction.y, direction.z);
       try { sun.setDirection(vector); } finally { if (typeof vector.delete === "function") vector.delete(); }
+      // Engines with setDirectionLocked keep this direction across frames; older
+      // engines re-solve the sun from the wall clock every frame and ignore it.
+      const nativeLock = typeof sun.setDirectionLocked === "function";
+      if (nativeLock) sun.setDirectionLocked(true);
+      sunDirectionOwner = this;
       this.sunDirection = direction;
-      return { ok: true, native: true, direction };
+      this.sunDirectionLocked = nativeLock;
+      return { ok: true, native: true, locked: nativeLock, direction };
     }
 
     update(patch) {
@@ -4059,7 +4068,10 @@
 
     snapshot() {
       const result = super.snapshot();
-      if (this.sunDirection) result.sun = { azimuth: this.sunAzimuth, elevation: this.sunElevation, direction: { ...this.sunDirection } };
+      if (this.sunDirection) {
+        result.sun = { azimuth: this.sunAzimuth, elevation: this.sunElevation, direction: { ...this.sunDirection },
+          locked: this.sunDirectionLocked === true };
+      }
       return result;
     }
 
@@ -4069,9 +4081,16 @@
         const Vector3 = this.runtime.Module?.Vector3;
         const original = this.originalSunDirection;
         this.originalSunDirection = null;
-        if (sun && typeof Vector3?.create === "function") {
-          const vector = Vector3.create(original.x, original.y, original.z);
-          try { sun.setDirection(vector); } finally { if (typeof vector.delete === "function") vector.delete(); }
+        // A replaced generation must not undo the sun the current generation just set.
+        if (sun && sunDirectionOwner === this) {
+          sunDirectionOwner = null;
+          if (typeof sun.setDirectionLocked === "function") {
+            // Hand the sun back to the engine's time-driven solar position.
+            sun.setDirectionLocked(false);
+          } else if (typeof Vector3?.create === "function") {
+            const vector = Vector3.create(original.x, original.y, original.z);
+            try { sun.setDirection(vector); } finally { if (typeof vector.delete === "function") vector.delete(); }
+          }
         }
       }
       return super.dispose();
