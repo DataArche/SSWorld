@@ -3,7 +3,7 @@
 // native EnvironmentFacade (ssdl_environment_bindings.cpp), lirendersystem.cpp and the SSDL browser runtime.
 
 /** Bumped whenever the notes below change meaning, so catalog_digest moves with them. */
-export const NOTES_VERSION = 4;
+export const NOTES_VERSION = 5;
 
 // DirectionalLight with atmosphereSunLight: true adopts the engine's scene sun (LiSun), which only
 // exposes the LiLight base properties. The owned-light-only members fail at runtime with
@@ -34,6 +34,18 @@ const TIMELINE_CONTAINERS = new Set(["ParallelAnimation", "SequentialAnimation",
 export const ANIMATION_POLICY = `the engine runs at most ${TIMELINE_LIMIT} native timelines per page: every top-level NumberAnimation/Vector3dAnimation/RotationAnimation/QuaternionAnimation/ColorAnimation counts one whether or not it is running (finished ones keep their slot until the scene reloads), a ParallelAnimation/SequentialAnimation with all its children counts one, animations inside a Behavior count nothing until the Behavior transitions (each in-flight transition takes a slot); a small game (one animation per target plus Behavior transitions per hit) fits; beyond that group related animations under one ParallelAnimation/SequentialAnimation or drive repeated objects with Behaviors + bindings`;
 
 
+export const ASSETS_DIR = "assets";
+export const ASSET_MEDIA = Object.freeze({
+  ".glb": { kind: "model", media_type: "model/gltf-binary" },
+  ".png": { kind: "texture", media_type: "image/png" },
+  ".jpg": { kind: "texture", media_type: "image/jpeg" },
+  ".jpeg": { kind: "texture", media_type: "image/jpeg" },
+});
+// Runtime caps (ssdl-builtins managedAssetRef): a Model glb up to 32 MiB, a Texture image up to 8 MiB;
+// the source project schema takes at most 64 asset references.
+export const ASSET_LIMITS = Object.freeze({ model: 32 * 1024 * 1024, texture: 8 * 1024 * 1024, count: 64 });
+export const ASSET_POLICY = `put glb models and png/jpg textures under the project's ${ASSETS_DIR}/ directory and reference them by project-relative path (Model { source: "${ASSETS_DIR}/name.glb" }); each glb is at most ${ASSET_LIMITS.model / 1048576} MiB, each texture ${ASSET_LIMITS.texture / 1048576} MiB, at most ${ASSET_LIMITS.count} assets per project (asset_budget beyond); a Model needs no material of its own, and only its position/rotation/scale/visible can animate`;
+
 export const CONVENTIONS = Object.freeze({
   coordinate_system: "right-handed, Z-up; x east, y north, z up, metres; local origin is the project anchor",
   quaternion_order: "[x, y, z, w] (w last); identity is [0, 0, 0, 1]; only geometry/Model/Group rotation is a quaternion",
@@ -45,6 +57,7 @@ export const CONVENTIONS = Object.freeze({
   labels: LABEL_POLICY,
   procedural_geometry: "parametric generators (HeightField width/depth/columns/rows/heights row-major from -depth/2; Lathe profile [radius, 0, height] revolved around Z with segments and optional closed caps; Tube path + radius + segments with a parallel-transport frame; Loft same-count ccw rings stacked bottom to top with optional cap) are compile-time constants: the IR stores parameters, the runtime builds a MeshData/v1 mesh (ccw outward, at most 65535 vertices per node, compile error mesh_budget beyond that); per-vertex functions and author JavaScript are not accepted; arbitrary meshes go through managed assets (Model)",
   animations: ANIMATION_POLICY,
+  assets: ASSET_POLICY,
   logic: "declare scene state on the Scene root with `property real score: 0` (types real/bool/string/length/degrees/duration/radians); handlers assign with expressions (`score = score + 1`), bindings compare (`>= <= === !== < > && || ! ?:`); host JavaScript is reached only through `Iface.method(arg: expr)` actions declared in host_interfaces.json and implemented by logic.mjs; the page reads/writes declared properties through window.SSWorld.logical",
   ids: "every node in a component file needs a unique explicit id; anonymous siblings collide inside custom components",
   editing: "ssworld_source_patch edits one span by exact match; ssworld_source_batch applies several patches / node property sets atomically (optionally compiling and rolling back); ssworld_source_write replaces a file; writing the .ssdl files in the project directory with any other tool also works because ssworld_compile always rebuilds from disk, but such writes are not protected by the digest lock",
@@ -90,6 +103,8 @@ export function componentNotes(name) {
   if (name === "DirectionalLight") return { runtime_note: "atmosphereSunLight: true adopts the engine sun (drives the sky); only intensity/lightColor/castShadows/temperature/indirect/volumetric and sunAzimuth/sunElevation are writable on it. Leave it false for an owned light with full members." };
   if (name === "CameraView") return { runtime_note: `${CONVENTIONS.camera}. ${FOV_POLICY}. ${CLIP_PLANE_POLICY}` };
   if (name === "Label") return { runtime_note: LABEL_POLICY, runtime_supported: false };
+  if (name === "Model") return { runtime_note: `${ASSET_POLICY}; Model animates position/rotation/scale/visible only (animations, Behaviors and Bindings)` };
+  if (name === "Texture") return { runtime_note: `Texture.source is a png/jpg under ${ASSETS_DIR}/ (at most ${ASSET_LIMITS.texture / 1048576} MiB), referenced by project-relative path; pair it with Model.baseColorTexture + materialSlot` };
   if (name === "Group" || name === "GeoAnchor" || name === "Model") return { runtime_note: `${name} animates position/rotation/scale/visible only (animations, Behaviors and Bindings); material properties belong to the child geometry` };
   return {};
 }

@@ -8,6 +8,7 @@ import path from "node:path";
 import { PROJECTS_ROOT, SSDL_ROOT, PREVIEW_PORT, PACKAGE, PACKAGE_ROOT } from "./paths.mjs";
 import { engineStatus, ensureEngine } from "./engine.mjs";
 import { compileProject, CompileError } from "./compile.mjs";
+import { ASSETS_DIR } from "./runtime-support.mjs";
 
 const STATUS_ROUTE = "/__ssworld/status";
 const SYNC_ROUTE = "/__ssworld/sync";      // page -> server: status heartbeat + command results; server -> page: pending commands
@@ -140,7 +141,8 @@ async function versionEndpoint(query, response) {
     for (const item of readdirSync(current, { withFileTypes: true })) {
       const absolute = path.join(current, item.name);
       if (item.isDirectory()) walk(absolute);
-      else if (item.name.endsWith(".ssdl") || (current === directory && ["logic.mjs", "host_interfaces.json"].includes(item.name))) stamp = Math.max(stamp, statSync(absolute).mtimeMs);
+      else if (item.name.endsWith(".ssdl") || (current === directory && ["logic.mjs", "host_interfaces.json"].includes(item.name))
+        || path.relative(directory, absolute).split(path.sep)[0] === ASSETS_DIR) stamp = Math.max(stamp, statSync(absolute).mtimeMs);
     }
   })(directory);
   if (!existsSync(generated) || stamp > statSync(generated).mtimeMs) {

@@ -5,7 +5,8 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SSDL_ROOT } from "./paths.mjs";
-import { checkRuntimeSupport, TIMELINE_LIMIT, timelineNodes } from "./runtime-support.mjs";
+import { ensureAssetCapablePage } from "./page.mjs";
+import { ASSET_LIMITS, ASSET_MEDIA, ASSETS_DIR, checkRuntimeSupport, TIMELINE_LIMIT, timelineNodes } from "./runtime-support.mjs";
 
 let compilerPromise = null;
 function loadCompiler() {
@@ -28,6 +29,56 @@ async function discover(directory, out = []) {
   return out;
 }
 
+// Managed assets live under <project>/assets/ and are referenced by their project-relative path
+// (`Model { source: "assets/tree.glb" }`, `Texture { source: "assets/bark.png" }`). The compiler embeds
+// the AssetRef (digest + size) into SceneIR; the preview page fetches the bytes by that path and verifies them.
+export async function discoverAssets(directory) {
+  const root = path.join(directory, ASSETS_DIR);
+  if (!existsSync(root)) return [];
+  const files = [];
+  async function walk(current) {
+    for (const item of await readdir(current, { withFileTypes: true })) {
+      const absolute = path.join(current, item.name);
+      if (item.isDirectory()) await walk(absolute);
+      else if (item.isFile() && Object.hasOwn(ASSET_MEDIA, path.extname(item.name).toLowerCase())) files.push(absolute);
+    }
+  }
+  await walk(root);
+  const refs = await Promise.all(files.map(async (file) => {
+    const relative = path.relative(directory, file).split(path.sep).join("/");
+    const bytes = await readFile(file);
+    const { kind, media_type } = ASSET_MEDIA[path.extname(file).toLowerCase()];
+    return { path: relative, asset: { asset_id: relative, kind, media_type, content_digest: hash(bytes), size_bytes: bytes.byteLength, dependencies: [] } };
+  }));
+  refs.sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
+  return refs;
+}
+
+/** Compile-time asset budget: the runtime would reject an oversize AssetRef only at mount. */
+export function checkAssetBudget(refs) {
+  const problems = [];
+  for (const { path: file, asset } of refs) {
+    const limit = ASSET_LIMITS[asset.kind];
+    if (asset.size_bytes > limit) problems.push({ code: "asset_budget", file, message: `${file} is ${(asset.size_bytes / 1048576).toFixed(1)} MiB; a ${asset.kind} asset is at most ${limit / 1048576} MiB (the page would fail at mount)` });
+  }
+  if (refs.length > ASSET_LIMITS.count) problems.push({ code: "asset_budget", file: refs[ASSET_LIMITS.count].path, message: `${refs.length} assets under ${ASSETS_DIR}/; a project takes at most ${ASSET_LIMITS.count}` });
+  return problems;
+}
+
+export function assetUsage(refs, sceneIR) {
+  const referenced = new Set();
+  for (const node of sceneIR?.nodes || []) for (const item of node.properties || []) {
+    if (item.value && typeof item.value === "object" && typeof item.value.asset_id === "string") referenced.add(item.value.asset_id);
+  }
+  return {
+    count: refs.length, limit: ASSET_LIMITS.count,
+    bytes: refs.reduce((sum, item) => sum + item.asset.size_bytes, 0),
+    files: refs.map((item) => ({ path: item.path, kind: item.asset.kind, size_bytes: item.asset.size_bytes, referenced: referenced.has(item.asset.asset_id) })),
+    limits: { model_bytes: ASSET_LIMITS.model, texture_bytes: ASSET_LIMITS.texture },
+    note: `assets are discovered under ${ASSETS_DIR}/ (glb, png, jpg) and referenced by project-relative path`,
+  };
+}
+
 export class CompileError extends Error {
   constructor(message, diagnostic) {
     super(message);
@@ -42,9 +93,10 @@ export async function buildSourceProject(directory, entry = "scene.ssdl") {
     content: await readFile(file, "utf8"),
   })));
   files.sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
-  const project = { schema_version: "SSDLSourceProject/1", language: "SSDL/QML-Subset/0.3", entry, files, asset_refs: [], source_digest: "" };
+  const assetRefs = await discoverAssets(directory);
+  const project = { schema_version: "SSDLSourceProject/1", language: "SSDL/QML-Subset/0.3", entry, files, asset_refs: assetRefs, source_digest: "" };
   project.source_digest = hash(JSON.stringify(stable({
-    version: 1, language: project.language, entry, asset_refs: [],
+    version: 1, language: project.language, entry, asset_refs: assetRefs,
     files: files.map((file) => ({ path: file.path, content_digest: hash(file.content), size_bytes: Buffer.byteLength(file.content) })),
   })));
   return project;
@@ -79,6 +131,8 @@ export async function compileProject(directory, { name, budgets } = {}) {
   const manifestPath = path.join(directory, "showcase.manifest.json");
   const hybrid = JSON.parse(await readFile(manifestPath, "utf8"));
   const project = await buildSourceProject(directory);
+  const overBudget = checkAssetBudget(project.asset_refs);
+  if (overBudget.length) throw new CompileError(`${overBudget[0].file}:1:1: asset_budget: ${overBudget[0].message}`, { code: "asset_budget", file: overBudget[0].file, line: 1, column: 1, problems: overBudget });
   const host = await readHostInterfaces(directory);
   let result;
   try {
@@ -116,13 +170,16 @@ export async function compileProject(directory, { name, budgets } = {}) {
   });
   hybrid.module_digest = hash(await readFile(path.join(directory, hybrid.entry)));
   await writeFile(manifestPath, JSON.stringify(hybrid, null, 2) + "\n", "utf8");
+  const assets = assetUsage(project.asset_refs, result.scene_ir);
+  const page = ensureAssetCapablePage(directory, { name: name || hybrid.name, anchor: hybrid.anchor || { lon: 114.0579, lat: 22.5431, height: 150 }, usesAssets: assets.files.some((file) => file.referenced) });
   return {
     ok: true,
+    ...(page ? { page } : {}),
     scene_ir_digest: hybrid.scene_ir_digest, binding_ir_digest: hybrid.binding_ir_digest,
     catalog_digest: hybrid.catalog_digest, compiler_profile: hybrid.compiler_profile,
     source_digest: project.source_digest, source_files: project.files.map((file) => file.path),
     node_count: Array.isArray(result.scene_ir?.nodes) ? result.scene_ir.nodes.length : undefined,
-    usage: { ...budgetUsage(result, budgets || hybrid.budgets), mesh: meshUsage(result.scene_ir, MESH_GENERATORS, MESH_MAX_VERTICES) },
+    usage: { ...budgetUsage(result, budgets || hybrid.budgets), mesh: meshUsage(result.scene_ir, MESH_GENERATORS, MESH_MAX_VERTICES), assets },
     logic: logicSummary(result.scene_ir),
   };
 }

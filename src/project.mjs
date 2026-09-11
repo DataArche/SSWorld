@@ -5,6 +5,7 @@ import path from "node:path";
 import { PROJECTS_ROOT, TEMPLATE_ROOT } from "./paths.mjs";
 import { compileProject, buildSourceProject, CompileError, HOST_INTERFACES_FILE } from "./compile.mjs";
 import { locateNode, editNodeInText } from "./diagnose.mjs";
+import { pageValues, renderTemplate } from "./page.mjs";
 
 const NAME_RE = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 export const DEFAULT_BUDGETS = { native_objects: 2048, bindings: 256, handlers: 128, timers: 32, timelines: 256 };
@@ -47,9 +48,6 @@ export function listProjects() {
     });
 }
 
-function render(template, values) {
-  return template.replace(/__([A-Z_]+)__/g, (match, key) => (key in values ? values[key] : match));
-}
 
 const EMPTY_SCENE = `Scene {
   id: main
@@ -64,14 +62,10 @@ export async function createProject(name, { anchor = DEFAULT_ANCHOR, title, temp
   const directory = projectDir(name, { mustExist: false });
   if (existsSync(directory)) throw new Error(`project '${name}' already exists; pick another name or edit it with ssworld_source_write`);
   mkdirSync(directory, { recursive: true });
-  const values = {
-    NAME: name, NAME_JSON: JSON.stringify(name), TITLE: title || name,
-    ANCHOR_LON: String(anchor.lon), ANCHOR_LAT: String(anchor.lat), ANCHOR_HEIGHT: String(anchor.height),
-    WATCH_PATH: `projects/${name}`,
-  };
+  const values = pageValues(name, { title, anchor });
   for (const file of readdirSync(TEMPLATE_ROOT)) {
     const raw = readFileSync(path.join(TEMPLATE_ROOT, file), "utf8");
-    writeFileSync(path.join(directory, file), file === "style.css" ? raw : render(raw, values), "utf8");
+    writeFileSync(path.join(directory, file), file === "style.css" ? raw : renderTemplate(raw, values), "utf8");
   }
   if (template === "empty") writeFileSync(path.join(directory, "scene.ssdl"), EMPTY_SCENE, "utf8");
   const manifestPath = path.join(directory, "showcase.manifest.json");

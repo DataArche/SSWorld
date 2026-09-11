@@ -44,6 +44,14 @@ Four parametric generators compile to constant parameters and are tessellated by
 `Loft { sections: [[ring] …]; cap }`. `ssworld_compile` reports their cost as `usage.mesh`. There are no per-vertex
 functions: arbitrary meshes are managed assets (`Model`).
 
+### Model assets
+
+Copy glb files (and png/jpg textures) into `<project>/assets/` and reference them by project-relative path:
+`Model { id: tree; source: "assets/tree.glb"; position: [10, 0, 0] }`. `ssworld_compile` discovers everything under
+`assets/` (`usage.assets`), embeds each file's digest into SceneIR and the preview page fetches and verifies the bytes
+by that path. Limits: 32 MiB per glb, 8 MiB per texture, 64 assets per project (`asset_budget`); a path outside
+`assets/` is `asset_unresolved`. A Model carries its own materials; only its position/rotation/scale/visible animate.
+
 ### Scene logic and host interfaces
 
 Scene state is declared on the `Scene` root (`property real score: 0`, types `real/bool/string/length/degrees/duration/radians`),

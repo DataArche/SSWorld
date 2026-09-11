@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
@@ -299,6 +299,52 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(groupedCompile.isError, false, JSON.stringify(groupedCompile.body));
   assert.deepEqual(groupedCompile.body.usage.timelines, { used: 1, limit: 256, ratio: 0.004 });
 
+  // Model assets: files under <project>/assets/ are discovered, digested into SceneIR and budgeted at compile time.
+  const assetsDir = path.join(HOME, "projects", "demo", "assets");
+  mkdirSync(assetsDir, { recursive: true });
+  const glb = Buffer.concat([Buffer.from("glTF"), Buffer.alloc(60, 7)]);
+  writeFileSync(path.join(assetsDir, "tree.glb"), glb);
+  const modelScene = "Scene { id: main\n Model { id: m; source: \"assets/tree.glb\"; position: [1, 2, 3] }\n Vector3dAnimation { target: m; property: \"position\"; from: [0, 0, 0]; to: [1, 0, 0]; duration: 100 }\n}";
+  const modelWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: modelScene, expected_digest: groupedWrite.body.digest });
+  assert.equal(modelWrite.isError, false, JSON.stringify(modelWrite.body));
+  const pageFile = path.join(HOME, "projects", "demo", "index.html");
+  const legacyPage = readFileSync(pageFile, "utf8").replace("            resolveManagedAsset,\n", "").replace("<h1>demo</h1>", "<h1>Demo Title</h1>");
+  assert.ok(!legacyPage.includes("resolveManagedAsset,"), "legacy page must lack the hook");
+  writeFileSync(pageFile, legacyPage.replace(/async function resolveManagedAsset[\s\S]*?\n    }\n\n/, ""));
+  assert.ok(!readFileSync(pageFile, "utf8").includes("resolveManagedAsset"));
+  const modelCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(modelCompile.isError, false, JSON.stringify(modelCompile.body));
+  assert.equal(modelCompile.body.page.upgraded, true);
+  assert.match(modelCompile.body.page.backup, /^index\.html\.bak-/);
+  const upgradedPage = readFileSync(pageFile, "utf8");
+  assert.match(upgradedPage, /resolveManagedAsset,/);
+  assert.match(upgradedPage, /<h1>Demo Title<\/h1>/);
+  assert.equal((await client.call("ssworld_compile", { project: "demo" })).body.page, undefined);
+  assert.deepEqual(modelCompile.body.usage.assets.files, [{ path: "assets/tree.glb", kind: "model", size_bytes: 64, referenced: true }]);
+  assert.equal(modelCompile.body.usage.assets.count, 1);
+  const modelIR = JSON.parse(readFileSync(path.join(HOME, "projects", "demo", "scene.ir.json"), "utf8"));
+  const modelNode = modelIR.nodes.find((node) => node.id === "m");
+  const sourceRef = modelNode.properties.find((item) => item.property === "source").value;
+  assert.equal(sourceRef.asset_id, "assets/tree.glb");
+  assert.equal(sourceRef.media_type, "model/gltf-binary");
+  assert.equal(sourceRef.size_bytes, 64);
+  assert.match(sourceRef.content_digest, /^sha256:[0-9a-f]{64}$/);
+  const unresolvedWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: modelScene.replace("assets/tree.glb", "tree.glb"), expected_digest: modelWrite.body.digest });
+  const unresolvedCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(unresolvedCompile.isError, true);
+  assert.equal(unresolvedCompile.body.diagnostic.code, "asset_unresolved");
+  assert.match(unresolvedCompile.body.message, /scene\.ssdl:2:.*'tree\.glb' is not in the source project's asset_refs/);
+  writeFileSync(path.join(assetsDir, "big.png"), Buffer.alloc(8 * 1024 * 1024 + 1));
+  const bigCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(bigCompile.isError, true);
+  assert.equal(bigCompile.body.diagnostic.code, "asset_budget");
+  assert.equal(bigCompile.body.diagnostic.file, "assets/big.png");
+  assert.match(bigCompile.body.message, /8\.0 MiB; a texture asset is at most 8 MiB/);
+  rmSync(path.join(assetsDir, "big.png"));
+  const modelRestore = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: modelScene, expected_digest: unresolvedWrite.body.digest });
+  assert.equal((await client.call("ssworld_compile", { project: "demo" })).isError, false);
+  const groupedWriteAfterAssets = modelRestore;
+
   // Scene logic: declared properties, comparison sugar, host calls checked against host_interfaces.json.
   const contract = JSON.stringify({ Game: { methods: { hit: { args: [{ name: "targetId", type: "string" }, { name: "score", type: "real" }] }, reset: { args: [] } } } }, null, 2);
   const contractWrite = await client.call("ssworld_source_write", { project: "demo", file: "host_interfaces.json", content: contract, expected_digest: "new" });
@@ -311,7 +357,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   TapHandler { id: tap; onTapped: { score = score + 1; Game.hit(targetId: "b", score: score); } }
  }
 }`;
-  const logicSceneWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: logicScene, expected_digest: groupedWrite.body.digest });
+  const logicSceneWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: logicScene, expected_digest: groupedWriteAfterAssets.body.digest });
   const logicCompile = await client.call("ssworld_compile", { project: "demo" });
   assert.equal(logicCompile.isError, false, JSON.stringify(logicCompile.body));
   assert.deepEqual(logicCompile.body.logic, { properties: [{ name: "score", value_type: "scalar", unit: "scalar", initial: 0 }], states: ["won"],
@@ -483,6 +529,10 @@ test("ssworld-mcp end to end over stdio", async (t) => {
     assert.equal(response.status, 200, route);
     await response.arrayBuffer();
   }
+  const asset = await fetch(`http://127.0.0.1:${PORT}/projects/demo/assets/tree.glb`);
+  assert.equal(asset.status, 200);
+  assert.equal(asset.headers.get("content-type"), "model/gltf-binary");
+  assert.equal(Buffer.compare(Buffer.from(await asset.arrayBuffer()), glb), 0);
   const wasm = await fetch(`http://127.0.0.1:${PORT}/engine/SSmap.wasm`, { method: "GET", headers: { Range: "bytes=0-3" } });
   assert.equal(wasm.status, 200);
   assert.equal(wasm.headers.get("content-type"), "application/wasm");

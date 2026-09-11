@@ -233,6 +233,26 @@
       } finally { syncInFlight = false; }
     }
 
+    // Managed assets (Model / Texture sources) live under the project's assets/ directory and are fetched
+    // by the asset_id the compiler embedded into SceneIR, then verified against its size and digest.
+    const assetCache = new Map();
+    async function resolveManagedAsset(ref) {
+      if (!assetCache.has(ref.asset_id)) {
+        assetCache.set(ref.asset_id, (async () => {
+          const response = await fetch(`./${ref.asset_id}`, { cache: "no-store" });
+          if (!response.ok) throw new Error(`asset '${ref.asset_id}' request failed (${response.status}); put the file under the project's assets/ directory`);
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          if (bytes.byteLength !== ref.size_bytes) throw new Error(`asset '${ref.asset_id}' size mismatch (${bytes.byteLength} vs ${ref.size_bytes}); recompile after replacing the file`);
+          const hash = await crypto.subtle.digest("SHA-256", bytes);
+          const digest = "sha256:" + [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
+          if (digest !== ref.content_digest) throw new Error(`asset '${ref.asset_id}' digest mismatch; recompile after replacing the file`);
+          return bytes;
+        })().catch((error) => { assetCache.delete(ref.asset_id); throw error; }));
+      }
+      // Each consumer gets its own copy: the engine takes ownership of the buffer it is handed.
+      return new Uint8Array(await assetCache.get(ref.asset_id));
+    }
+
     function showFailure(error) {
       noteError("scene_module", error.message);
       console.error(error, error.sceneModuleReceipt || "");
@@ -323,6 +343,7 @@
             expressionRuntime: window.SSEngineSSDLExpressionRuntime,
             anchor: { lon: __ANCHOR_LON__, lat: __ANCHOR_LAT__, height: __ANCHOR_HEIGHT__ },
             modelScopeId: `${scopeId}:${generation}`,
+            resolveManagedAsset,
           });
           const runtime = new SceneRuntimeBridge(builtinRuntime, {
             interactionRoot: document.getElementById("screen"),
