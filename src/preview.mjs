@@ -17,11 +17,25 @@ const COMMAND_ROUTE = "/__ssworld/command"; // tool -> server: queue a command f
 const PAGE_STALE_MS = 3000;
 const MAX_BODY = 32 * 1024 * 1024;
 
-// Per-project page state. A page is "connected" when it synced within PAGE_STALE_MS.
-const pages = new Map();     // project -> { client, seen, status }
-const commands = new Map();  // project -> [{ id, kind, params }]
+// Per-project page state, one record per syncing client: a desktop preview pane and an automation
+// browser can both have the same project open, and a capture must say which of them answered.
+// A page is "connected" when it synced within PAGE_STALE_MS; records are forgotten after PAGE_FORGET_MS.
+const pages = new Map();     // project -> Map(clientId -> { client, seen, status })
+const commands = new Map();  // `${project}\0${clientId}` -> [{ id, kind, params }]
 const results = new Map();   // command id -> { result, waiters: [resolve] }
 let commandSequence = 0;
+const PAGE_FORGET_MS = 60000;
+
+function clientKey(project, client) { return `${project}\0${client ?? ""}`; }
+
+function describeClient(record) {
+  const status = record.status || {};
+  return {
+    id: record.client, seen_ms_ago: Date.now() - record.seen, visibility: status.visibility ?? null, state: status.state ?? null,
+    canvas: status.canvas ? { ...status.canvas, device_pixel_ratio: status.device_pixel_ratio ?? null } : null,
+    user_agent: status.user_agent ?? null,
+  };
+}
 
 function readBody(request) {
   return new Promise((resolve, reject) => {
@@ -39,17 +53,38 @@ function readBody(request) {
   });
 }
 
-export function pageStatus(project) {
-  const page = pages.get(project);
-  if (!page) return { connected: false, seen_ms_ago: null, status: null };
-  const age = Date.now() - page.seen;
-  return { connected: age <= PAGE_STALE_MS, seen_ms_ago: age, status: page.status };
+/**
+ * Which page answers for a project: the requested client id, else the most recently synced VISIBLE
+ * page, else the most recent one. `clients` lists every connected page so a caller can see that two
+ * browsers are open; `selection` says how the answering page was chosen.
+ */
+export function pageStatus(project, { client = null } = {}) {
+  const records = pages.get(project);
+  const now = Date.now();
+  if (records) for (const [id, record] of records) if (now - record.seen > PAGE_FORGET_MS) records.delete(id);
+  const live = records ? [...records.values()].filter((record) => now - record.seen <= PAGE_STALE_MS).sort((a, b) => b.seen - a.seen) : [];
+  const clients = live.map(describeClient);
+  const visible = (record) => !record.status?.visibility || record.status.visibility === "visible";
+  let chosen = null, selection = null;
+  if (client !== null && client !== undefined && client !== "") {
+    chosen = live.find((record) => String(record.client) === String(client)) || null;
+    selection = chosen ? "requested" : "requested_client_not_connected";
+  } else if (live.length) {
+    chosen = live.find(visible) || live[0];
+    selection = visible(chosen) ? "most_recent_visible" : "most_recent";
+  }
+  const requested = client !== null && client !== undefined && client !== "" ? { requested_client: String(client) } : {};
+  if (!chosen) return { connected: false, seen_ms_ago: null, status: null, client: null, clients, selection, ...requested };
+  return { connected: true, seen_ms_ago: now - chosen.seen, status: chosen.status, client: describeClient(chosen), clients, selection, ...requested };
 }
 
 function syncEndpoint(body, response) {
   const project = typeof body.project === "string" ? body.project : null;
   if (!project) return sendJson(response, { ok: false, error: "project_required" }, 400);
-  pages.set(project, { client: body.client || null, seen: Date.now(), status: body.status || null });
+  const clientId = body.client === null || body.client === undefined ? "" : String(body.client);
+  let records = pages.get(project);
+  if (!records) pages.set(project, records = new Map());
+  records.set(clientId, { client: clientId || null, seen: Date.now(), status: body.status || null });
   for (const item of Array.isArray(body.results) ? body.results : []) {
     const slot = results.get(item.id);
     if (!slot) continue;
@@ -57,8 +92,9 @@ function syncEndpoint(body, response) {
     for (const resolve of slot.waiters) resolve(item);
     slot.waiters = [];
   }
-  const pending = commands.get(project) || [];
-  commands.set(project, []);
+  const key = clientKey(project, clientId);
+  const pending = commands.get(key) || [];
+  commands.delete(key);
   sendJson(response, { ok: true, commands: pending });
 }
 
@@ -66,19 +102,24 @@ async function commandEndpoint(body, response) {
   const project = typeof body.project === "string" ? body.project : null;
   if (!project) return sendJson(response, { ok: false, error: "project_required" }, 400);
   const timeout = Math.min(Math.max(Number(body.timeout_ms) || 15000, 1000), 120000);
-  const page = pageStatus(project);
-  if (!page.connected) return sendJson(response, { ok: false, error: "page_not_open", page }, 409);
+  const page = pageStatus(project, { client: body.client ?? null });
+  if (!page.connected) return sendJson(response, { ok: false, error: page.clients.length ? "client_not_connected" : "page_not_open", page }, 409);
   const id = `cmd-${process.pid}-${++commandSequence}`;
   const slot = { result: null, waiters: [] };
   results.set(id, slot);
-  (commands.get(project) || commands.set(project, []).get(project)).push({ id, kind: body.kind, params: body.params || {} });
+  const key = clientKey(project, page.client.id);
+  (commands.get(key) || commands.set(key, []).get(key)).push({ id, kind: body.kind, params: body.params || {} });
   const outcome = await new Promise((resolve) => {
     slot.waiters.push(resolve);
     setTimeout(() => resolve(null), timeout);
   });
   results.delete(id);
-  if (!outcome) return sendJson(response, { ok: false, error: "page_timeout", page: pageStatus(project) }, 504);
-  sendJson(response, { ok: true, id, result: outcome, page: pageStatus(project) });
+  if (!outcome) {
+    // Never let a stale command reach the page later and be mistaken for a fresh one.
+    commands.set(key, (commands.get(key) || []).filter((item) => item.id !== id));
+    return sendJson(response, { ok: false, error: "page_timeout", page: pageStatus(project, { client: page.client.id }) }, 504);
+  }
+  sendJson(response, { ok: true, id, result: outcome, page: pageStatus(project, { client: page.client.id }) });
 }
 
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".cjs": "text/javascript",
@@ -98,12 +139,18 @@ const RUNTIME_FILES = {
 
 const compileFailures = new Map();
 
+// Files whose change must NOT reload the page: capture PNGs (ssworld_capture_frame writes one per call, and a
+// reload resets the scene logic) and page backups from template upgrades.
+const WATCH_IGNORE_DIRS = new Set(["captures", "node_modules", ".git"]);
+const isWatched = (name) => !/^index\.html\.bak-/.test(name) && !name.startsWith(".");
+
 function watchToken(directory) {
   const digest = createHash("sha256");
   (function walk(current) {
     for (const item of readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       const absolute = path.join(current, item.name);
-      if (item.isDirectory()) { walk(absolute); continue; }
+      if (item.isDirectory()) { if (!WATCH_IGNORE_DIRS.has(item.name)) walk(absolute); continue; }
+      if (!isWatched(item.name)) continue;
       const stat = statSync(absolute);
       digest.update(path.relative(directory, absolute)).update(String(stat.mtimeMs)).update(String(stat.size));
     }
@@ -170,7 +217,7 @@ async function handle(request, response) {
   if (route === "/__ssdl_dev/status") return sendJson(response, { ok: true, schema_version: "SSDLDevServer/1" });
   if (route === SYNC_ROUTE && request.method === "POST") return syncEndpoint(await readBody(request), response);
   if (route === COMMAND_ROUTE && request.method === "POST") return commandEndpoint(await readBody(request), response);
-  if (route === PAGE_ROUTE) return sendJson(response, { ok: true, project: url.searchParams.get("project"), page: pageStatus(url.searchParams.get("project") || "") });
+  if (route === PAGE_ROUTE) return sendJson(response, { ok: true, project: url.searchParams.get("project"), page: pageStatus(url.searchParams.get("project") || "", { client: url.searchParams.get("client") }) });
   if (route === "/__ssdl_dev/version") return versionEndpoint(url.searchParams, response);
   if (route === "/" ) return sendJson(response, { ok: true, service: "ssworld-preview", hint: "open /projects/<name>/index.html" });
   if (route.startsWith("/projects/")) {
@@ -228,19 +275,20 @@ export async function startPreview({ port = PREVIEW_PORT, log = () => {} } = {})
 }
 
 /** Ask the running preview (in-process or another process on the same port) about a project's page. */
-export async function fetchPageStatus(project, port = PREVIEW_PORT) {
-  if (server) return pageStatus(project);
+export async function fetchPageStatus(project, { port = PREVIEW_PORT, client = null } = {}) {
+  if (server) return pageStatus(project, { client });
   try {
-    const response = await fetch(`http://127.0.0.1:${port}${PAGE_ROUTE}?project=${encodeURIComponent(project)}`, { signal: AbortSignal.timeout(1500) });
+    const query = new URLSearchParams({ project, ...(client ? { client: String(client) } : {}) });
+    const response = await fetch(`http://127.0.0.1:${port}${PAGE_ROUTE}?${query}`, { signal: AbortSignal.timeout(1500) });
     return (await response.json()).page;
-  } catch { return { connected: false, seen_ms_ago: null, status: null, preview_unreachable: true }; }
+  } catch { return { connected: false, seen_ms_ago: null, status: null, client: null, clients: [], selection: null, preview_unreachable: true }; }
 }
 
-/** Queue a command for the project's open page and wait for its result. */
-export async function pageCommand(project, kind, params = {}, { port = PREVIEW_PORT, timeoutMs = 15000 } = {}) {
+/** Queue a command for the project's open page (a specific client, or the page pageStatus selects) and wait for its result. */
+export async function pageCommand(project, kind, params = {}, { port = PREVIEW_PORT, timeoutMs = 15000, client = null } = {}) {
   const response = await fetch(`http://127.0.0.1:${port}${COMMAND_ROUTE}`, {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project, kind, params, timeout_ms: timeoutMs }),
+    body: JSON.stringify({ project, kind, params, timeout_ms: timeoutMs, ...(client ? { client: String(client) } : {}) }),
     signal: AbortSignal.timeout(timeoutMs + 5000),
   });
   return response.json();

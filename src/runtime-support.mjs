@@ -3,7 +3,7 @@
 // native EnvironmentFacade (ssdl_environment_bindings.cpp), lirendersystem.cpp and the SSDL browser runtime.
 
 /** Bumped whenever the notes below change meaning, so catalog_digest moves with them. */
-export const NOTES_VERSION = 5;
+export const NOTES_VERSION = 6;
 
 // DirectionalLight with atmosphereSunLight: true adopts the engine's scene sun (LiSun), which only
 // exposes the LiLight base properties. The owned-light-only members fail at runtime with
@@ -44,6 +44,7 @@ export const ASSET_MEDIA = Object.freeze({
 // Runtime caps (ssdl-builtins managedAssetRef): a Model glb up to 32 MiB, a Texture image up to 8 MiB;
 // the source project schema takes at most 64 asset references.
 export const ASSET_LIMITS = Object.freeze({ model: 32 * 1024 * 1024, texture: 8 * 1024 * 1024, count: 64 });
+export const BINDING_POLICY = "bindings and handler assignments apply as one transaction per event/frame: if ANY bound value is refused by its target (out of range such as a negative width, wrong type, a native refusal) the whole batch rolls back, that binding turns invalid and the affected values stop changing with no exception; ssworld_capture_frame / ssworld_logic_read report it as runtime.errors kind binding_error (mapped to scene.ssdl:line) and logic.bindings.invalid; write piecewise motion with clamp/lerp/min/max over a progress property instead of branchy ?: chains, and keep every branch inside the target's valid range";
 export const ASSET_POLICY = `put glb models and png/jpg textures under the project's ${ASSETS_DIR}/ directory and reference them by project-relative path (Model { source: "${ASSETS_DIR}/name.glb" }); each glb is at most ${ASSET_LIMITS.model / 1048576} MiB, each texture ${ASSET_LIMITS.texture / 1048576} MiB, at most ${ASSET_LIMITS.count} assets per project (asset_budget beyond); a Model needs no material of its own, and only its position/rotation/scale/visible can animate`;
 
 export const CONVENTIONS = Object.freeze({
@@ -58,7 +59,9 @@ export const CONVENTIONS = Object.freeze({
   procedural_geometry: "parametric generators (HeightField width/depth/columns/rows/heights row-major from -depth/2; Lathe profile [radius, 0, height] revolved around Z with segments and optional closed caps; Tube path + radius + segments with a parallel-transport frame; Loft same-count ccw rings stacked bottom to top with optional cap) are compile-time constants: the IR stores parameters, the runtime builds a MeshData/v1 mesh (ccw outward, at most 65535 vertices per node, compile error mesh_budget beyond that); per-vertex functions and author JavaScript are not accepted; arbitrary meshes go through managed assets (Model)",
   animations: ANIMATION_POLICY,
   assets: ASSET_POLICY,
-  logic: "declare scene state on the Scene root with `property real score: 0` (types real/bool/string/length/degrees/duration/radians); handlers assign with expressions (`score = score + 1`), bindings compare (`>= <= === !== < > && || ! ?:`); host JavaScript is reached only through `Iface.method(arg: expr)` actions declared in host_interfaces.json and implemented by logic.mjs; the page reads/writes declared properties through window.SSWorld.logical",
+  logic: "declare scene state on the Scene root with `property real score: 0` (types real/bool/string/length/degrees/duration/radians); handlers assign with expressions (`score = score + 1`), bindings compare (`>= <= === !== < > && || ! ?:`); host JavaScript is reached only through `Iface.method(arg: expr)` actions declared in host_interfaces.json and implemented by logic.mjs; the page reads/writes declared properties through window.SSWorld.logical and tools through ssworld_logic_read / ssworld_logic_write (one transaction per call); a State is derived from its `when` expression and cannot be written, set a declared property it reads; every compile hot-reloads the page and restarts declared properties at their initial values",
+  bindings: BINDING_POLICY,
+  page: "index.html is project-owned; the template places the WebGPU canvas and the info panel side by side so no overlay covers the canvas (an overlay over the canvas also swallows the taps TapHandlers need; give decorative overlays pointer-events: none)",
   ids: "every node in a component file needs a unique explicit id; anonymous siblings collide inside custom components",
   editing: "ssworld_source_patch edits one span by exact match; ssworld_source_batch applies several patches / node property sets atomically (optionally compiling and rolling back); ssworld_source_write replaces a file; writing the .ssdl files in the project directory with any other tool also works because ssworld_compile always rebuilds from disk, but such writes are not protected by the digest lock",
   units_tag: "a descriptor's `unit` is the compiler's wire tag ('scalar' means untagged), not always the physical unit; the member note names the physical unit where they differ",
@@ -105,6 +108,7 @@ export function componentNotes(name) {
   if (name === "Label") return { runtime_note: LABEL_POLICY, runtime_supported: false };
   if (name === "Model") return { runtime_note: `${ASSET_POLICY}; Model animates position/rotation/scale/visible only (animations, Behaviors and Bindings)` };
   if (name === "Texture") return { runtime_note: `Texture.source is a png/jpg under ${ASSETS_DIR}/ (at most ${ASSET_LIMITS.texture / 1048576} MiB), referenced by project-relative path; pair it with Model.baseColorTexture + materialSlot` };
+  if (name === "Behavior") return { runtime_note: `Behavior eases every change of its target property over duration, so on a property that changes every frame the presented value lags the logical one by about speed x duration (57 m/s x 0.12 s = 7 m); use it for discrete jumps (hits, state changes) and bind continuous motion directly. ${BINDING_POLICY}` };
   if (name === "Group" || name === "GeoAnchor" || name === "Model") return { runtime_note: `${name} animates position/rotation/scale/visible only (animations, Behaviors and Bindings); material properties belong to the child geometry` };
   return {};
 }

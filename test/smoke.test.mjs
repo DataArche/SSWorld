@@ -50,7 +50,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const list = await client.request("tools/list", {});
   const names = list.result.tools.map((tool) => tool.name);
   assert.deepEqual(names, ["ssworld_catalog", "ssworld_project_list", "ssworld_project_create", "ssworld_source_read",
-    "ssworld_source_write", "ssworld_source_patch", "ssworld_source_batch", "ssworld_compile", "ssworld_scene_inspect", "ssworld_preview", "ssworld_capture_frame", "ssworld_engine_status"]);
+    "ssworld_source_write", "ssworld_source_patch", "ssworld_source_batch", "ssworld_compile", "ssworld_scene_inspect", "ssworld_preview", "ssworld_capture_frame", "ssworld_logic_read", "ssworld_logic_write", "ssworld_engine_status"]);
   for (const tool of list.result.tools) assert.equal(tool.rich, undefined, `${tool.name} leaks internal flags`);
   for (const tool of list.result.tools) assert.equal(tool.inputSchema.type, "object", tool.name);
 
@@ -417,14 +417,26 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const syncUrl = `http://127.0.0.1:${PORT}/__ssworld/sync`;
   const png = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVQI12P4z8DwHwyBFJDxHwzhTAAB1Qv/N+qaVAAAAABJRU5ErkJggg==";
   const manifest = JSON.parse(readFileSync(path.join(HOME, "projects", "demo", "showcase.manifest.json"), "utf8"));
-  const status = { state: "ready", generation: "1", errors: [], hint: "ok", visibility: "visible", canvas: { width: 1474, height: 1857 }, device_pixel_ratio: 1.25,
+  const status = { state: "ready", generation: "1", errors: [], hint: "ok", visibility: "visible", client: "fake", user_agent: "FakeBrowser/1", canvas: { width: 1474, height: 1857 }, device_pixel_ratio: 1.25,
     loaded: { generation: 1, scene_ir_digest: manifest.scene_ir_digest },
-    logic: { scope_id: "ssworld-project", generation: 1, properties: { score: 3 }, states: { selected: false }, host_call_errors: [] } };
-  const sync = (results = []) => fetch(syncUrl, { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project: "demo", client: "fake", status, results }) }).then((r) => r.json());
+    logic: { scope_id: "ssworld-project", generation: 1, properties: { score: 3 }, states: { selected: false }, host_call_errors: [], bindings: { total: 2, invalid: [] }, binding_errors: [] } };
+  const syncAs = (clientId, clientStatus, results = []) => fetch(syncUrl, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project: "demo", client: clientId, status: clientStatus, results }) }).then((r) => r.json());
+  const sync = (results = []) => syncAs("fake", status, results);
   assert.deepEqual((await sync()).commands, []);
   const pageSeen = await client.call("ssworld_preview", { project: "demo" });
   assert.equal(pageSeen.body.page.connected, true);
+  // The answering page is identified: id, visibility, canvas and user agent come from the page's own heartbeat.
+  assert.equal(pageSeen.body.page.client.id, "fake");
+  assert.equal(pageSeen.body.page.client.user_agent, "FakeBrowser/1");
+  assert.deepEqual(pageSeen.body.page.client.canvas, { width: 1474, height: 1857, device_pixel_ratio: 1.25 });
+  assert.equal(pageSeen.body.page.clients.length, 1);
+  assert.equal(pageSeen.body.page.selection, "most_recent_visible");
+  // A compile while a page is open says the page reloads and its logic restarts.
+  const liveCompile = await client.call("ssworld_compile", { project: "demo" });
+  assert.equal(liveCompile.isError, false, JSON.stringify(liveCompile.body));
+  assert.deepEqual(liveCompile.body.hot_reload.clients, ["fake"]);
+  assert.equal(liveCompile.body.hot_reload.logic_reset, true);
   const pump = setInterval(async () => {
     const { commands } = await sync();
     for (const command of commands) {
@@ -472,6 +484,98 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.ok(captureBody.camera.deviation.heading_error_deg < 0.1, JSON.stringify(captureBody.camera.deviation));
   assert.ok(captureBody.camera.deviation.position_error_m < 5, JSON.stringify(captureBody.camera.deviation));
   assert.equal(captureBody.next.action, "judge_frame", JSON.stringify(captureBody.next));
+  assert.equal(captureBody.receipt.client.id, "fake", "the receipt names the page that answered");
+  assert.equal(captureBody.receipt.client.visibility, "visible");
+  assert.equal(captureBody.receipt.clients_connected, 1);
+  assert.equal(captureBody.receipt.client_note, undefined);
+  assert.deepEqual(captureBody.logic.bindings, { total: 2, invalid: [] });
+
+  // Two browsers on the same project: a hidden automation page and the visible one. Without `client` the
+  // visible page answers; with `client` the named one does; an unknown client is refused with the list.
+  const hiddenStatus = { ...status, client: "fake2", visibility: "hidden", user_agent: "Automation/2", canvas: { width: 808, height: 300 }, device_pixel_ratio: 1,
+    logic: { ...status.logic, properties: { score: 7 } } };
+  const answer = (command, clientStatus) => {
+    if (command.kind === "capture") return { id: command.id, ok: true, png_base64: png, stats: { width: 2, height: 2, distinct_colors: 4, non_black_ratio: 1, overexposed_ratio: 0, mean_luma: 90 },
+      camera: { heading: 0, fov: 50 }, status: clientStatus, ...(command.params.await ? (command.params.await.state === "never"
+        ? { ok: false, error: `await State 'never' === true: not satisfied within ${command.params.await.timeout_ms} ms`, code: "await_timeout", logic: clientStatus.logic }
+        : { awaited: { satisfied: true, waited_ms: 12, condition: `State '${command.params.await.state}' === true` } }) : {}) };
+    if (command.kind === "logic_read") return { id: command.id, ok: true, logic: clientStatus.logic, status: clientStatus };
+    if (command.kind === "logic_write") {
+      if ("width" in command.params.set) return { id: command.id, ok: false, error: "logical write width was rejected and rolled back (rolled_back: binding_commit_failed on car.width: Box.width must be positive)",
+        code: "logical_write_rejected", failure: { binding: "b7", target: "car", property: "width", code: "binding_commit_failed", message: "Box.width must be positive", phase: "bindings" }, logic: clientStatus.logic, status: clientStatus };
+      if ("nope" in command.params.set) return { id: command.id, ok: false, error: "unknown declared property nope (known: score)", code: "logic_property_unknown", logic: clientStatus.logic, status: clientStatus };
+      const after = { ...clientStatus.logic, properties: { ...clientStatus.logic.properties, ...command.params.set } };
+      return { id: command.id, ok: true, before: clientStatus.logic, after, receipt: { batch_id: 9, status: "committed", ok: true, evaluated: 2, committed: 2, changed: 1 }, status: clientStatus };
+    }
+    return { id: command.id, ok: false, error: `unexpected ${command.kind}` };
+  };
+  const pumpBoth = setInterval(async () => {
+    for (const [id, clientStatus] of [["fake", status], ["fake2", hiddenStatus]]) {
+      const { commands } = await syncAs(id, clientStatus);
+      for (const command of commands) await syncAs(id, clientStatus, [answer(command, clientStatus)]);
+    }
+  }, 100);
+  t.after(() => clearInterval(pumpBoth));
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const twoPages = await client.call("ssworld_preview", { project: "demo" });
+  assert.deepEqual(twoPages.body.page.clients.map((item) => item.id).sort(), ["fake", "fake2"]);
+  assert.equal(twoPages.body.page.client.id, "fake", "the visible page is preferred");
+  const defaultCapture = await client.call("ssworld_capture_frame", { project: "demo", timeout_ms: 5000 });
+  assert.equal(defaultCapture.isError, false, JSON.stringify(defaultCapture.body));
+  assert.equal(defaultCapture.body.receipt.client.id, "fake");
+  assert.equal(defaultCapture.body.receipt.clients_connected, 2);
+  assert.match(defaultCapture.body.receipt.client_note, /2 pages sync this project/);
+  assert.deepEqual(defaultCapture.body.framing.interactive_canvas, { width: 1474, height: 1857, device_pixel_ratio: 1.25 });
+  const pickedCapture = await client.call("ssworld_capture_frame", { project: "demo", client: "fake2", timeout_ms: 5000 });
+  assert.equal(pickedCapture.isError, false, JSON.stringify(pickedCapture.body));
+  assert.equal(pickedCapture.body.receipt.client.id, "fake2");
+  assert.equal(pickedCapture.body.receipt.client_selection, "requested");
+  assert.equal(pickedCapture.body.receipt.client.user_agent, "Automation/2");
+  assert.deepEqual(pickedCapture.body.framing.interactive_canvas, { width: 808, height: 300, device_pixel_ratio: 1 });
+  assert.equal(pickedCapture.body.logic.properties.score, 7);
+  const unknownClient = await client.call("ssworld_capture_frame", { project: "demo", client: "nope", timeout_ms: 5000 });
+  assert.equal(unknownClient.isError, true);
+  assert.equal(unknownClient.body.error, "client_not_connected");
+  assert.deepEqual(unknownClient.body.page.clients.map((item) => item.id).sort(), ["fake", "fake2"]);
+  assert.equal(unknownClient.body.next.action, "pick_client");
+  // await: the condition travels to the page with its budget; satisfied -> awaited in the payload, otherwise await_timeout with live logic.
+  const awaited = await client.call("ssworld_capture_frame", { project: "demo", await: { state: "corner" }, timeout_ms: 5000 });
+  assert.equal(awaited.isError, false, JSON.stringify(awaited.body));
+  assert.deepEqual(awaited.body.awaited, { satisfied: true, waited_ms: 12, condition: "State 'corner' === true" });
+  const neverCorner = await client.call("ssworld_capture_frame", { project: "demo", await: { state: "never", timeout_ms: 1000 }, timeout_ms: 5000 });
+  assert.equal(neverCorner.isError, true);
+  assert.equal(neverCorner.body.error, "await_timeout");
+  assert.match(neverCorner.body.message, /not satisfied within 1000 ms/);
+  assert.equal(neverCorner.body.logic.properties.score, 3);
+  assert.equal(neverCorner.body.next.action, "inspect_logic");
+  // Logic tools ride the same command channel as capture.
+  const logicRead = await client.call("ssworld_logic_read", { project: "demo" });
+  assert.equal(logicRead.isError, false, JSON.stringify(logicRead.body));
+  assert.equal(logicRead.body.client.id, "fake");
+  assert.equal(logicRead.body.logic.properties.score, 3);
+  assert.equal(logicRead.body.next.action, "judge_logic");
+  const logicRead2 = await client.call("ssworld_logic_read", { project: "demo", client: "fake2" });
+  assert.equal(logicRead2.body.logic.properties.score, 7);
+  const logicSet = await client.call("ssworld_logic_write", { project: "demo", set: { score: 8 } });
+  assert.equal(logicSet.isError, false, JSON.stringify(logicSet.body));
+  assert.equal(logicSet.body.before.properties.score, 3);
+  assert.equal(logicSet.body.after.properties.score, 8);
+  assert.equal(logicSet.body.receipt.status, "committed");
+  assert.equal(logicSet.body.next.action, "capture_frame");
+  const rejectedWrite = await client.call("ssworld_logic_write", { project: "demo", set: { width: -1 } });
+  assert.equal(rejectedWrite.isError, true);
+  assert.equal(rejectedWrite.body.error, "logical_write_rejected");
+  assert.equal(rejectedWrite.body.failure.target, "car");
+  assert.equal(rejectedWrite.body.next.action, "fix_source");
+  assert.match(rejectedWrite.body.next.reason, /car\.width \(binding_commit_failed\)/);
+  const unknownWrite = await client.call("ssworld_logic_write", { project: "demo", set: { nope: 1 } });
+  assert.equal(unknownWrite.isError, true);
+  assert.equal(unknownWrite.body.error, "logic_property_unknown");
+  assert.equal(unknownWrite.body.next.action, "fix_call");
+  clearInterval(pumpBoth);
+  await new Promise((resolve) => setTimeout(resolve, 3200));
+  assert.deepEqual((await client.call("ssworld_preview", { project: "demo" })).body.page.clients, [], "both fake pages went stale");
+  await sync();
   // Same page, but the sources moved on disk: the receipt must say the frame is behind.
   writeFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), good.replace("width: 40", "width: 41"));
   const pump1b = setInterval(async () => {
@@ -513,6 +617,38 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(failedCapture.body.receipt.in_sync, false);
   writeFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), good);
 
+  // A binding whose value was refused: the page reports `<node>.<property>: code: …` as kind binding_error (counted, not
+  // repeated) and the tool maps it to the member line inside that node's block, even though the scene is otherwise "ready".
+  writeFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), "Scene {\n  id: main\n  property real p: 0\n  Box {\n    id: car\n    width: 1\n    position: [p * 10, 0, 0]\n    PrincipledMaterial { opacity: p > 0.5 ? 1.5 : 1 }\n  }\n}\n");
+  const bindingStatus = { ...status, errors: [{ kind: "binding_error", message: "car.position: binding_commit_failed: Box.position must be a vector [binding b7, batch rolled back]", at: 3, repeats: 40 },
+      { kind: "binding_error", message: "anonymous_PrincipledMaterial_0.opacity: binding_commit_failed: PrincipledMaterial.opacity must be in 0..1 [binding anonymous_PrincipledMaterial_0:opacity, batch rolled back]", at: 4 }],
+    logic: { ...status.logic, bindings: { total: 1, invalid: [{ id: "b7", target: "car", property: "position", expression_digest: "sha256:x", code: "binding_commit_failed", message: "Box.position must be a vector" }] } } };
+  const pump3 = setInterval(async () => {
+    const { commands } = await syncAs("fake", bindingStatus);
+    for (const command of commands) await syncAs("fake", bindingStatus, [command.kind === "logic_read"
+      ? { id: command.id, ok: true, logic: bindingStatus.logic, status: bindingStatus }
+      : { id: command.id, ok: true, png_base64: png, stats: { width: 2, height: 2, distinct_colors: 4, non_black_ratio: 1, overexposed_ratio: 0, mean_luma: 90 }, camera: { heading: 0, fov: 50 }, status: bindingStatus }]);
+  }, 100);
+  t.after(() => clearInterval(pump3));
+  const bindingCapture = await client.call("ssworld_capture_frame", { project: "demo", timeout_ms: 5000 });
+  assert.equal(bindingCapture.isError, false, JSON.stringify(bindingCapture.body));
+  assert.equal(bindingCapture.body.runtime.errors.length, 2);
+  assert.equal(bindingCapture.body.runtime.errors[0].kind, "binding_error");
+  // The anonymous material node has no id in the source: it is located by type (and by parent when the IR knows it).
+  assert.deepEqual(bindingCapture.body.runtime.errors[1].source, { file: "scene.ssdl", line: 8, column: 26, node: "anonymous_PrincipledMaterial_0" });
+  assert.equal(bindingCapture.body.runtime.errors[0].repeats, 40);
+  assert.deepEqual(bindingCapture.body.runtime.errors[0].source, { file: "scene.ssdl", line: 7, column: 5, node: "car" });
+  assert.equal(bindingCapture.body.runtime.errors[0].member, "position");
+  assert.match(bindingCapture.body.verdict, /binding_commit_failed.*scene\.ssdl:7:5/);
+  assert.equal(bindingCapture.body.next.action, "fix_source");
+  assert.equal(bindingCapture.body.next.line, 7);
+  assert.equal(bindingCapture.body.logic.bindings.invalid[0].target, "car");
+  const bindingRead = await client.call("ssworld_logic_read", { project: "demo" });
+  assert.equal(bindingRead.body.next.action, "fix_source");
+  assert.match(bindingRead.body.next.reason, /car\.position binding_commit_failed/);
+  clearInterval(pump3);
+  writeFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), good);
+
   // A page that stopped syncing (tab closed) is reported as not open again after the heartbeat goes stale.
   await new Promise((resolve) => setTimeout(resolve, 3200));
   const closed = await client.call("ssworld_capture_frame", { project: "demo" });
@@ -541,6 +677,13 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const version = await fetch(`http://127.0.0.1:${PORT}/__ssdl_dev/version?path=projects/demo`).then((r) => r.json());
   assert.equal(version.ok, true);
   assert.match(version.token, /^[0-9a-f]{64}$/);
+  // Captures and page backups must not count as changes: a reload resets the scene logic on every screenshot otherwise.
+  mkdirSync(path.join(HOME, "projects", "demo", "captures"), { recursive: true });
+  writeFileSync(path.join(HOME, "projects", "demo", "captures", "later.png"), png);
+  writeFileSync(path.join(HOME, "projects", "demo", "index.html.bak-2026"), "old page");
+  assert.equal((await fetch(`http://127.0.0.1:${PORT}/__ssdl_dev/version?path=projects/demo`).then((r) => r.json())).token, version.token, "captures/ and backups are not watched");
+  writeFileSync(path.join(assetsDir, "later.glb"), glb);
+  assert.notEqual((await fetch(`http://127.0.0.1:${PORT}/__ssdl_dev/version?path=projects/demo`).then((r) => r.json())).token, version.token, "assets/ is watched");
   const escape = await fetch(`http://127.0.0.1:${PORT}/projects/../package.json`);
   assert.notEqual(escape.status, 200);
   const missing = await fetch(`http://127.0.0.1:${PORT}/__ssdl_dev/version?path=projects/nope`);

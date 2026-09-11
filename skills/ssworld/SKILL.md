@@ -1,7 +1,7 @@
 ---
 name: ssworld
 description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.5.2
+version: 1.5.3
 author: SSWorld
 license: MIT
 metadata:
@@ -15,7 +15,7 @@ metadata:
 
 ## 工具（MCP server `ssworld`，Hermes 里全名 `mcp__ssworld__<name>`）
 
-工具发现时搜索 `ssworld`。12 个工具，每个返回都带 `next: {action, reason, …}` 指出下一步：
+工具发现时搜索 `ssworld`。14 个工具，每个返回都带 `next: {action, reason, …}` 指出下一步：
 
 | 工具 | 用途 |
 |------|------|
@@ -28,8 +28,10 @@ metadata:
 | `ssworld_source_batch` | 多处原子修改：`{"project":"…","expected_digest":"…","validate":"compile","edits":[{"node_id":"sun","set":{"intensity":1.7}},{"node_id":"photoView","set":{"fov":48,"lookAt":[0,220,210]},"unset":["farPlane"]},{"old_string":"…","new_string":"…"}]}`；任一条失败什么都不写，`validate: compile` 编译失败自动回滚。值用 JSON 数字/字符串/布尔/`[x,y,z]`，id/枚举/绑定表达式用 `{"raw":"photoView"}` |
 | `ssworld_scene_inspect` | 不渲染看场景：预算占比、最大的子树、叶子节点按类型计数、每个源文件贡献的节点数、几何体包围盒（最低底面/最高顶面）、场景要求的相机（含由 lookAt 推出的 heading/pitch） |
 | `ssworld_compile` | 编译，失败返回 `scene.ssdl:行:列: 代码: 信息`；成功带 `node_count`、预算 `usage` 与 `logic`（声明的属性、State、宿主调用清单） |
-| `ssworld_preview` | 启动本地预览并返回 `viewer_url`，`page.connected` 说明页面是否已打开 |
-| `ssworld_capture_frame` | 对已打开的预览页截图（引擎按请求尺寸离屏渲染一帧，水平 fov 不变、垂直 fov 随宽高比变、无拉伸），返回图片、像素统计、`receipt`（这一帧对应的源码/IR digest 与页面 generation，`in_sync: false` 时 `staleness` 说明为什么不是最新）、`framing`、运行时错误、相机 `effective`/`requested`/`deviation`、`logic`（页面此刻的逻辑属性值与 State.when，可直接断言 `score === 8`）；`{"project":"MyScene"}`，可选 `width`/`height`/`settle_ms` |
+| `ssworld_preview` | 启动本地预览并返回 `viewer_url`，`page.connected` 说明页面是否已打开；`page.clients` 列出所有正在同步这个页面的浏览器（id、可见性、画布尺寸、UA），`page.client` 是截图时会应答的那一个 |
+| `ssworld_capture_frame` | 对已打开的预览页截图（引擎按请求尺寸离屏渲染一帧，水平 fov 不变、垂直 fov 随宽高比变、无拉伸），返回图片、像素统计、`receipt`（这一帧对应的源码/IR digest 与页面 generation，`in_sync: false` 时 `staleness` 说明为什么不是最新）、`framing`、运行时错误、相机 `effective`/`requested`/`deviation`、`logic`（页面此刻的逻辑属性值与 State.when，可直接断言 `score === 8`；`bindings.invalid` 列出被拒绝而失效的绑定）；`receipt.client` 说明这一帧来自哪个页面；`{"project":"MyScene"}`，可选 `width`/`height`/`settle_ms`、`client`（指定页面）、`await`（`{"state":"corner"}` 或 `{"property":"p","min":0.3,"max":0.5}`，条件成立才拍，超时报 `await_timeout` 并附当前 `logic`） |
+| `ssworld_logic_read` | 不截图直接读页面逻辑：属性、State、`bindings.invalid`、`binding_errors`；隔几秒读两次看关键量是否在变，是判定"游戏循环真的在跑"的最低证据 |
+| `ssworld_logic_write` | 一笔事务写多个声明属性：`{"project":"…","set":{"p":0.4,"pace":0.0025}}`，用来把游戏摆到某个局面（弯道、最后一圈）再截图，不要改源码初值；任一值被拒整批回滚并指出失败的绑定（`logical_write_rejected`）；State 是派生的不能写（`logic_property_unknown`），改它读的属性 |
 | `ssworld_engine_status` | 引擎是否已安装；`{"install":true}` 立即下载 |
 
 ## 标准流程
@@ -39,7 +41,7 @@ metadata:
 3. **读 → 改 → 写**：大场景先 `ssworld_source_read {"mode":"metadata"}` 拿 `digest`，不要整份读回；要改哪个节点用 `{"node":"id"}` 只读那一块。改多处（调灯、改相机、换颜色）用 `ssworld_source_batch` 按 `node_id` 直接 `set`，并加 `"validate":"compile"`，编译不过会自动回滚；单处用 `ssworld_source_patch`；整文件重写或新文件用 `ssworld_source_write`。都传 `expected_digest`，冲突就重读，不盲写。用宿主文件工具直接改项目目录里的 `.ssdl` 也可以（`ssworld_compile` 总是从磁盘重建），但不受 digest 锁保护。多文件组件用 PascalCase 文件名（如 `Tower.ssdl`），入口里 `Tower { id: t1 }` 使用。
 4. **编译并修诊断**：`ssworld_compile`；按行列信息改源码，直到 `ok: true`。大场景接着 `ssworld_scene_inspect` 看预算占比、包围盒和 `requested_camera`：相机到目标的距离、heading/pitch 与包围盒对不上就先改相机，不必截图试错。
 5. **预览并亲眼看**：`ssworld_preview` 返回 `viewer_url`；`next.action` 是 `open_webgpu_viewer` 就用 Hermes 的 `open_preview(url=viewer_url, label="SSWorld 场景")` 打开（工具未加载先发现它），是 `capture_frame` 就直接截图。页面会热重载：之后每次写源码 + 编译，同一页面自动更新，不要重复开新页。
-6. **截图验证再汇报**：页面打开后调用 `ssworld_capture_frame {"project":"…"}`。看返回的图片判断构图、相机是否对准、物体是否在画面内；没有视觉能力就读 `stats`：`luma.p10/p50/p90` 与 `under_exposed_ratio`/`over_exposed_ratio` 判曝光，`coverage` 与 `regions.cells`（3×3，左上起）的 green/blue/white/neutral 占比判「下部有没有植被、上部是不是天空」，`colormap_top` 看主色。`runtime.errors` 非空就是运行时失败（编译通过不等于能跑），每条带 `source.file:line:column`，直接改那一行；此时 `camera.source` 是 `engine_default`，那一帧的相机位姿不是你的 CameraView，不要拿它判断构图；`render_verified: true` 只表示「状态 ready、无错误、画面不是黑的」，画得对不对要看图。先看 `receipt.in_sync`：为 false 时 `staleness` 会说明这帧对应的是旧编译或磁盘源码已变，按 `next` 重编再截，不要拿旧帧汇报。`camera.deviation` 里 `nearPlane/farPlane` 的差异是引擎按相机高度每帧重算裁剪面所致，不是参数失效；`heading_error_deg`/`position_error_m` 大才说明相机没按 CameraView 落位。`reference_match` 永远是 `not_evaluated`：工具不做参考图对比，构图像不像要自己看图判断，不要编造匹配分数。返回 `page_not_open` 就先用 `open_preview` 打开 `viewer_url`（窗口要可见，最小化不出帧），再截。动画截两个时刻（`settle_ms` 不同），改相机后重截。
+6. **截图验证再汇报**：页面打开后调用 `ssworld_capture_frame {"project":"…"}`。有玩法的场景先用 `ssworld_logic_read` 隔 2 秒读两次，关键量不变而 `runtime.errors` 里有 `binding_error` 就是某条绑定被拒、整批回滚（见下文语义要点），按它给的 `source` 行改绑定表达式；要拍某个瞬时状态用 `await`，要摆局面用 `ssworld_logic_write`。同时开着桌面预览面板和自己的浏览器时，看 `receipt.client` 确认这帧来自哪个页面（默认取最近同步且可见的那个，`client` 可指定）。看返回的图片判断构图、相机是否对准、物体是否在画面内；没有视觉能力就读 `stats`：`luma.p10/p50/p90` 与 `under_exposed_ratio`/`over_exposed_ratio` 判曝光，`coverage` 与 `regions.cells`（3×3，左上起）的 green/blue/white/neutral 占比判「下部有没有植被、上部是不是天空」，`colormap_top` 看主色。`runtime.errors` 非空就是运行时失败（编译通过不等于能跑），每条带 `source.file:line:column`，直接改那一行；此时 `camera.source` 是 `engine_default`，那一帧的相机位姿不是你的 CameraView，不要拿它判断构图；`render_verified: true` 只表示「状态 ready、无错误、画面不是黑的」，画得对不对要看图。先看 `receipt.in_sync`：为 false 时 `staleness` 会说明这帧对应的是旧编译或磁盘源码已变，按 `next` 重编再截，不要拿旧帧汇报。`camera.deviation` 里 `nearPlane/farPlane` 的差异是引擎按相机高度每帧重算裁剪面所致，不是参数失效；`heading_error_deg`/`position_error_m` 大才说明相机没按 CameraView 落位。`reference_match` 永远是 `not_evaluated`：工具不做参考图对比，构图像不像要自己看图判断，不要编造匹配分数。返回 `page_not_open` 就先用 `open_preview` 打开 `viewer_url`（窗口要可见，最小化不出帧），再截。动画截两个时刻（`settle_ms` 不同），改相机后重截。
 
 首次使用若 `ssworld_preview` 报 `engine_not_installed`，调用 `ssworld_engine_status {"install":true}`（下载约 54 MB），然后重试。
 
@@ -52,7 +54,7 @@ metadata:
 - **每个节点给唯一 `id`**，尤其是自定义组件文件里的多个同类兄弟；匿名节点在组件内会报 `duplicate_id`。
 - **DirectionalLight 两种模式**：`atmosphereSunLight: true` 接管天空太阳，只能改 `intensity/lightColor/castShadows/temperature/indirectLightingIntensity/volumetricScatteringIntensity` 和 `sunAzimuth/sunElevation`；`lightSourceAngle`/`lightSourceSoftAngle`/`cloudScatteredLuminanceScale` 只有 `atmosphereSunLight` 不为 true 的自有灯才能写，编译器会以 `runtime_unsupported` 拒绝错误组合。
 - QML 风格：`id`、属性绑定表达式、`State { when }`、组件文件。事件处理器只能做受检的属性赋值和已声明的宿主调用，不是任意 JavaScript。
-- **场景逻辑（计分、阶段、胜负）用逻辑属性，不用"8 盏灯"**：在 `Scene` 根上声明 `property real score: 0` / `property bool armed: true` / `property string phase: "idle"`（类型 real/bool/string/length/degrees/duration/radians）；处理器里 `score = score + 1`，绑定里 `when: score >= 8 && misses < 3`（支持 `+ - * / === !== < <= > >= && || ! ?:` 与 `min/max/clamp/lerp`，只有数值算术，没有字符串拼接）。一个处理器里的多条赋值是一笔事务，任一失败整批回滚。截图返回的 `logic.properties` 就是这些值。
+- **场景逻辑（计分、阶段、胜负）用逻辑属性，不用"8 盏灯"**：在 `Scene` 根上声明 `property real score: 0` / `property bool armed: true` / `property string phase: "idle"`（类型 real/bool/string/length/degrees/duration/radians）；处理器里 `score = score + 1`，绑定里 `when: score >= 8 && misses < 3`（支持 `+ - * / === !== < <= > >= && || ! ?:` 与 `min/max/clamp/lerp`，只有数值算术，没有字符串拼接）。一个处理器里的多条赋值是一笔事务，任一失败整批回滚。截图返回的 `logic.properties` 就是这些值。**绑定也是逐帧一笔事务**：任何一条绑定的值被目标拒绝（负的 `width`、类型不对、原生拒绝），整批回滚、该绑定失效、相关值停止变化，页面不抛异常，只在 `runtime.errors` 里给 `binding_error`（`节点.属性: 代码: 信息`，映射到源码行）并列进 `logic.bindings.invalid`。分段路径用 `clamp/lerp/min/max` 按进度属性写，不写分支式 `?:` 链，且每个分支都要落在目标合法范围内。`Behavior` 会把目标属性的每次变化按 `duration` 缓动，挂在逐帧变化的属性上会滞后约"速度 × duration"，只用于离散跳变（命中、状态切换），连续运动直接绑定。State 由 `when` 派生，不能写，改它读的属性。每次编译都会热重载页面并把逻辑属性重置为初值（`ssworld_compile` 返回 `hot_reload.logic_reset`），测试中途别编译，或编译后用 `ssworld_logic_write` 恢复局面。
 - **规则需要 JS 时走宿主接口，不把几何搬进 JS**：先写 `host_interfaces.json`（`{"Game":{"methods":{"hit":{"args":[{"name":"targetId","type":"string"}]},"reset":{"args":[]}}}}`），再写 `logic.mjs`（`export function createHostInterfaces(api) { return { Game: { hit({ targetId }) { … api.logical.write("score", n) … }, reset() {} } }; }`），SSDL 里 `TapHandler { onTapped: { Game.hit(targetId: "balloonA"); } }`。未声明的接口/方法/参数在编译期报 `host_interface_unknown` / `host_method_unknown` / `host_arg_missing`；`logic.mjs` 缺实现页面拒绝加载（`host_interface_missing`）。回调同步、无返回值，只能通过 `api.logical.write` 改场景状态；抛错会记进 `logic.host_call_errors` 并出现在 `runtime.errors`。热重载时 `logic.mjs` 重新导入、逻辑属性回到初值。
 - **`CameraView.fov` 是水平视场角**：垂直视场角 = 2·atan(tan(fov/2)/宽高比)，同一个 fov 在宽画面上看到的天空更少；算"哪个物体在画面内"要按水平 fov。
 - **`Label` 不能用**：引擎要加载 `assets/font/msyh.ttc` 而包里没有字体，写了整个场景加载失败（编译器现在直接报 `runtime_unsupported`）；文字放 `index.html` 浮层（记得给浮层 `pointer-events: none`，否则会挡住点击），或用几何体拼。
@@ -84,7 +86,7 @@ Scene {
 
 ## 边界
 
-- `ssworld_source_write` 只写项目内 `.ssdl`、`host_interfaces.json`、`logic.mjs`；页面排版、锚点、默认相机在项目目录的 `index.html` / `scene.mjs`（路径在 `ssworld_project_create` 返回的 `directory`），需要时用文件工具改。几何、材质、动画、事件一律留在 SSDL，JS 只做数据与规则，不要在 JS 里建几何或直接操作引擎。
+- `ssworld_source_write` 只写项目内 `.ssdl`、`host_interfaces.json`、`logic.mjs`；页面排版、锚点、默认相机在项目目录的 `index.html` / `scene.mjs`（路径在 `ssworld_project_create` 返回的 `directory`），需要时用文件工具改。模板页面把 WebGPU 画布和信息面板并排摆放，没有任何浮层盖在画布上；自己加的浮层不要压住画布，装饰性浮层给 `pointer-events: none`，否则会吞掉 `TapHandler` 需要的点击。几何、材质、动画、事件一律留在 SSDL，JS 只做数据与规则，不要在 JS 里建几何或直接操作引擎。
 - `SkyAtmosphere.skyLuminanceFactor`、`rayleighScattering` 等散射项是三维向量 `[r, g, b]`，不是标量；写错编译期就会报 `type_mismatch`。`SunSky` 不可用，改用 `SkyAtmosphere` + `DirectionalLight { atmosphereSunLight: true; sunAzimuth; sunElevation }`。
 - 不要删除或覆盖用户已有项目；`ssworld_project_create` 对重名会直接报错。
 - 最终回复给出：项目名与源码路径、`viewer_url`、截图路径（`capture_path`）与从图上看到的内容、运行时错误（如有），以及没验证的部分。

@@ -18,7 +18,8 @@ const SUPPORTED_PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 export const INSTRUCTIONS = `SSWorld: author 3D geographic scenes with the SSDL scene description language (a QML-like subset, right-handed Z-up, metres) and run them on the SSEngine WebGPU runtime.
 Workflow: ssworld_catalog (index, or components: [...] with detail 'compact' for several contracts at once) -> ssworld_project_create -> ssworld_source_read (mode 'metadata' for digests/sizes, 'node' for one node, offset/limit for ranges) -> ssworld_source_patch / ssworld_source_batch (atomic multi-edit, optional compile+rollback) / ssworld_source_write -> ssworld_compile (real diagnostics + budget usage) -> ssworld_scene_inspect (hierarchy, extent, requested camera) -> ssworld_preview (URL to open in a WebGPU browser) -> ssworld_capture_frame (screenshot + stats + receipt binding the frame to source/IR digests + requested vs effective camera + runtime errors mapped to scene.ssdl:line).
 Assets: copy glb models (and png/jpg textures) into <project>/assets/ and reference them by project-relative path (Model { source: "assets/name.glb" }); ssworld_compile discovers them (usage.assets) and rejects oversize files (asset_budget). Compile success means the scene is well-formed, not that it looks right; open the preview, then call ssworld_capture_frame and look at the image before reporting. Every result carries next: {action, reason, ...} naming the next step; 'open_webgpu_viewer' means the client must open next.url in a visible WebGPU browser tab (a client capability, not an SSWorld tool). reference_match stays not_evaluated unless a comparison was actually run.
-Conventions: local metres, x east / y north / z up around the project anchor; geometry rotation quaternions are [x, y, z, w], environment component rotation is Euler degrees; CameraView takes position/lookAt in local metres (or longitude/latitude/height), fov in HORIZONTAL degrees (the vertical fov follows the aspect); ${CLIP_PLANE_POLICY}. Scene logic: 'property real score: 0' on the Scene root, handler assignments with arithmetic, comparisons (>=, <=, ===, !==) in bindings, and 'Iface.method(arg: expr)' host calls declared in host_interfaces.json + implemented in logic.mjs; ssworld_catalog.logic documents the surface, ssworld_capture_frame returns the live values as 'logic'.`;
+Conventions: local metres, x east / y north / z up around the project anchor; geometry rotation quaternions are [x, y, z, w], environment component rotation is Euler degrees; CameraView takes position/lookAt in local metres (or longitude/latitude/height), fov in HORIZONTAL degrees (the vertical fov follows the aspect); ${CLIP_PLANE_POLICY}. Scene logic: 'property real score: 0' on the Scene root, handler assignments with arithmetic, comparisons (>=, <=, ===, !==) in bindings, and 'Iface.method(arg: expr)' host calls declared in host_interfaces.json + implemented in logic.mjs; ssworld_catalog.logic documents the surface, ssworld_capture_frame returns the live values as 'logic'; ssworld_logic_read / ssworld_logic_write read and set declared properties on the open page in one transaction (States are derived and cannot be written), and ssworld_capture_frame { await: {state|property, ...} } waits for a game state before shooting instead of editing initial values.
+Runtime evidence: a binding whose value the target refuses rolls its whole batch back and freezes the affected values; the page reports it as runtime.errors kind 'binding_error' (mapped to scene.ssdl:line) and logic.bindings.invalid, so check runtime.errors before judging a frame. Several browsers may have the same page open (desktop preview pane + automation browser): ssworld_preview lists them as page.clients, every capture receipt names the answering receipt.client, and capture/logic tools accept client: "<id>" to pick one.`;
 
 const log = (line) => process.stderr.write(`[ssworld-mcp] ${line}\n`);
 
@@ -38,6 +39,30 @@ const NEXT = {
   judge: () => next("judge_frame", "no runtime errors; judge composition from the image and stats.regions, then iterate with ssworld_source_batch"),
   engine: () => next("install_engine", "the SSEngine WebGPU runtime pair is not installed; call ssworld_engine_status { install: true }", { blocking: true }),
 };
+
+/** The page that will answer a command, or a structured page_not_open / client_not_connected error. */
+async function requirePage(project, client) {
+  const page = await fetchPageStatus(project, { client: client || null });
+  if (page.connected) return page;
+  const started = await startPreview({ log });
+  const url = projectUrl(project, started.port);
+  if (client && page.clients?.length) {
+    throw Object.assign(new Error(`page client '${client}' is not syncing; connected clients: ${page.clients.map((item) => item.id).join(", ")}`),
+      { code: "client_not_connected", extra: { page, next: next("pick_client", "pass one of page.clients[].id or omit client for the most recent visible page", { blocking: true }) } });
+  }
+  throw Object.assign(new Error("preview page is not open; open viewer_url in a WebGPU browser (keep it visible), then call the tool again"),
+    { code: "page_not_open", extra: { viewer_url: url, page, next: NEXT.open(url) } });
+}
+
+/** Turn a failed preview command reply (timeout, page gone) into a tool error with a next step. */
+function commandFailure(reply, retryAction) {
+  const visibility = reply.page?.status?.visibility;
+  const hidden = visibility && visibility !== "visible";
+  const message = reply.error === "page_timeout"
+    ? (hidden ? `the page is ${visibility} (minimised or background tab); bring it to the front and retry` : "the page did not answer in time (is the tab visible and painting?)")
+    : String(reply.error);
+  return Object.assign(new Error(message), { code: reply.error, extra: { page: reply.page, next: hidden ? NEXT.front(visibility) : next(retryAction, message, { blocking: true }) } });
+}
 
 const TOOLS = [
   {
@@ -138,7 +163,14 @@ const TOOLS = [
     description: "Compile the project with the SSDL 0.3 compiler (always from the files on disk). Returns digests, node_count and budget usage (usage.assets lists the glb/png/jpg files found under assets/) on success, or the compiler diagnostic (file:line:column, code, message) on failure. Members the catalog marks as not runtime-writable are rejected here too (runtime_unsupported).",
     inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" } }, additionalProperties: false },
     annotations: { title: "Compile SSDL", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-    run: async ({ project }) => ({ ...(await compileNamed(project)), next: next("preview_or_capture", "compiled; call ssworld_preview (first time) or ssworld_capture_frame (page already open, it hot reloads)") }),
+    run: async ({ project }) => {
+      const compiled = await compileNamed(project);
+      const page = await fetchPageStatus(project);
+      return { ...compiled,
+        ...(page.connected ? { hot_reload: { clients: page.clients.map((item) => item.id), logic_reset: true,
+          note: "the open page reloads this generation now; declared properties and States restart at their initial values (use ssworld_logic_write to restore a game situation)" } } : {}),
+        next: next("preview_or_capture", "compiled; call ssworld_preview (first time) or ssworld_capture_frame (page already open, it hot reloads)") };
+    },
   },
   {
     name: "ssworld_scene_inspect",
@@ -156,7 +188,7 @@ const TOOLS = [
   },
   {
     name: "ssworld_preview",
-    description: "Compile the project, make sure the engine is installed and the local preview server is running, and return the URL to open in a WebGPU-capable browser. The page hot-reloads on later writes+compiles. next.action tells whether the page must still be opened (open_webgpu_viewer) or can be captured.",
+    description: "Compile the project, make sure the engine is installed and the local preview server is running, and return the URL to open in a WebGPU-capable browser. The page hot-reloads on later writes+compiles. page.clients lists every browser that has the page open (id, visibility, canvas size, user agent) and page.client the one that would answer a capture; next.action tells whether the page must still be opened (open_webgpu_viewer) or can be captured.",
     inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" } }, additionalProperties: false },
     annotations: { title: "Preview scene", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     run: async ({ project }) => {
@@ -174,38 +206,36 @@ const TOOLS = [
   },
   {
     name: "ssworld_capture_frame",
-    description: "Screenshot the project's open preview page through the engine: an offscreen WebGPU render at the requested width x height (horizontal fov kept, the vertical fov follows the requested aspect, no scaling/cropping, the interactive view is untouched). Returns the PNG as image content (also saved under captures/), pixel statistics (luma percentiles, exposure tails, colour-class coverage overall and per 3x3 region, top colours), a receipt binding the frame to the source/IR digests and page generation (in_sync false + staleness when the page runs an older compile), framing details, runtime errors since the last hot reload mapped to scene.ssdl:line, camera {effective pose, source, requested (from the scene's CameraView), deviation with reasons}, and `logic` (declared scene properties, State.when values and host call errors as the page holds them right now, so `score === 8` can be asserted without reading pixels). reference_match is always not_evaluated (no reference comparison is run). Requires the viewer_url from ssworld_preview to be open and visible; returns page_not_open otherwise.",
+    description: "Screenshot the project's open preview page through the engine: an offscreen WebGPU render at the requested width x height (horizontal fov kept, the vertical fov follows the requested aspect, no scaling/cropping, the interactive view is untouched). Returns the PNG as image content (also saved under captures/), pixel statistics (luma percentiles, exposure tails, colour-class coverage overall and per 3x3 region, top colours), a receipt binding the frame to the source/IR digests, page generation and the answering page (receipt.client: id, visibility, canvas, user agent; clients_connected when several browsers have the page open), framing details, runtime errors since the last hot reload mapped to scene.ssdl:line (kind binding_error = a binding's value was refused and its batch rolled back), camera {effective pose, source, requested (from the scene's CameraView), deviation with reasons}, and `logic` (declared scene properties, State.when values, host call errors and bindings.invalid as the page holds them right now, so `score === 8` can be asserted without reading pixels). await waits for a State/property condition before shooting (await_timeout with the live logic otherwise). reference_match is always not_evaluated (no reference comparison is run). Requires the viewer_url from ssworld_preview to be open and visible; returns page_not_open otherwise.",
     inputSchema: { type: "object", required: ["project"], properties: {
       project: { type: "string" },
       width: { type: "integer", minimum: 64, maximum: 4096, description: "Capture width in pixels; default 800." },
       height: { type: "integer", minimum: 64, maximum: 4096, description: "Capture height; default keeps 16:9." },
       settle_ms: { type: "integer", minimum: 0, maximum: 10000, description: "Wait before capturing (camera flights, animations); default 500." },
-      timeout_ms: { type: "integer", minimum: 1000, maximum: 120000, description: "How long to wait for the page to answer; default 20000." },
+      timeout_ms: { type: "integer", minimum: 1000, maximum: 120000, description: "How long to wait for the page to answer; default 20000 (raised automatically to cover await.timeout_ms)." },
+      client: { type: "string", description: "Page client id (from ssworld_preview page.clients / a capture receipt.client.id) that must answer; default: the most recently synced visible page." },
+      await: { type: "object", description: "Capture only once the scene logic satisfies this: {state: 'corner'} (State.when true; equals: false for the opposite) or {property: 'p', equals: 0.4} / {property: 'p', min: 0.3, max: 0.5}; timeout_ms default 5000 (max 60000).",
+        properties: { state: { type: "string" }, property: { type: "string" }, equals: {}, min: { type: "number" }, max: { type: "number" }, timeout_ms: { type: "integer", minimum: 0, maximum: 60000 } }, additionalProperties: false },
     }, additionalProperties: false },
     annotations: { title: "Capture preview frame", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     rich: true,
-    run: async ({ project, width, height, settle_ms, timeout_ms }) => {
+    run: async ({ project, width, height, settle_ms, timeout_ms, client, await: awaitSpec }) => {
       const directory = projectDir(project);
-      const page = await fetchPageStatus(project);
-      if (!page.connected) {
-        const started = await startPreview({ log });
-        const url = projectUrl(project, started.port);
-        throw Object.assign(new Error("preview page is not open; open viewer_url in a WebGPU browser (keep it visible), then call ssworld_capture_frame again"),
-          { code: "page_not_open", extra: { viewer_url: url, page, next: NEXT.open(url) } });
-      }
+      const page = await requirePage(project, client);
       const requestedWidth = width || 800;
       const requestedHeight = height || Math.round(requestedWidth * 9 / 16);
-      const reply = await pageCommand(project, "capture", { width: requestedWidth, height: requestedHeight, settle_ms: settle_ms ?? 500 }, { timeoutMs: timeout_ms || 20000 });
-      if (!reply.ok) {
-        const visibility = reply.page?.status?.visibility;
-        const hidden = visibility && visibility !== "visible";
-        const message = reply.error === "page_timeout"
-          ? (hidden ? `the page is ${visibility} (minimised or background tab); bring it to the front and retry` : "the page did not answer in time (is the tab visible and painting?)")
-          : String(reply.error);
-        throw Object.assign(new Error(message), { code: reply.error, extra: { page: reply.page, next: hidden ? NEXT.front(visibility) : next("retry_capture", message, { blocking: true }) } });
-      }
+      const awaitBudget = awaitSpec ? Math.min(awaitSpec.timeout_ms ?? 5000, 60000) : 0;
+      const timeoutMs = Math.max(timeout_ms || 20000, awaitBudget + 8000);
+      const reply = await pageCommand(project, "capture", { width: requestedWidth, height: requestedHeight, settle_ms: settle_ms ?? 500, ...(awaitSpec ? { await: { ...awaitSpec, timeout_ms: awaitBudget } } : {}) },
+        { timeoutMs, client: page.client?.id });
+      if (!reply.ok) throw commandFailure(reply, "retry_capture");
       const result = reply.result;
-      if (!result.ok) throw Object.assign(new Error(result.error), { code: "capture_failed", extra: { status: result.status, next: next("retry_capture", result.error, { blocking: true }) } });
+      if (!result.ok) {
+        const code = result.code || "capture_failed";
+        const reason = code === "await_timeout" ? "the condition did not become true; check logic (live values) and whether the game actually reaches that state" : result.error;
+        throw Object.assign(new Error(result.error), { code, extra: { status: result.status, ...(result.logic ? { logic: result.logic } : {}), client: reply.page?.client ?? null,
+          next: next(code === "await_timeout" ? "inspect_logic" : "retry_capture", reason, { blocking: code !== "await_timeout" }) } });
+      }
       const capturedAt = new Date();
       const stamp = capturedAt.toISOString().replace(/[:.]/g, "-");
       const capturesDir = path.join(directory, "captures");
@@ -231,7 +261,10 @@ const TOOLS = [
         source_digest: state.source_digest, compiled_source_digest: state.compiled_source_digest, scene_ir_digest: state.scene_ir_digest,
         page_scene_ir_digest: pageDigest, page_generation: status.generation ?? null,
         engine_id: engine.engine_id || null, server_version: PACKAGE.version,
-        in_sync: staleness.length === 0, staleness };
+        in_sync: staleness.length === 0, staleness,
+        // Which browser answered: several may have the page open (desktop preview pane + automation browser).
+        client: reply.page?.client ?? null, client_selection: reply.page?.selection ?? null, clients_connected: reply.page?.clients?.length ?? null,
+        ...(reply.page?.clients?.length > 1 && !client ? { client_note: `${reply.page.clients.length} pages sync this project; this frame comes from client ${reply.page.client?.id}; pass client to pick another (see ssworld_preview page.clients)` } : {}) };
 
       // Framing: what the engine did with the requested size (verified against LiRenderSystem offscreen path).
       const effective = result.camera && !result.camera.error ? result.camera : null;
@@ -282,6 +315,7 @@ const TOOLS = [
         payload: {
           ok: true, project, capture_path: file, receipt, framing, stats, camera, runtime: status,
           logic: status.logic ?? null,
+          ...(result.awaited ? { awaited: result.awaited } : {}),
           render_verified: verified,
           reference_match: { status: "not_evaluated", method: null, metrics: null, note: "no reference image comparison is performed by this tool" },
           verdict: verified ? (receipt.in_sync ? "frame captured from the running scene with no runtime errors; judge composition from the image and stats.regions"
@@ -294,6 +328,47 @@ const TOOLS = [
         },
         images: [{ data: result.png_base64, mimeType: "image/png" }],
       };
+    },
+  },
+  {
+    name: "ssworld_logic_read",
+    description: "Read the scene logic of the project's open preview page right now, without a screenshot: declared properties, State.when values, host call errors, bindings.invalid (bindings whose last value was refused) and binding_errors. Read it twice a few seconds apart to prove a game loop is actually advancing (a frozen value with no runtime error is what a rolled-back binding batch looks like). client picks one of several open pages.",
+    inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" }, client: { type: "string", description: "Page client id; default: most recent visible page." },
+      timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, description: "Default 10000." } }, additionalProperties: false },
+    annotations: { title: "Read scene logic", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    run: async ({ project, client, timeout_ms }) => {
+      const page = await requirePage(project, client);
+      const reply = await pageCommand(project, "logic_read", {}, { timeoutMs: timeout_ms || 10000, client: page.client?.id });
+      if (!reply.ok) throw commandFailure(reply, "retry_logic_read");
+      if (!reply.result.ok) throw Object.assign(new Error(reply.result.error), { code: reply.result.code || "logic_read_failed", extra: { status: reply.result.status, next: next("wait_or_reload", reply.result.error, { blocking: true }) } });
+      const logic = reply.result.logic;
+      const invalid = logic?.bindings?.invalid || [];
+      return { ok: true, project, client: reply.page?.client ?? null, clients_connected: reply.page?.clients?.length ?? null, logic,
+        next: invalid.length ? next("fix_source", `${invalid.length} binding(s) are invalid (their value was refused and the batch rolled back): ${invalid.map((item) => `${item.target}.${item.property} ${item.code || ""}`).join("; ")}`)
+          : next("judge_logic", "compare properties/states with what the game should be doing; call again to see whether they advance") };
+    },
+  },
+  {
+    name: "ssworld_logic_write",
+    description: "Set declared scene properties on the open preview page in ONE event transaction (the same path as window.SSWorld.logical.write): {set: {p: 0.4, pace: 0.0025}}. Use it to put the game into a situation (a corner, the last lap) before ssworld_capture_frame instead of editing initial values in the sources. Returns before/after logic and the transaction receipt; a refused value rolls every property in the set back and the error names the failing binding (logical_write_rejected). States are derived from their `when` expression and cannot be written (logic_property_unknown tells you so): set a declared property they read.",
+    inputSchema: { type: "object", required: ["project", "set"], properties: { project: { type: "string" },
+      set: { type: "object", minProperties: 1, additionalProperties: true, description: "{declaredProperty: value}; numbers for real/length/degrees/duration/radians, booleans for bool, strings for string." },
+      client: { type: "string", description: "Page client id; default: most recent visible page." },
+      timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, description: "Default 10000." } }, additionalProperties: false },
+    annotations: { title: "Write scene logic", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    run: async ({ project, set, client, timeout_ms }) => {
+      const page = await requirePage(project, client);
+      const reply = await pageCommand(project, "logic_write", { set }, { timeoutMs: timeout_ms || 10000, client: page.client?.id });
+      if (!reply.ok) throw commandFailure(reply, "retry_logic_write");
+      const result = reply.result;
+      if (!result.ok) {
+        const code = result.code || "logic_write_failed";
+        throw Object.assign(new Error(result.error), { code, extra: { ...(result.failure ? { failure: result.failure } : {}), ...(result.logic ? { logic: result.logic } : {}), client: reply.page?.client ?? null,
+          next: code === "logical_write_rejected" ? next("fix_source", `a binding refused the new value and the whole write rolled back: ${result.failure ? `${result.failure.target}.${result.failure.property} (${result.failure.code})` : result.error}`)
+            : next("fix_call", result.error) } });
+      }
+      return { ok: true, project, client: reply.page?.client ?? null, before: result.before, after: result.after, receipt: result.receipt,
+        next: next("capture_frame", "the page holds the new values; ssworld_capture_frame (optionally with await) shows the resulting frame") };
     },
   },
   {

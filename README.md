@@ -32,8 +32,9 @@ Manual registration for any other client:
 | `ssworld_source_batch` | atomic multi-edit: text patches and node-level `{node_id, set, unset}` across files; all validated in memory before anything is written; `validate: compile` + rollback restores the previous sources on a failed compile |
 | `ssworld_scene_inspect` | compiled-scene facts without rendering: budget ratio, subtrees by size, leaf children by type, nodes per source file, primitive extent, the requested camera (lookAt-derived heading/pitch); render stats honestly `unavailable` |
 | `ssworld_compile` | SSDL 0.3 compiler with real diagnostics, `node_count`, budget `usage` and `logic` (declared properties, states, host calls); catalog/runtime mismatches are compile errors (Label without a font, material animations on a Group/Model, undeclared host calls) |
-| `ssworld_preview` | starts the local preview server, returns `http://127.0.0.1:8880/projects/<name>/index.html`, whether the page is open and a structured `next` (`open_webgpu_viewer` / `capture_frame` / `bring_page_to_front`) |
-| `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`, the scene's `requested` camera and a `deviation` with reasons (clip planes are engine-managed); `receipt` binding the frame to source/IR digests and the page generation (`in_sync`, `staleness`); `framing` describing the offscreen render at the requested size (horizontal fov kept, vertical follows the aspect); `logic` with the page's live declared properties / `State.when` / host call errors; `reference_match` always `not_evaluated`; PNG returned as image content and saved to `captures/` |
+| `ssworld_preview` | starts the local preview server, returns `http://127.0.0.1:8880/projects/<name>/index.html`, whether the page is open, `page.clients` (every browser syncing the page: id, visibility, canvas, user agent) and a structured `next` (`open_webgpu_viewer` / `capture_frame` / `bring_page_to_front`) |
+| `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`, the scene's `requested` camera and a `deviation` with reasons (clip planes are engine-managed); `receipt` binding the frame to source/IR digests, the page generation (`in_sync`, `staleness`) and the answering page (`client`, `clients_connected`); `framing` describing the offscreen render at the requested size (horizontal fov kept, vertical follows the aspect); `logic` with the page's live declared properties / `State.when` / host call errors / `bindings.invalid`; `await: {state | property, …}` to shoot only once a game state holds; `client` to pick one of several open pages; `reference_match` always `not_evaluated`; PNG returned as image content and saved to `captures/` |
+| `ssworld_logic_read` / `ssworld_logic_write` | read the open page's scene logic without a screenshot, or set declared properties in one transaction (`{set: {p: 0.4, pace: 0.0025}}`) to put a game into a situation before capturing; a refused value rolls the whole set back and names the failing binding |
 | `ssworld_engine_status` | engine pair installed? (`install: true` to download) |
 
 ### Procedural geometry
@@ -64,7 +65,27 @@ and SSDL calls it with `TapHandler { onTapped: { Game.hit(targetId: "balloonA");
 (`host_interface_unknown`, `host_method_unknown`, `host_arg_missing`, `host_arg_unknown`); a missing implementation refuses to
 mount (`host_interface_missing`); callbacks are synchronous, return nothing and change the scene only through
 `api.logical.write`. `window.SSWorld.logical.read()/write()` expose the same state on the page; `ssworld_capture_frame` returns it as `logic`.
-`logic.mjs` is re-imported on every hot reload and declared properties restart at their initial values.
+`logic.mjs` is re-imported on every hot reload and declared properties restart at their initial values (`ssworld_compile` says so
+as `hot_reload.logic_reset` while a page is open; `ssworld_logic_write` restores a situation).
+
+### Runtime evidence: rolled-back bindings and several open pages
+
+Bindings and handler assignments commit as one transaction per event/frame. If any bound value is refused by its target
+(a negative `width`, a wrong type, a native refusal) the whole batch rolls back, the binding turns invalid and the affected
+values simply stop changing. The page reports this as a runtime error of kind `binding_error`
+(`<node>.<property>: <code>: <message>`, counted with `repeats` instead of flooding) and `ssworld_capture_frame` /
+`ssworld_logic_read` map it to the member line inside that node's block; `logic.bindings.invalid` lists the bindings
+concerned. Prefer `clamp/lerp/min/max` over a progress property to branchy `?:` chains, and keep every branch inside the
+target's valid range. A `Behavior` eases every change of its target over `duration`, so on a per-frame property the
+presented value lags by about speed × duration; use it for discrete jumps.
+
+A desktop preview pane and an automation browser can both have the page open. The preview server keeps one record per
+page (`client` id from the page's heartbeat): `ssworld_preview` lists `page.clients`, a capture is answered by the most
+recently synced **visible** page unless `client` names another, and every receipt carries `receipt.client`
+(`id`, `visibility`, `canvas`, `user_agent`) plus `clients_connected`, so a frame can be attributed to the page it came from.
+
+The project template places the WebGPU canvas and the info panel side by side (nothing floats over the canvas, so taps
+reach the scene's `TapHandler`s). Pages are project-owned; older projects keep their layout.
 
 Hermes also receives the `skills/ssworld` skill (copied to `$HERMES_HOME/skills/ssworld`) so it picks the server on its own for 3D-scene requests.
 

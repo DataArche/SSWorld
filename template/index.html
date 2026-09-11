@@ -54,8 +54,12 @@
     const client = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     let pendingResults = [];
     function noteError(kind, message) {
+      const text = String(message).slice(0, 500);
+      const last = errors[errors.length - 1];
+      // A binding that fails on every frame repeats one message; count it instead of flooding the list.
+      if (last && last.kind === kind && last.message === text) { last.repeats = (last.repeats || 1) + 1; last.at = Date.now(); return; }
       if (errors.length >= 20) errors.shift();
-      errors.push({ kind, message: String(message).slice(0, 500), at: Date.now() });
+      errors.push({ kind, message: text, at: Date.now() });
     }
     window.addEventListener("error", (event) => noteError("error", event.error?.message || event.message));
     window.addEventListener("unhandledrejection", (event) => noteError("unhandledrejection", event.reason?.message || event.reason));
@@ -72,6 +76,8 @@
         engine_ready: Boolean(window.GlobalViewer),
         errors: errors.slice(),
         visibility: document.visibilityState,
+        client,
+        user_agent: navigator.userAgent,
         canvas: (() => { const c = renderCanvas(); return c ? { width: c.width, height: c.height } : null; })(),
         device_pixel_ratio: window.devicePixelRatio || 1,
         // Which compiled scene the page is actually running (from the SceneModuleHost receipt).
@@ -182,11 +188,39 @@
         colormap_top: colormap,
       };
     }
+    // Wait until the scene logic satisfies a condition ({state, equals?} or {property, equals? | min?/max?})
+    // so a capture can show a transient game state without editing initial values in the sources.
+    async function awaitLogic(spec, timeoutMs) {
+      const budget = Math.min(Math.max(Number(timeoutMs) || 5000, 0), 60000);
+      const started = Date.now();
+      const describe = spec.state !== undefined ? `State '${spec.state}' === ${JSON.stringify(spec.equals ?? true)}`
+        : `property '${spec.property}' ${spec.equals !== undefined ? `=== ${JSON.stringify(spec.equals)}` : `in [${spec.min ?? "-inf"}, ${spec.max ?? "+inf"}]`}`;
+      const fail = (code, reason, extra = {}) => Object.assign(new Error(`await ${describe}: ${reason}`), { code, ...extra });
+      for (;;) {
+        const logic = window.SSWorld?.logical ? window.SSWorld.logical.read() : null;
+        if (logic) {
+          if (spec.state !== undefined) {
+            if (!(spec.state in (logic.states || {}))) throw fail("await_invalid", `no such State (known: ${Object.keys(logic.states || {}).join(", ") || "none"})`);
+            if (logic.states[spec.state] === (spec.equals ?? true)) return { satisfied: true, waited_ms: Date.now() - started, condition: describe };
+          } else if (spec.property !== undefined) {
+            if (!(spec.property in (logic.properties || {}))) throw fail("await_invalid", `no such declared property (known: ${Object.keys(logic.properties || {}).join(", ") || "none"})`);
+            const value = logic.properties[spec.property];
+            const hit = spec.equals !== undefined ? JSON.stringify(value) === JSON.stringify(spec.equals)
+              : (spec.min === undefined || Number(value) >= spec.min) && (spec.max === undefined || Number(value) <= spec.max);
+            if (hit) return { satisfied: true, waited_ms: Date.now() - started, condition: describe };
+          } else throw fail("await_invalid", "needs state or property");
+        }
+        if (Date.now() - started >= budget) throw fail("await_timeout", `not satisfied within ${budget} ms`, { logic });
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      }
+    }
+
     async function captureFrame(params = {}) {
       const S = engineConfig;
       if (!window.GlobalViewer || typeof S?.saveImage2Base64 !== "function" || !S?.ByteArray?.fromPtr) throw new Error("engine is not ready for capture");
       const width = Math.min(Math.max(Math.trunc(params.width) || 960, 64), 4096);
       const height = Math.min(Math.max(Math.trunc(params.height) || Math.round(width * 9 / 16), 64), 4096);
+      const awaited = params.await && typeof params.await === "object" ? await awaitLogic(params.await, params.await.timeout_ms) : null;
       if (params.settle_ms) await new Promise((resolve) => setTimeout(resolve, Math.min(params.settle_ms, 10000)));
       let last = "capture produced no image";
       for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -197,18 +231,42 @@
         if (!outcome.value || !outcome.value.startsWith("iVBOR")) { last = "saveImage2Base64 did not return a PNG"; continue; }
         const stats = await pixelStats(`data:image/png;base64,${outcome.value}`);
         if (stats.distinct_colors < 2) { last = "captured frame has no pixel variation yet"; continue; }
-        return { png_base64: outcome.value, stats, camera: cameraState(), status: pageStatus() };
+        return { png_base64: outcome.value, stats, camera: cameraState(), status: pageStatus(), ...(awaited ? { awaited } : {}) };
       }
       throw new Error(last);
+    }
+
+    function readLogic() {
+      if (!window.SSWorld?.logical) throw Object.assign(new Error(`scene logic is not loaded (runtime state '${document.body.dataset.runtime}')`), { code: "logic_unavailable" });
+      return window.SSWorld.logical.read();
+    }
+
+    // Set declared scene properties in one event transaction (same path as window.SSWorld.logical.write).
+    function writeLogic(params = {}) {
+      const set = params.set && typeof params.set === "object" ? params.set : null;
+      if (!set || !Object.keys(set).length) throw Object.assign(new Error("logic_write needs set: {property: value}"), { code: "logic_write_invalid" });
+      const before = readLogic();
+      const unknown = Object.keys(set).filter((name) => !(name in (before.properties || {})));
+      if (unknown.length) {
+        const states = Object.keys(before.states || {});
+        const hint = unknown.some((name) => states.includes(name)) ? "; a State is derived from its `when` expression and cannot be written: set a declared property it reads instead" : "";
+        throw Object.assign(new Error(`unknown declared property ${unknown.join(", ")} (known: ${Object.keys(before.properties || {}).join(", ") || "none"})${hint}`), { code: "logic_property_unknown", logic: before });
+      }
+      const receipt = window.SSWorld.logical.writeBatch(set);
+      const after = readLogic();
+      return { before, after, receipt: { batch_id: receipt.batch_id, status: receipt.status, ok: receipt.ok, evaluated: receipt.evaluated, committed: receipt.committed, changed: receipt.changed } };
     }
 
     async function runCommand(command) {
       try {
         if (command.kind === "status") return { id: command.id, ok: true, status: pageStatus(), camera: cameraState() };
         if (command.kind === "capture") return { id: command.id, ok: true, ...(await captureFrame(command.params)) };
+        if (command.kind === "logic_read") return { id: command.id, ok: true, logic: readLogic(), status: pageStatus() };
+        if (command.kind === "logic_write") return { id: command.id, ok: true, ...writeLogic(command.params), status: pageStatus() };
         return { id: command.id, ok: false, error: `unknown command ${command.kind}` };
       } catch (error) {
-        return { id: command.id, ok: false, error: error.message, status: pageStatus() };
+        return { id: command.id, ok: false, error: error.message, ...(error.code ? { code: error.code } : {}),
+          ...(error.receipt?.failure ? { failure: error.receipt.failure } : {}), ...(error.logic ? { logic: error.logic } : {}), status: pageStatus() };
       }
     }
 
@@ -300,6 +358,8 @@
             logical: {
               read: () => bridge.logicalState(),
               write: (name, value) => { const out = bridge.writeLogical(name, value); if (ui.logicalLine) ui.state.textContent = ui.logicalLine(); return out; },
+              // Several properties in ONE transaction: a refused value rolls all of them back.
+              writeBatch: (values) => { const out = bridge.writeLogicalBatch(values); if (ui.logicalLine) ui.state.textContent = ui.logicalLine(); return out; },
             },
             reload: loadGeneration,
             dispose: () => host.disposeScope("ssworld-project"),
@@ -352,6 +412,10 @@
             executionProfile,
             sceneIRDigest: moduleManifest.scene_ir_digest,
             bindingIRDigest: moduleManifest.binding_ir_digest,
+            // A binding whose value the target refused rolls its whole batch back; surface it as a runtime
+            // error (ssworld_capture_frame maps `<node>.<property>` to the scene.ssdl line) instead of a silent freeze.
+            onBindingError: (entry) => noteError("binding_error",
+              `${entry.target ?? "?"}.${entry.property ?? "?"}: ${entry.code}: ${entry.message} [binding ${entry.binding ?? "?"}, batch rolled back]`),
           });
           currentBridge = runtime;
           return {

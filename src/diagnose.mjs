@@ -141,7 +141,54 @@ export function locateNode(directory, id) {
   return out;
 }
 
-/** Attach { component, member, source } to runtime errors that name a component member. */
+const ANONYMOUS_RE = /^anonymous_([A-Z][A-Za-z0-9]*)_\d+$/;
+
+/**
+ * Find `member:` inside the block with this node id (a bound property path like transform.position matches its
+ * last segment). Compiler-named anonymous nodes (anonymous_PrincipledMaterial_0) have no id in the source: they are
+ * found by type inside their parent's block (parent from SceneIR when available), or by type alone when unique.
+ */
+export function locateNodeMember(directory, nodeId, member, irNodes = null) {
+  const candidates = [...new Set([member, member.split(".").pop()])];
+  const project = scanProject(directory);
+  for (const { file, scan } of project) {
+    for (const name of candidates) {
+      const hit = scan.members.find((item) => item.block.id === nodeId && item.name === name);
+      if (hit) return { file, line: hit.line, column: hit.column, node: nodeId, member: name };
+    }
+  }
+  const irNode = irNodes?.find((node) => node.id === nodeId) || null;
+  const type = irNode?.type || ANONYMOUS_RE.exec(nodeId)?.[1] || null;
+  if (type) {
+    const enclosed = (block, id) => { for (let current = block.parent; current; current = current.parent) if (current.id === id) return true; return false; };
+    const search = (parentId) => {
+      const hits = [];
+      for (const { file, scan } of project) {
+        for (const name of candidates) {
+          for (const item of scan.members) {
+            if (item.name !== name || item.block.type !== type || item.block.id) continue;
+            if (parentId && !enclosed(item.block, parentId)) continue;
+            hits.push({ file, line: item.line, column: item.column, node: nodeId, member: name, ...(parentId ? { parent: parentId } : {}) });
+          }
+          if (hits.length) break;
+        }
+        if (hits.length) break;
+      }
+      return hits;
+    };
+    // The IR may be stale (sources edited since the last compile), so a parent that no longer matches falls back to type alone.
+    const withParent = irNode?.parent ? search(irNode.parent) : [];
+    if (withParent.length) return withParent[0];
+    const byType = search(null);
+    if (byType.length === 1) return byType[0];
+  }
+  const block = locateNode(directory, nodeId)[0];
+  return block ? { file: block.file, line: block.line_start, column: block.column, node: nodeId, member: null } : null;
+}
+
+const NODE_MEMBER_RE = /^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_.]*):/;
+
+/** Attach { component, member, source } to runtime errors that name a component member, or {node, member, source} to binding errors (`<node>.<property>: …`). */
 export function locateRuntimeErrors(directory, errors = []) {
   let nodes = null;
   const irPath = path.join(directory, "scene.ir.json");
@@ -149,6 +196,13 @@ export function locateRuntimeErrors(directory, errors = []) {
     try { nodes = JSON.parse(readFileSync(irPath, "utf8")).nodes || []; } catch { nodes = null; }
   }
   return errors.map((error) => {
+    if (error.kind === "binding_error") {
+      const bound = NODE_MEMBER_RE.exec(String(error.message || ""));
+      if (!bound) return error;
+      const [, node, property] = bound;
+      const hit = locateNodeMember(directory, node, property, nodes);
+      return { ...error, node, member: property, ...(hit ? { source: { file: hit.file, line: hit.line, column: hit.column, node, ...(hit.parent ? { parent: hit.parent } : {}) } } : {}) };
+    }
     const match = MEMBER_RE.exec(String(error.message || ""));
     if (!match) return error;
     const [, component, member] = match;

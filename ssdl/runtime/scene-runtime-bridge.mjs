@@ -179,6 +179,45 @@ export class SceneRuntimeBridge {
     // scene's host_interfaces contract when the graph is installed, never evaluated as code.
     this.hostInterfaces = options.hostInterfaces || null;
     this.hostCallErrors = [];
+    // Binding failures the runtime reports (a binding whose value the target refused, or a flush that
+    // threw): kept per generation so pages and tools can show why a batch rolled back instead of
+    // silently freezing. options.onBindingError receives each enriched entry as it happens.
+    this.bindingErrors = [];
+    this.onBindingError = typeof options.onBindingError === "function" ? options.onBindingError : null;
+    this.unsubscribeBindingError = typeof runtime.on === "function"
+      ? runtime.on("bindingerror", (detail) => this.#noteBindingError(detail)) : null;
+  }
+
+  #noteBindingError(detail = {}) {
+    const binding = detail.binding !== null && detail.binding !== undefined && typeof this.runtime.bindings?.get === "function"
+      ? this.runtime.bindings.get(detail.binding) : null;
+    let target = null, property = null;
+    try { target = binding ? this.runtime.ownerId(binding.target) ?? null : null; property = binding?.property ?? null; } catch (_) {}
+    const entry = {
+      binding: detail.binding ?? null, target, property,
+      code: detail.code || detail.error?.code || "binding_failed",
+      message: String(detail.error?.message || detail.error || detail.code || "binding failed").slice(0, 500),
+      generation: this.generation, at: Date.now(),
+    };
+    if (this.bindingErrors.length >= 20) this.bindingErrors.shift();
+    this.bindingErrors.push(entry);
+    if (this.onBindingError) { try { this.onBindingError(entry); } catch (_) {} }
+    return entry;
+  }
+
+  /** Bindings the runtime marked invalid (their last value was refused; the batch that carried it was rolled back). */
+  invalidBindings() {
+    const out = [];
+    if (typeof this.runtime.bindings?.values !== "function") return out;
+    for (const binding of this.runtime.bindings.values()) {
+      if (binding?.disposed || binding?.state !== "invalid") continue;
+      let target = null;
+      try { target = this.runtime.ownerId(binding.target) ?? null; } catch (_) {}
+      const lastError = [...this.bindingErrors].reverse().find((item) => item.binding === binding.id) || null;
+      out.push({ id: binding.id, target, property: binding.property ?? null, expression_digest: binding.expression_digest ?? null,
+        ...(lastError ? { code: lastError.code, message: lastError.message } : {}) });
+    }
+    return out;
   }
 
   /** Throws host_interface_missing unless every declared interface method is implemented by the page. */
@@ -222,14 +261,30 @@ export class SceneRuntimeBridge {
         states[id] = clone(this.runtime.readLogical(component, "when"));
       }
     }
-    return { scope_id: this.scopeId, generation: this.generation, properties, states, host_call_errors: this.hostCallErrors.slice() };
+    const invalid = this.invalidBindings();
+    return { scope_id: this.scopeId, generation: this.generation, properties, states, host_call_errors: this.hostCallErrors.slice(),
+      bindings: { total: typeof this.runtime.bindings?.size === "number" ? this.runtime.bindings.size : null, invalid },
+      binding_errors: this.bindingErrors.slice() };
   }
 
   /** Writes one declared scene property through the event transaction (rejected values leave the scene untouched). */
   writeLogical(property, value) {
+    return this.writeLogicalBatch({ [property]: value });
+  }
+
+  /** Writes several declared scene properties in ONE event transaction; a refused value rolls back all of them. */
+  writeLogicalBatch(values) {
     invariant(this.graph && !this.graph.disposed, "no installed graph", "scene_graph_missing");
-    const receipt = this.commitEventBatch([{ target: this.graph.sceneIR.scope_id, property, value }]);
-    invariant(receipt.ok, `logical write ${property} was rejected (${receipt.status})`, "logical_write_rejected");
+    invariant(values && typeof values === "object" && !Array.isArray(values), "writeLogicalBatch needs {property: value}", "logical_write_invalid");
+    const names = Object.keys(values);
+    invariant(names.length > 0, "writeLogicalBatch needs at least one property", "logical_write_invalid");
+    const receipt = this.commitEventBatch(names.map((property) => ({ target: this.graph.sceneIR.scope_id, property, value: values[property] })));
+    if (!receipt.ok) {
+      const failure = receipt.failure;
+      const where = failure?.target ? ` on ${failure.target}.${failure.property}` : "";
+      throw Object.assign(new Error(`logical write ${names.join(", ")} was rejected and rolled back (${receipt.status}${failure ? `: ${failure.code}${where}: ${failure.message}` : ""})`),
+        { code: "logical_write_rejected", receipt });
+    }
     return receipt;
   }
 
@@ -416,6 +471,7 @@ export class SceneRuntimeBridge {
       value: item.value,
     }));
     const capture = this.propertyBridge.captureBatch(resolved);
+    const errorsBefore = this.bindingErrors.length;
     const writeReceipt = this.propertyBridge.writeBatch(capture, resolved);
     const bindingReceipt = writeReceipt.ok ? this.runtime.commit()
       : { ok: false, evaluated: 0, committed: 0, failed: 1 };
@@ -425,8 +481,19 @@ export class SceneRuntimeBridge {
       restoreReceipt = this.propertyBridge.restoreBatch(capture);
     }
     const ok = writeReceipt.ok && bindingReceipt.ok;
+    // Status names what happened to the AUTHOR's writes, never the restore batch's own outcome
+    // (0.7.2 reported "committed" for a rolled-back write because the restore had committed).
     const status = ok ? "committed"
-      : restoreReceipt?.status || bindingPropertyReceipt?.status || writeReceipt.status || "rejected";
+      : !writeReceipt.ok ? writeReceipt.status
+      : restoreReceipt?.ok ? "rolled_back" : "recovery_required";
+    const newErrors = this.bindingErrors.slice(errorsBefore);
+    const failure = ok ? null : newErrors.length
+      ? { ...newErrors[newErrors.length - 1], phase: "bindings" }
+      : !writeReceipt.ok
+        ? { code: writeReceipt.error_code || "property_batch_failed", phase: "write", target: null, property: null,
+          message: `a native property write was refused (${writeReceipt.error_code || "property_batch_failed"})` }
+        : { code: bindingPropertyReceipt?.error_code || "binding_commit_failed", phase: "bindings", target: null, property: null,
+          message: "a binding refused its new value; see property_batch.items" };
     return Object.freeze({
       schema_version: "FrameCoordinatorReceipt/1",
       batch_id: ++this.batchSequence,
@@ -444,6 +511,8 @@ export class SceneRuntimeBridge {
       items: [...writeReceipt.items, ...(bindingPropertyReceipt?.items || [])],
       property_batch: bindingPropertyReceipt,
       restore: restoreReceipt,
+      failure,
+      binding_errors: newErrors,
     });
   }
 
@@ -454,5 +523,8 @@ export class SceneRuntimeBridge {
   readLogical(target, property) { return this.runtime.readLogical(target, property); }
   readProperty(target, property) { return this.runtime.readProperty(target, property); }
   snapshot() { return this.runtime.snapshot(); }
-  dispose() { return this.runtime.dispose(); }
+  dispose() {
+    if (this.unsubscribeBindingError) { try { this.unsubscribeBindingError(); } catch (_) {} this.unsubscribeBindingError = null; }
+    return this.runtime.dispose();
+  }
 }
