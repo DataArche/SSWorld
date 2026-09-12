@@ -7,7 +7,7 @@ import path from "node:path";
 import { PACKAGE, PACKAGE_ROOT, SERVER_NAME, repositorySlug } from "./paths.mjs";
 import { ensureEngine } from "./engine.mjs";
 
-const CLIENTS = ["claude", "codex", "hermes", "cursor"];
+const CLIENTS = ["claude", "codex", "hermes", "cursor", "dsh"];
 
 /** Copy skills/ssworld into a client's skill directory. Hermes and Codex both discover
  *  <home>/skills/<name>/SKILL.md on their own, so the file is the whole registration --
@@ -124,6 +124,54 @@ const WRITERS = {
     // Ship the SSWorld skill so Hermes reaches for the server on its own.
     return { client: "hermes", via: file, skill: installSkill(path.join(hermesHome, "skills")) };
   },
+  // DSH has no mcpServers map: every MCP server is one row of its Cordis plugin tree, added through
+  // the home user patch layer ~/.dsh/cordis.patch.yml.  That file must parse to a top-level YAML
+  // array -- DSH throws on a present-but-empty one rather than treating it as "no layer", and `[]`
+  // is its documented way to disable the layer -- so an empty or `[]` file is replaced wholesale
+  // instead of appended to, which would produce YAML that cannot parse at all.  Our rows live
+  // between sentinels so a re-run replaces them and leaves every hand-written row alone.
+  dsh(spec) {
+    const dshHome = process.env.DSH_HOME || path.join(home, ".dsh");
+    const file = path.join(dshHome, "cordis.patch.yml");
+    const open = `# >>> ${SERVER_NAME} (managed by ssworld-mcp install)`;
+    const close = `# <<< ${SERVER_NAME}`;
+    const block = [
+      open,
+      "- insert:",
+      `    - id: mcp-${SERVER_NAME}`,
+      '      name: "@deepseek-ai/dsh-mcp-client"',
+      "      config:",
+      `        serverName: ${SERVER_NAME}`,
+      "        transport: stdio",
+      `        command: ${JSON.stringify(spec.command)}`,
+      `        args: ${JSON.stringify(spec.args)}`,
+      // ssworld_capture_frame renders a frame offscreen and reads it back; a large scene can
+      // outlast the 60 s default and the timeout aborts the call, not just the wait.
+      "        toolCallTimeoutMs: 120000",
+      close,
+    ].join("\n");
+    const current = existsSync(file) ? readFileSync(file, "utf8") : "";
+    const rows = current.replace(/^\s*(#[^\n]*\n?|\s)*/, "").trim();
+    let next;
+    if (!current.includes(open) && /^\s*-?\s*id:\s*mcp-ssworld\s*$/m.test(current)) {
+      // A hand-written row for this server is already there -- and DSH requires serverName to be
+      // unique across live instances, so appending ours would collide rather than override.  Theirs
+      // may also be deliberately tuned; leave it exactly as it is and say so.
+      return { client: "dsh", via: file, skipped: "an existing mcp-ssworld row was left untouched" };
+    }
+    if (current.includes(open) && current.includes(close)) {
+      const start = current.indexOf(open);
+      const end = current.indexOf(close) + close.length;
+      next = current.slice(0, start) + block + current.slice(end);
+    } else if (rows === "" || rows === "[]") {
+      next = `${block}\n`;
+    } else {
+      next = `${current.replace(/\s*$/, "")}\n${block}\n`;
+    }
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, next, "utf8");
+    return { client: "dsh", via: file, skill: installSkill(path.join(dshHome, "skills")) };
+  },
   cursor(spec) {
     const file = path.join(home, ".cursor", "mcp.json");
     const config = readJson(file);
@@ -139,6 +187,7 @@ function detectClients() {
   if (existsSync(process.env.CODEX_HOME || path.join(home, ".codex"))) found.push("codex");
   if (existsSync(process.env.HERMES_HOME || path.join(home, ".hermes"))) found.push("hermes");
   if (existsSync(path.join(home, ".cursor"))) found.push("cursor");
+  if (existsSync(process.env.DSH_HOME || path.join(home, ".dsh"))) found.push("dsh");
   return found;
 }
 

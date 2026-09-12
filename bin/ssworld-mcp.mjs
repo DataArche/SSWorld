@@ -49,6 +49,6 @@ switch (command) {
     process.stdout.write(`${PACKAGE.name} ${PACKAGE.version}\n`);
     break;
   default:
-    process.stderr.write(`usage: ssworld-mcp [serve|install [--client=claude,codex,hermes,cursor] [--no-engine] [--local]|engine|preview [--port=N]|doctor|version]\n`);
+    process.stderr.write(`usage: ssworld-mcp [serve|install [--client=claude,codex,hermes,cursor,dsh] [--no-engine] [--local]|engine|preview [--port=N]|doctor|version]\n`);
     process.exit(command === "--help" || command === "help" ? 0 : 2);
 }

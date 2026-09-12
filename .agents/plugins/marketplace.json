@@ -1,0 +1,16 @@
+{
+  "name": "ssworld",
+  "interface": {
+    "displayName": "SSWorld"
+  },
+  "plugins": [
+    {
+      "name": "ssworld",
+      "source": {
+        "source": "local",
+        "path": "."
+      },
+      "category": "Engineering"
+    }
+  ]
+}

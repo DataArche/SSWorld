@@ -1,0 +1,21 @@
+{
+  "name": "ssworld",
+  "description": "Author, compile, render and inspect SSDL 3D geographic scenes on the SSEngine WebGPU runtime. Use when the user wants a 3D scene, digital twin, building, city block, geographic layout or interactive 3D object built, edited or previewed as a real-time 3D world.",
+  "author": { "name": "DataArche" },
+  "homepage": "https://github.com/DataArche/SSWorld#readme",
+  "repository": "https://github.com/DataArche/SSWorld",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "3d", "webgpu", "gis", "scene", "ssdl", "rendering", "digital-twin"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "SSWorld",
+    "shortDescription": "Build 3D scenes and see the frame",
+    "longDescription": "SSWorld lets the agent write a scene in SSDL, render it on a real WebGPU engine, and read the rendered frame back as pixel statistics — luma percentiles, exposure tails, colour coverage per region, and the camera pose actually used. It can therefore judge and fix its own output instead of guessing.",
+    "developerName": "DataArche",
+    "category": "Engineering",
+    "capabilities": ["Read", "Write", "Interactive"],
+    "websiteURL": "https://github.com/DataArche/SSWorld",
+    "defaultPrompt": ["Build me a dusk city block and show me the frame"]
+  }
+}

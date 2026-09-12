@@ -43,18 +43,36 @@ npx -y ssworld-mcp install
 ```
 
 这会全局安装本包、把 `ssworld` MCP 服务器注册进它能找到的每个 agent 应用
-(用 `--client=claude,codex,hermes,cursor` 指定),并把钉死版本的引擎(约 54 MB)下载到 `~/.ssworld/engine/`。
+(用 `--client=claude,codex,hermes,cursor,dsh` 指定),并把钉死版本的引擎(约 54 MB)下载到 `~/.ssworld/engine/`。
 
 环境要求:Node.js ≥ 22、npm,以及一个支持 WebGPU 的浏览器(Chrome/Edge)用来看预览。
 
-### Claude Code:也可以当插件装
+### 也可以当原生插件装
+
+Claude Code 和 Codex 都直接读本仓库里的插件清单,所以一条命令同时注册 MCP 服务器和 SSDL 写作技能,
+不需要全局 npm 安装;钉死版本的引擎仍在第一次预览时下载。
 
 ```
+# Claude Code
 /plugin marketplace add DataArche/SSWorld
 /plugin install ssworld@ssworld
 ```
 
-一步同时注册 MCP 服务器和 SSDL 写作技能,不需要全局 npm 安装;钉死版本的引擎在第一次预览时下载。
+```bash
+# Codex
+codex plugin marketplace add DataArche/SSWorld
+codex plugin add ssworld --marketplace ssworld
+```
+
+Hermes、Cursor、DSH 没有能承载 MCP 服务器的插件包——它们各自在自己的配置里登记服务器——所以
+`ssworld-mcp install` 就是这三家的原生路径,它写入的正是各家真正读的位置:`~/.hermes/config.yaml`
+的 `mcp_servers:`、`~/.cursor/mcp.json` 的 `mcpServers`、以及 DSH 用户补丁层
+`~/.dsh/cordis.patch.yml` 里的一条 `@deepseek-ai/dsh-mcp-client`。Hermes 和 DSH 还会把技能拷进
+各自的 `skills/` 目录——那个文件本身就是注册。
+
+```bash
+npx -y ssworld-mcp install --client=hermes,dsh
+```
 
 手动注册到其他客户端:
 

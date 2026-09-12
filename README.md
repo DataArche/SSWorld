@@ -48,19 +48,37 @@ npx -y ssworld-mcp install
 ```
 
 This installs the package globally, registers the `ssworld` MCP server with every agent app it finds
-(`--client=claude,codex,hermes,cursor` to choose), and downloads the pinned engine (≈54 MB) into `~/.ssworld/engine/`.
+(`--client=claude,codex,hermes,cursor,dsh` to choose), and downloads the pinned engine (≈54 MB) into `~/.ssworld/engine/`.
 
 Requirements: Node.js ≥ 22, npm, a WebGPU browser (Chrome/Edge) to look at previews.
 
-### Claude Code: install as a plugin instead
+### Or install as a native plugin
+
+Claude Code and Codex both read plugin manifests straight out of this repository, so one command
+registers the MCP server *and* the SSDL authoring skill with no global npm install. The pinned engine
+still downloads on the first preview.
 
 ```
+# Claude Code
 /plugin marketplace add DataArche/SSWorld
 /plugin install ssworld@ssworld
 ```
 
-This registers the MCP server *and* the SSDL authoring skill in one step, with no global npm install;
-the pinned engine downloads on the first preview.
+```bash
+# Codex
+codex plugin marketplace add DataArche/SSWorld
+codex plugin add ssworld --marketplace ssworld
+```
+
+Hermes, Cursor and DSH have no plugin package that can carry an MCP server — each registers servers
+in its own config — so `ssworld-mcp install` is the native path there and writes exactly what that
+host reads: `mcp_servers:` in `~/.hermes/config.yaml`, `mcpServers` in `~/.cursor/mcp.json`, and an
+`@deepseek-ai/dsh-mcp-client` row in DSH's user patch layer `~/.dsh/cordis.patch.yml`. Hermes and DSH
+also get the skill copied into their own `skills/` directory, which is the whole registration.
+
+```bash
+npx -y ssworld-mcp install --client=hermes,dsh
+```
 
 Manual registration for any other client:
 
