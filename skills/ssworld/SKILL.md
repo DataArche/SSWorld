@@ -1,7 +1,7 @@
 ---
 name: ssworld
 description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.12.0
+version: 1.12.1
 author: SSWorld
 license: MIT
 metadata:
@@ -254,6 +254,7 @@ For an animated scene capture two moments (different `settle_ms`), and recapture
 
 - **Geometry cannot be a parent.** Hanging a Cone under a Box **compiles** and then fails to load: `SceneObject.parent must be a live Scene, Group or GeoAnchor from the same runtime`. Use a `Group` root for a multi-part unit, or have the generator flatten the parts into siblings under Scene with absolute coordinates.
 - **Degenerate meshes take the whole scene module down, and are now refused at compile time.** A radius of 0 in a `Lathe` `profile` (trying to make a point), exactly repeated adjacent points, a `Tube` path that doubles back on itself or repeats a point, two identical adjacent `Loft` rings — these used to fail the entire module with `GeometryFacade.createMesh: triangle is degenerate` without naming a node. Now the compiler reports `mesh_degenerate` with the node and the index. Use a small positive radius (say 0.02) instead of 0 for a point. And to be clear: **a vertical first segment of a `Tube` is fine** — the frame switches reference axis automatically once `|tangent.z| >= 0.9`.
+- **`HeightField.heights` counts grid corners, not cells.** `columns: 2; rows: 2` is four quads with **nine** corners, so it needs nine values, not four: `(columns+1)*(rows+1)`. Writing `columns*rows` values is the single most common `mesh_invalid`. Row-major, first row at `-depth/2` (south), first value at `-width/2` (west), and the whole list on one line. To cover a `width`-by-`depth` patch at a spacing of `s`, use `columns: width/s; rows: depth/s`.
 - **Writing a `Label` fails the whole scene load.** Put text in an `index.html` overlay (give the overlay `pointer-events: none` or it swallows clicks) or build it from geometry.
 - **An orange-brown sky means a scattering term or the sun's colour temperature was touched.** The five scattering vectors are now a compile-time `sky_scattering_refused` (see Lights); `temperature` is still writable but drags brightness along with hue. A bare `SkyAtmosphere` plus the sun's `lightColor` is the only tinting path confirmed on real hardware.
 - **Accepting an interactive scene requires a real browser.** The desktop preview panel's `drive_preview` reports `clicked`/`pressed`, but the page's own `click`/`keydown` listeners never fire once (synthetic input is not delivered), so using it to accept mouse/keyboard gameplay gives false negatives. The panel is for looking at the picture. To assert the interaction path, drive a real Chrome over CDP with `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` and read the state back from `logic.properties`.

@@ -106,7 +106,8 @@ brackets all compile. A property still ends at a newline or `;`, so this only ap
 ### Procedural geometry
 
 Four parametric generators compile to constant parameters and are tessellated by the runtime (`MeshData/v1`, ccw outward,
-≤ 65535 vertices per node, `mesh_budget` beyond): `HeightField { width; depth; columns; rows; heights }`,
+≤ 65535 vertices per node, `mesh_budget` beyond): `HeightField { width; depth; columns; rows; heights }`
+(`columns`/`rows` count cells, `heights` counts the `(columns+1)*(rows+1)` corners around them — row-major from `-depth/2`),
 `Lathe { profile: [[radius, 0, height] …]; segments; closed }`, `Tube { path; radius; segments; closed }`,
 `Loft { sections: [[ring] …]; cap }`. `ssworld_compile` reports their cost as `usage.mesh`. There are no per-vertex
 functions: arbitrary meshes are managed assets (`Model`).

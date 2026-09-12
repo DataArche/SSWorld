@@ -3,7 +3,7 @@
 // native EnvironmentFacade (ssdl_environment_bindings.cpp), lirendersystem.cpp and the SSDL browser runtime.
 
 /** Bumped whenever the notes below change meaning, so catalog_digest moves with them. */
-export const NOTES_VERSION = 16;
+export const NOTES_VERSION = 17;
 
 // DirectionalLight with atmosphereSunLight: true adopts the engine's scene sun (LiSun), which only
 // exposes the LiLight base properties. The owned-light-only members fail at runtime with
@@ -102,7 +102,7 @@ export const CONVENTIONS = Object.freeze({
   clip_planes: CLIP_PLANE_POLICY,
   field_of_view: FOV_POLICY,
   labels: LABEL_POLICY,
-  procedural_geometry: "parametric generators (HeightField width/depth/columns/rows/heights row-major from -depth/2; Lathe profile [radius, 0, height] revolved around Z with segments and optional closed caps; Tube path + radius + segments with a parallel-transport frame; Loft same-count ccw rings stacked bottom to top with optional cap) are compile-time constants: the IR stores parameters, the runtime builds a MeshData/v1 mesh (ccw outward, at most 65535 vertices per node, compile error mesh_budget beyond that); generated vertices carry normalized UVs: u spans the HeightField width or each Lathe/Tube/Loft ring, v spans the HeightField depth or the profile/path/section order, and both axes run from 0 to 1; per-vertex functions and author JavaScript are not accepted; arbitrary meshes go through managed assets (Model)",
+  procedural_geometry: "parametric generators (HeightField width/depth/columns/rows plus heights at the (columns+1)*(rows+1) grid corners - not columns*rows - row-major from -depth/2; Lathe profile [radius, 0, height] revolved around Z with segments and optional closed caps; Tube path + radius + segments with a parallel-transport frame; Loft same-count ccw rings stacked bottom to top with optional cap) are compile-time constants: the IR stores parameters, the runtime builds a MeshData/v1 mesh (ccw outward, at most 65535 vertices per node, compile error mesh_budget beyond that); generated vertices carry normalized UVs: u spans the HeightField width or each Lathe/Tube/Loft ring, v spans the HeightField depth or the profile/path/section order, and both axes run from 0 to 1; per-vertex functions and author JavaScript are not accepted; arbitrary meshes go through managed assets (Model)",
   textures: "PrincipledMaterial supports baseColorMap, metallicRoughnessMap, normalMap and emissiveMap, each referring to a Texture; texture mapping requires UVs on the target geometry. Prepare a metallicRoughnessMap in linear space: G is roughness and B is metalness, and both channels multiply the material's roughness/metalness scalar values. normalMap is tangent-space and only the HeightField/Lathe/Tube/Loft generators carry analytic tangents, so a normal map on any other geometry is refused at compile time with material_requires_tangent; normalScale (0..2, default 1) scales its strength. Put Texture image resources at assets/*.png or assets/*.jpg, each no larger than 8 MiB. The runtime shares identical image content by content digest, so one image used by many objects or texture slots occupies one texture; reuse a path where it makes the scene easier to read. The compiler reports resolved image file bytes only and never estimates decoded memory; the runtime facade is authoritative for decoded texture accounting. uvScale is [u, v] and applies UV × uvScale; smaller values increase repeat density, while the exact rendered tiling direction still needs hardware verification. emissiveMap is sRGB colour data and, like baseColorMap, needs only UVs — never tangents — so it works on any primitive; the base pass multiplies it by emissiveColor ([r, g, b], 0..16, default 1 meaning the map as authored), and values above 1 are how a neon surface crosses the bloom threshold. emissiveColor without an emissiveMap is a flat self-lit colour",
   animations: ANIMATION_POLICY,
   assets: ASSET_POLICY,
@@ -115,6 +115,16 @@ export const CONVENTIONS = Object.freeze({
   editing: "ssworld_source_patch edits one span by exact match; ssworld_source_batch applies several patches / node property sets atomically (optionally compiling and rolling back); ssworld_source_write replaces a file; writing the .ssdl files in the project directory with any other tool also works because ssworld_compile always rebuilds from disk, but such writes are not protected by the digest lock",
   colors: COLOR_POLICY,
   units_tag: "a descriptor's `unit` is the compiler's wire tag ('scalar' means untagged), not always the physical unit; the member note names the physical unit where they differ",
+});
+
+/**
+ * columns/rows count cells but heights counts corners, and every author who writes columns * rows
+ * values loses a whole compile to it. Say the arithmetic in the member note, not only in the error.
+ */
+const HEIGHTFIELD_GRID_POLICY = Object.freeze({
+  columns: "number of cells along width (X), not the number of height samples; a columns: 2 field has 3 columns of corners",
+  rows: "number of cells along depth (Y), not the number of height samples; a rows: 2 field has 3 rows of corners",
+  heights: "metres at the grid CORNERS, so exactly (columns+1)*(rows+1) values, not columns*rows: columns: 2; rows: 2 needs 9. Row-major, first row at -depth/2 (south) and first value at -width/2 (west), all on one line",
 });
 
 /** Member-level notes merged into ssworld_catalog output. */
@@ -146,6 +156,9 @@ function memberNote(component, member, descriptor = {}) {
   }
   if (member === "intensity" && /Light$/.test(component)) {
     return { note: "dimensionless multiplier on the light's radiance; engine default 1.0; not lux/candela (see intensityUnits where present)" };
+  }
+  if (component === "HeightField" && ["columns", "rows", "heights"].includes(member)) {
+    return { note: HEIGHTFIELD_GRID_POLICY[member] };
   }
   if (component === "CameraView") {
     const notes = {

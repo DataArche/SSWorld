@@ -286,12 +286,43 @@ const integer = (value, name, min, max) => {
  * Parametric mesh generators: vertex/triangle counts from the compiled (constant) parameters. The
  * browser runtime builds the same meshes from the same parameters, so the IR carries parameters only.
  */
+/**
+ * heights counts grid corners, not cells, and `columns * rows` is by far the most common miss: the
+ * author counts the quads they drew. Name that mistake and hand over both repairs (resize the list,
+ * or shrink columns/rows) instead of restating the formula the message already carries.
+ */
+function heightsHint(columns, rows, got) {
+  if (got < 0) return "; heights is a list of numbers on one line, e.g. heights: [0, 0, 0, 0]";
+  if (got === columns * rows) {
+    const fix = columns > 1 && rows > 1 ? `, or keep the list and write columns: ${columns - 1}; rows: ${rows - 1}` : "";
+    return `, which is columns * rows: that counts the cells, and heights are the corners around them`
+      + ` (a ${columns}x${rows} field has ${columns + 1}x${rows + 1} corners), so add ${expectedCorners(columns, rows) - got} more values${fix}`;
+  }
+  const fit = cornerFactors(got);
+  if (fit) return `; ${got} values fit columns: ${fit[0]}; rows: ${fit[1]}`;
+  return "";
+}
+const expectedCorners = (columns, rows) => (columns + 1) * (rows + 1);
+/** The squarest columns/rows whose corner count is exactly `total`, so the author can keep the list they have. */
+function cornerFactors(total) {
+  if (total < 4) return null;
+  let best = null;
+  for (let a = 2; a * a <= total; a += 1) {
+    if (total % a) continue;
+    const b = total / a;
+    if (a - 1 < 1 || b - 1 > 4096) continue;
+    if (!best || b / a < best[1] / best[0]) best = [a, b];
+  }
+  return best ? [best[0] - 1, best[1] - 1] : null;
+}
+
 export const MESH_GENERATORS = Object.freeze({
   HeightField(props) {
     const columns = integer(props.columns, "columns", 1, 4096), rows = integer(props.rows, "rows", 1, 4096);
     if (!(props.width > 0) || !(props.depth > 0)) meshFail("mesh_invalid", "width and depth must be > 0");
     const expected = (columns + 1) * (rows + 1);
-    if (!Array.isArray(props.heights) || props.heights.length !== expected) meshFail("mesh_invalid", `heights needs (columns+1)*(rows+1) = ${expected} values (row-major, first row at -depth/2), got ${props.heights?.length ?? 0}`);
+    const got = Array.isArray(props.heights) ? props.heights.length : -1;
+    if (got !== expected) meshFail("mesh_invalid", `heights needs (columns+1)*(rows+1) = ${expected} values (row-major, first row at -depth/2), got ${got < 0 ? "no list" : got}${heightsHint(columns, rows, got)}`);
     return { vertices: expected, triangles: 2 * columns * rows };
   },
   Lathe(props) {
