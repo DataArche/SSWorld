@@ -78,7 +78,7 @@ function literalValue(ast) {
 }
 
 function typeSpec(valueType, unit = null) {
-  return { value_type: valueType, unit, divisor: ["scalar", "vector3", "quaternion"].includes(valueType) ? 1e6 : 1 };
+  return { value_type: valueType, unit, divisor: ["scalar", "vector2", "vector3", "quaternion"].includes(valueType) ? 1e6 : 1 };
 }
 
 function encodeLiteral(value, expected, ast) {
@@ -91,8 +91,8 @@ function encodeLiteral(value, expected, ast) {
     if (expected.value_type === "color" && !/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value)) fail("color_invalid", ast);
     return { literal: value };
   }
-  if (["vector3", "quaternion"].includes(expected.value_type)) {
-    const size = expected.value_type === "quaternion" ? 4 : 3;
+  if (["vector2", "vector3", "quaternion"].includes(expected.value_type)) {
+    const size = expected.value_type === "vector2" ? 2 : expected.value_type === "quaternion" ? 4 : 3;
     if (!Array.isArray(value) || value.length !== size || value.some((item) => !Number.isFinite(item))) fail("type_mismatch", ast);
     return { op: "array", args: value.map((item) => ({ literal: Math.round(item * expected.divisor), unit: expected.unit })) };
   }
@@ -107,6 +107,28 @@ function containsReference(ast) {
   return (ast.args || ast.values || (ast.arg ? [ast.arg] : [])).some(containsReference);
 }
 
+// Units flow bottom-up through the arithmetic that preserves them, so `hypot(carX - gateX, 0) < 4`
+// has to learn "metres" from carX and hand it to both sides of the comparison; without this the
+// literals compile as dimensionless and the binding dies at runtime with unit_mismatch.
+const UNIT_PRESERVING = new Set(["add", "sub", "min", "max", "clamp", "abs", "floor", "ceil", "round", "mod", "hypot", "lerp", "select", "mul", "div"]);
+function inferOperandType(ast, symbols, depth = 0) {
+  if (!ast || depth > 16) return null;
+  if (ast.kind === "reference") return symbols.types.get(`${ast.segments[0]}.${runtimeProperty(symbols.nodes.get(ast.segments[0])?.type, ast.segments.slice(1).join("."))}`) || null;
+  if (ast.kind === "identifier") return symbols.types.get(`${symbols.rootId}.${ast.value}`) || null;
+  if (ast.kind === "negative") return inferOperandType(ast.arg, symbols, depth + 1);
+  // sqrt keeps its operand's lane now, so a squared distance stays in metres all the way up.
+  if (ast.name === "sqrt") return inferOperandType(ast.args?.[0], symbols, depth + 1);
+  if (["sin", "cos", "sign", "hash01"].includes(ast.name)) return typeSpec("scalar", "scalar");
+  if (ast.name === "atan2") return typeSpec("scalar", "deg");
+  const op = ast.kind === "call" ? ast.name : ast.op;
+  if ((ast.kind === "op" || ast.kind === "call") && UNIT_PRESERVING.has(op)) {
+    const args = op === "select" ? ast.args.slice(1) : ast.args;
+    for (const arg of args) { const found = inferOperandType(arg, symbols, depth + 1); if (found) return found; }
+    return null;
+  }
+  if (["literal", "number"].includes(ast.kind)) return typeSpec(typeof ast.value === "boolean" ? "boolean" : typeof ast.value === "string" ? "string" : "scalar", "scalar");
+  return null;
+}
 function compileExpression(ast, expected, symbols, dependencies) {
   if (["literal", "number", "negative", "array"].includes(ast.kind) && !containsReference(ast)) {
     return encodeLiteral(literalValue(ast), expected, ast);
@@ -142,7 +164,8 @@ function compileExpression(ast, expected, symbols, dependencies) {
   }
   const op = ast.kind === "call" ? ast.name : ast.op;
   if (ast.kind === "array") {
-    if (!["vector3","quaternion"].includes(expected.value_type) || ast.values.length !== (expected.value_type === "quaternion" ? 4 : 3)) fail("type_mismatch", ast);
+    const size = expected.value_type === "vector2" ? 2 : expected.value_type === "quaternion" ? 4 : 3;
+    if (!["vector2", "vector3", "quaternion"].includes(expected.value_type) || ast.values.length !== size) fail("type_mismatch", ast);
     return { op: "array", args: ast.values.map((item) => compileExpression(item, typeSpec("scalar", expected.unit), symbols, dependencies)) };
   }
   if (ast.kind !== "op" && ast.kind !== "call") fail("invalid_expression", ast);
@@ -160,13 +183,31 @@ function compileExpression(ast, expected, symbols, dependencies) {
     const base = { gte: "lt", lte: "gt", nequals: "equals" }[op];
     return { op: "not", args: [compileExpression({ ...ast, op: base }, expected, symbols, dependencies)] };
   }
+  if (["sqrt", "hash01"].includes(op)) {
+    // Units are lanes, so sqrt stays in whichever lane its operand is in -- pinning the operand to
+    // "scalar" here would rescale the author's own references behind their back.  hash01 only mixes the
+    // raw integer, so its operand keeps its own lane too.
+    if (expected.value_type !== "scalar") fail("type_mismatch", ast);
+    const operand = inferOperandType(children[0], symbols) || typeSpec("scalar", expected.unit || "scalar");
+    return { op, args: [compileExpression(children[0], operand, symbols, dependencies)] };
+  }
+  if (["sin", "cos"].includes(op)) {
+    // Degrees unless the operand is itself radians: a bare number reads as degrees the way it does
+    // everywhere else in SSDL, so sin(90) is 1.
+    if (expected.value_type !== "scalar") fail("type_mismatch", ast);
+    const operand = inferOperandType(children[0], symbols) || typeSpec("scalar", "deg");
+    return { op, args: [compileExpression(children[0], operand, symbols, dependencies)] };
+  }
+  if (op === "atan2") {
+    // atan2 is scale invariant, so the two operands only have to agree with each other, not with the
+    // degrees the call returns; the operand type comes from the first argument the way equals does.
+    const operands = inferOperandType(children[0], symbols) || inferOperandType(children[1], symbols) || typeSpec("scalar", "m");
+    return { op, args: children.map((item) => compileExpression(item, operands, symbols, dependencies)) };
+  }
   const booleanOps = new Set(["not", "and", "or", "equals", "lt", "gt"]);
   let operandType = ["not", "and", "or"].includes(op) ? typeSpec("boolean") : expected;
   if (["equals", "lt", "gt"].includes(op)) {
-    const first = children[0];
-    if (first.kind === 'reference') operandType = symbols.types.get(`${first.segments[0]}.${runtimeProperty(symbols.nodes.get(first.segments[0])?.type, first.segments.slice(1).join('.'))}`) || typeSpec('scalar','scalar');
-    else if (first.kind === 'identifier') operandType = symbols.types.get(`${symbols.rootId}.${first.value}`) || typeSpec('scalar','scalar');
-    else operandType = typeSpec(typeof first.value === 'boolean' ? 'boolean' : typeof first.value === 'string' ? 'string' : 'scalar', 'scalar');
+    operandType = inferOperandType(children[0], symbols) || inferOperandType(children[1], symbols) || typeSpec('scalar', 'scalar');
   }
   const result = { op, args: children.map((item) => compileExpression(item, operandType, symbols, dependencies)) };
   if (booleanOps.has(op) && expected.value_type !== "boolean") fail("type_mismatch", ast);
@@ -174,9 +215,10 @@ function compileExpression(ast, expected, symbols, dependencies) {
 }
 
 function decode(result, expected, ast) {
-  if (["vector3","quaternion"].includes(expected.value_type)) {
-    if (result.type !== "array" || result.value.length !== (expected.value_type === "quaternion" ? 4 : 3)) fail("type_mismatch", ast);
-    return Object.fromEntries((expected.value_type === "quaternion" ? ["x","y","z","w"] : ["x", "y", "z"]).map((name, index) => [name, result.value[index].value / expected.divisor]));
+  if (["vector2", "vector3", "quaternion"].includes(expected.value_type)) {
+    const names = expected.value_type === "vector2" ? ["x", "y"] : expected.value_type === "quaternion" ? ["x", "y", "z", "w"] : ["x", "y", "z"];
+    if (result.type !== "array" || result.value.length !== names.length) fail("type_mismatch", ast);
+    return Object.fromEntries(names.map((name, index) => [name, result.value[index].value / expected.divisor]));
   }
   if (expected.value_type === "scalar") { if (result.type !== "scalar") fail("type_mismatch", ast); return result.value / expected.divisor; }
   if (expected.value_type === "boolean" && result.type !== "boolean") fail("type_mismatch", ast);
@@ -257,6 +299,16 @@ export const MESH_GENERATORS = Object.freeze({
     const profile = props.profile || [];
     if (profile.length < 2) meshFail("mesh_invalid", "profile needs at least 2 points ([radius, 0, height] each)");
     if (profile.some((point) => point[0] < 0)) meshFail("mesh_invalid", "profile radius (x) must be >= 0");
+    // A zero radius collapses a whole ring onto the axis, so every quad in the band beside it has a
+    // degenerate triangle and the native mesh builder refuses the SCENE MODULE, not just this node.
+    // Catch it here, where the node and the offending index can still be named.
+    const zero = profile.findIndex((point) => point[0] === 0);
+    if (zero !== -1) meshFail("mesh_degenerate", `profile[${zero}] has radius 0, which collapses that ring onto the axis and makes every triangle in the band beside it degenerate (the engine rejects the whole scene module with "triangle is degenerate"); give a tip a small positive radius such as 0.02 instead of 0`);
+    for (let index = 1; index < profile.length; index += 1) {
+      if (profile[index][0] === profile[index - 1][0] && profile[index][2] === profile[index - 1][2]) {
+        meshFail("mesh_degenerate", `profile[${index}] repeats profile[${index - 1}] (same radius and height), so the band between them has zero area and its triangles are degenerate`);
+      }
+    }
     const caps = props.closed ? 2 : 0;
     return { vertices: profile.length * segments + caps, triangles: 2 * (profile.length - 1) * segments + caps * segments };
   },
@@ -265,6 +317,25 @@ export const MESH_GENERATORS = Object.freeze({
     const path = props.path || [];
     if (path.length < 2) meshFail("mesh_invalid", "path needs at least 2 points");
     if (!(props.radius > 0)) meshFail("mesh_invalid", "radius must be > 0");
+    // The runtime builds a parallel-transport frame along the path: a repeated point has no tangent and
+    // a 180-degree reversal has no frame, and both come back as a dead scene module at mount.  (A purely
+    // vertical segment is fine: the frame switches its reference axis when |tangent.z| >= 0.9.)
+    const length = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    for (let index = 1; index < path.length; index += 1) {
+      if (length(path[index - 1], path[index]) < 1e-9) {
+        meshFail("mesh_degenerate", `path[${index}] repeats path[${index - 1}], so that segment has no direction and the tube frame is undefined`);
+      }
+    }
+    for (let index = 1; index < path.length - 1; index += 1) {
+      const before = path[index], previous = path[index - 1], next = path[index + 1];
+      const a = [before[0] - previous[0], before[1] - previous[1], before[2] - previous[2]];
+      const b = [next[0] - before[0], next[1] - before[1], next[2] - before[2]];
+      const la = Math.hypot(...a), lb = Math.hypot(...b);
+      const cosine = (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (la * lb);
+      if (cosine <= -1 + 1e-9) {
+        meshFail("mesh_degenerate", `path folds back on itself at path[${index}] (the incoming and outgoing directions are opposite), so the tube has no frame there; round the corner with an intermediate point`);
+      }
+    }
     const caps = props.closed ? 2 : 0;
     return { vertices: path.length * segments + caps, triangles: 2 * (path.length - 1) * segments + caps * segments };
   },
@@ -273,6 +344,21 @@ export const MESH_GENERATORS = Object.freeze({
     if (sections.length < 2) meshFail("mesh_invalid", "sections needs at least 2 rings");
     const count = sections[0].length;
     if (count < 3 || sections.some((ring) => ring.length !== count)) meshFail("mesh_invalid", "every section needs the same number of points (>= 3)");
+    // Rings are stitched into quads in order, so a repeated point inside a ring or a repeated ring
+    // produces zero-area quads and the native builder refuses the whole scene module.
+    const same = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) < 1e-9;
+    for (let ring = 0; ring < sections.length; ring += 1) {
+      for (let index = 1; index < count; index += 1) {
+        if (same(sections[ring][index - 1], sections[ring][index])) {
+          meshFail("mesh_degenerate", `sections[${ring}][${index}] repeats the point before it, so that quad column has zero area`);
+        }
+      }
+    }
+    for (let ring = 1; ring < sections.length; ring += 1) {
+      if (sections[ring].every((point, index) => same(point, sections[ring - 1][index]))) {
+        meshFail("mesh_degenerate", `sections[${ring}] repeats sections[${ring - 1}] point for point, so the band between them has zero area`);
+      }
+    }
     const caps = props.cap ? 2 : 0;
     return { vertices: sections.length * count + caps, triangles: 2 * (sections.length - 1) * count + caps * count };
   },
@@ -320,7 +406,11 @@ function compileDocument(document, source, options = {}) {
   for (const { child, id } of rawNodes) {
     if (child.type === "Binding") continue;
     for (const [name, descriptor] of Object.entries(catalog.components[child.type].members)) {
-      symbols.types.set(`${id}.${runtimeProperty(child.type, name)}`, { ...typeSpec(descriptor.value_type, descriptor.unit || null), ...(descriptor.divisor ? { divisor:descriptor.divisor } : {}) });
+      // typeSpec() is the single source of the fixed-point divisor.  A per-member override used to be
+      // honoured here, and the two members that used it (Timer.interval, Label.fontSize) were the only
+      // thing keeping 0.3 from being one lane -- the interpreter is hard-wired to 1e6, so `interval: 100 * 5`
+      // folded to 0.  The catalog generator now rejects an explicit divisor outright.
+      symbols.types.set(`${id}.${runtimeProperty(child.type, name)}`, typeSpec(descriptor.value_type, descriptor.unit || null));
     }
   }
   const sceneNodes = [{ id: rootId, type: "Scene", parent: null, properties: [] }];
@@ -342,7 +432,7 @@ function compileDocument(document, source, options = {}) {
       values.set(key,item); resolvingValues.delete(key);
     }
     if (!item) throw Object.assign(new Error("unknown_reference"), { code: "unknown_reference" });
-    const author = ["vector3","quaternion"].includes(item.value_type) && !Array.isArray(item.value) ? Object.values(item.value) : item.value;
+    const author = ["vector2", "vector3", "quaternion"].includes(item.value_type) && !Array.isArray(item.value) ? Object.values(item.value) : item.value;
     const encoded = encodeLiteral(author, item, document.root);
     if (Object.hasOwn(encoded, "literal")) return {
       type: item.value_type === "color" ? "string" : item.value_type,
@@ -385,7 +475,11 @@ function compileDocument(document, source, options = {}) {
           const rings = descriptor.value_type === "ring_list" ? raw : [raw];
           const ringOk = (points) => Array.isArray(points) && points.length >= 2 && points.length <= 256
             && points.every((point) => Array.isArray(point) && point.length >= 2 && point.length <= 3 && point.every((item) => Number.isFinite(item)));
-          if (!Array.isArray(rings) || rings.length > 128 || !rings.every(ringOk)) fail("type_mismatch", member.value);
+          // A bare type_mismatch on a point list leaves the author guessing which of the four rules
+          // ("at least two points", "at most 256", "2 or 3 finite coordinates") they broke.
+          if (!Array.isArray(rings) || rings.length > 128 || !rings.every(ringOk)) fail("type_mismatch", member.value, descriptor.value_type === "ring_list"
+            ? `${child.type}.${name} must be 1..128 rings of 2..256 points, each [x, y] or [x, y, z] finite numbers`
+            : `${child.type}.${name} must be a list of 2..256 points, each [x, y] or [x, y, z] finite numbers`);
           const lower = rings.map((points) => points.map((point) => [point[0], point[1], point[2] ?? 0]));
           value = descriptor.value_type === "ring_list" ? lower : lower[0];
         }
@@ -400,7 +494,7 @@ function compileDocument(document, source, options = {}) {
         });
         continue;
       }
-      const expected = { ...typeSpec(descriptor.value_type, descriptor.unit || null), ...(descriptor.divisor ? { divisor:descriptor.divisor } : {}) };
+      const expected = typeSpec(descriptor.value_type, descriptor.unit || null);
       const dependencies = new Set();
       const expression = compileExpression(member.value, expected, symbols, dependencies);
       const targetProperty = runtimeProperty(child.type, name);

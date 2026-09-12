@@ -32,7 +32,14 @@ test("install --local registers the server with every client config", () => {
   assert.match(codex, /\[mcp_servers\.ssworld\]\ncommand = ".*"\nargs = \[".*ssworld-mcp\.mjs"\]/);
   const hermes = readFileSync(path.join(home, ".hermes", "config.yaml"), "utf8");
   assert.match(hermes, /mcp_servers:\n  ssworld:\n    command: ".*"\n    args: \[.*\]\n  other:\n    command: x/);
-  assert.match(readFileSync(path.join(home, ".hermes", "skills", "ssworld", "SKILL.md"), "utf8"), /^name: ssworld$/m);
+  // Both skill-capable clients get the skill copied in: the file *is* the registration, because
+  // Hermes and Codex each discover <home>/skills/<name>/SKILL.md on their own.
+  for (const clientHome of [".hermes", ".codex"]) {
+    const skill = readFileSync(path.join(home, clientHome, "skills", "ssworld", "SKILL.md"), "utf8");
+    assert.match(skill, /^name: ssworld$/m, `${clientHome} skill`);
+    assert.doesNotMatch(skill, /[\u4e00-\u9fff]/, `${clientHome} skill must ship in English`);
+  }
+  assert.deepEqual(report.registered.filter((entry) => entry.skill).map((entry) => entry.client), ["codex", "hermes"]);
   const cursor = JSON.parse(readFileSync(path.join(home, ".cursor", "mcp.json"), "utf8"));
   assert.equal(cursor.mcpServers.ssworld.args[0], BIN);
 

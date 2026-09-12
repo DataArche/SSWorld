@@ -1,11 +1,16 @@
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 export const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const PACKAGE = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, "package.json"), "utf8"));
-export const SSDL_ROOT = path.join(PACKAGE_ROOT, "ssdl");
+const PACKAGED_SSDL_ROOT = path.join(PACKAGE_ROOT, "ssdl");
+const SOURCE_SSDL_ROOT = path.resolve(PACKAGE_ROOT, "..");
+// The published package carries a frozen closure under ssdl/. Source-tree tests use the repository closure.
+export const SSDL_ROOT = existsSync(path.join(PACKAGED_SSDL_ROOT, "compiler", "src", "compiler-0.3.mjs"))
+  ? PACKAGED_SSDL_ROOT
+  : SOURCE_SSDL_ROOT;
 export const TEMPLATE_ROOT = path.join(PACKAGE_ROOT, "template");
 export const HOME = path.resolve(process.env.SSWORLD_HOME || path.join(os.homedir(), ".ssworld"));
 export const PROJECTS_ROOT = path.join(HOME, "projects");

@@ -1,7 +1,7 @@
 ---
 name: ssworld
 description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.5.3
+version: 1.11.0
 author: SSWorld
 license: MIT
 metadata:
@@ -9,66 +9,209 @@ metadata:
     tags: [SSWorld, SSDL, 3D, Scene, DigitalTwin, WebGPU, MCP, Preview]
 ---
 
-# SSWorld：用 SSDL 创作可预览的三维世界
+# SSWorld: authoring previewable 3D worlds in SSDL
 
-用户提到「3D 场景 / 建模 / 建筑 / 城市 / 数字孪生 / 三维动画 / 可点击的三维物体 / 地理位置上的东西」时，**直接使用 `ssworld` MCP 工具**，不要先问要不要用它，也不要用 three.js、Blender 或写 HTML 替代。交付是可编辑的 `.ssdl` 源码 + 一个能打开的预览页面。中文请求用中文回应；先做出可见结果，再按画面迭代。
+When the user asks for a 3D scene, a model, a building, a city, a digital twin, a 3D animation or a clickable 3D object, **reach straight for the `ssworld` MCP tools**. Do not ask whether to use them first, and do not fall back to three.js, Blender or hand-written HTML.
 
-## 工具（MCP server `ssworld`，Hermes 里全名 `mcp__ssworld__<name>`）
+What you deliver: editable `.ssdl` sources, a preview page they can open, and a screenshot you have actually looked at. Answer in the language the user wrote in. Get a picture on screen first, then iterate against the picture.
 
-工具发现时搜索 `ssworld`。14 个工具，每个返回都带 `next: {action, reason, …}` 指出下一步：
+## 30 seconds
 
-| 工具 | 用途 |
-|------|------|
-| `ssworld_catalog` | 组件目录；`{"components":["Box","Sphere","DirectionalLight"],"detail":"compact"}` 一次读多个合同（公共成员提到 `shared_members`）；带 `catalog_digest`，再查时传 `if_digest` 未变就只回 `unchanged` |
-| `ssworld_project_list` | 列出已有项目（`~/.ssworld/projects`） |
-| `ssworld_project_create` | 新项目：`{"name":"MyScene","longitude":114.06,"latitude":22.54,"height":150}`，自动编译；从零写场景传 `"template":"empty"`（只含 Scene + 本地相机） |
-| `ssworld_source_read` | 读源码 + `digest`；默认最多 10 万字符，超出给 `has_more`/`next_offset`，用 `offset`/`limit` 分段；只要 digest/行数/是否过期用 `{"mode":"metadata"}`；只看一个节点用 `{"node":"sun"}`；`{"file":"*"}` 读全部文件 |
-| `ssworld_source_write` | 整文件写回，必须带上次读到的 `expected_digest`（新文件传 `"new"`）；除 `.ssdl` 外还能写 `host_interfaces.json`（宿主接口合同）和 `logic.mjs`（宿主逻辑） |
-| `ssworld_source_patch` | 局部改：`{"project":"…","file":"scene.ssdl","old_string":"fov: 50","new_string":"fov: 45","expected_digest":"…"}`，`old_string` 必须唯一（含空白），多处用 `replace_all` |
-| `ssworld_source_batch` | 多处原子修改：`{"project":"…","expected_digest":"…","validate":"compile","edits":[{"node_id":"sun","set":{"intensity":1.7}},{"node_id":"photoView","set":{"fov":48,"lookAt":[0,220,210]},"unset":["farPlane"]},{"old_string":"…","new_string":"…"}]}`；任一条失败什么都不写，`validate: compile` 编译失败自动回滚。值用 JSON 数字/字符串/布尔/`[x,y,z]`，id/枚举/绑定表达式用 `{"raw":"photoView"}` |
-| `ssworld_scene_inspect` | 不渲染看场景：预算占比、最大的子树、叶子节点按类型计数、每个源文件贡献的节点数、几何体包围盒（最低底面/最高顶面）、场景要求的相机（含由 lookAt 推出的 heading/pitch） |
-| `ssworld_compile` | 编译，失败返回 `scene.ssdl:行:列: 代码: 信息`；成功带 `node_count`、预算 `usage` 与 `logic`（声明的属性、State、宿主调用清单） |
-| `ssworld_preview` | 启动本地预览并返回 `viewer_url`，`page.connected` 说明页面是否已打开；`page.clients` 列出所有正在同步这个页面的浏览器（id、可见性、画布尺寸、UA），`page.client` 是截图时会应答的那一个 |
-| `ssworld_capture_frame` | 对已打开的预览页截图（引擎按请求尺寸离屏渲染一帧，水平 fov 不变、垂直 fov 随宽高比变、无拉伸），返回图片、像素统计、`receipt`（这一帧对应的源码/IR digest 与页面 generation，`in_sync: false` 时 `staleness` 说明为什么不是最新）、`framing`、运行时错误、相机 `effective`/`requested`/`deviation`、`logic`（页面此刻的逻辑属性值与 State.when，可直接断言 `score === 8`；`bindings.invalid` 列出被拒绝而失效的绑定）；`receipt.client` 说明这一帧来自哪个页面；`{"project":"MyScene"}`，可选 `width`/`height`/`settle_ms`、`client`（指定页面）、`await`（`{"state":"corner"}` 或 `{"property":"p","min":0.3,"max":0.5}`，条件成立才拍，超时报 `await_timeout` 并附当前 `logic`） |
-| `ssworld_logic_read` | 不截图直接读页面逻辑：属性、State、`bindings.invalid`、`binding_errors`；隔几秒读两次看关键量是否在变，是判定"游戏循环真的在跑"的最低证据 |
-| `ssworld_logic_write` | 一笔事务写多个声明属性：`{"project":"…","set":{"p":0.4,"pace":0.0025}}`，用来把游戏摆到某个局面（弯道、最后一圈）再截图，不要改源码初值；任一值被拒整批回滚并指出失败的绑定（`logical_write_rejected`）；State 是派生的不能写（`logic_property_unknown`），改它读的属性 |
-| `ssworld_engine_status` | 引擎是否已安装；`{"install":true}` 立即下载 |
+```
+ssworld_project_create {"name":"MyScene"}      // create + compile
+ssworld_catalog {"components":["Box","DirectionalLight"],"detail":"compact"}  // look properties up, never guess
+ssworld_source_write / _patch / _batch          // write scene.ssdl
+ssworld_compile                                 // compile, check ok
+ssworld_preview                                 // take viewer_url, open it with open_preview
+ssworld_capture_frame                           // screenshot, judge from the image
+```
 
-## 标准流程
+Every tool returns `next: {action, reason}`. Follow it.
 
-1. **建项目或选项目**：新需求 `ssworld_project_create`；用户说「改一下刚才的场景」先 `ssworld_project_list` 找到它。项目名只能字母开头、字母数字 `_-`。用户给了地点就把经纬度传进去（WGS84 度，高度米），没给用默认锚点。
-2. **查目录再写**：`ssworld_catalog {}` 看 `supported` 为 true 的组件；要用的组件一次 `{"components":[…],"detail":"compact"}` 读齐属性名、类型、单位和必填项，看 `member_notes` 里的单位与约定。**不要凭记忆或 QML/three.js 经验猜属性**。
-3. **读 → 改 → 写**：大场景先 `ssworld_source_read {"mode":"metadata"}` 拿 `digest`，不要整份读回；要改哪个节点用 `{"node":"id"}` 只读那一块。改多处（调灯、改相机、换颜色）用 `ssworld_source_batch` 按 `node_id` 直接 `set`，并加 `"validate":"compile"`，编译不过会自动回滚；单处用 `ssworld_source_patch`；整文件重写或新文件用 `ssworld_source_write`。都传 `expected_digest`，冲突就重读，不盲写。用宿主文件工具直接改项目目录里的 `.ssdl` 也可以（`ssworld_compile` 总是从磁盘重建），但不受 digest 锁保护。多文件组件用 PascalCase 文件名（如 `Tower.ssdl`），入口里 `Tower { id: t1 }` 使用。
-4. **编译并修诊断**：`ssworld_compile`；按行列信息改源码，直到 `ok: true`。大场景接着 `ssworld_scene_inspect` 看预算占比、包围盒和 `requested_camera`：相机到目标的距离、heading/pitch 与包围盒对不上就先改相机，不必截图试错。
-5. **预览并亲眼看**：`ssworld_preview` 返回 `viewer_url`；`next.action` 是 `open_webgpu_viewer` 就用 Hermes 的 `open_preview(url=viewer_url, label="SSWorld 场景")` 打开（工具未加载先发现它），是 `capture_frame` 就直接截图。页面会热重载：之后每次写源码 + 编译，同一页面自动更新，不要重复开新页。
-6. **截图验证再汇报**：页面打开后调用 `ssworld_capture_frame {"project":"…"}`。有玩法的场景先用 `ssworld_logic_read` 隔 2 秒读两次，关键量不变而 `runtime.errors` 里有 `binding_error` 就是某条绑定被拒、整批回滚（见下文语义要点），按它给的 `source` 行改绑定表达式；要拍某个瞬时状态用 `await`，要摆局面用 `ssworld_logic_write`。同时开着桌面预览面板和自己的浏览器时，看 `receipt.client` 确认这帧来自哪个页面（默认取最近同步且可见的那个，`client` 可指定）。看返回的图片判断构图、相机是否对准、物体是否在画面内；没有视觉能力就读 `stats`：`luma.p10/p50/p90` 与 `under_exposed_ratio`/`over_exposed_ratio` 判曝光，`coverage` 与 `regions.cells`（3×3，左上起）的 green/blue/white/neutral 占比判「下部有没有植被、上部是不是天空」，`colormap_top` 看主色。`runtime.errors` 非空就是运行时失败（编译通过不等于能跑），每条带 `source.file:line:column`，直接改那一行；此时 `camera.source` 是 `engine_default`，那一帧的相机位姿不是你的 CameraView，不要拿它判断构图；`render_verified: true` 只表示「状态 ready、无错误、画面不是黑的」，画得对不对要看图。先看 `receipt.in_sync`：为 false 时 `staleness` 会说明这帧对应的是旧编译或磁盘源码已变，按 `next` 重编再截，不要拿旧帧汇报。`camera.deviation` 里 `nearPlane/farPlane` 的差异是引擎按相机高度每帧重算裁剪面所致，不是参数失效；`heading_error_deg`/`position_error_m` 大才说明相机没按 CameraView 落位。`reference_match` 永远是 `not_evaluated`：工具不做参考图对比，构图像不像要自己看图判断，不要编造匹配分数。返回 `page_not_open` 就先用 `open_preview` 打开 `viewer_url`（窗口要可见，最小化不出帧），再截。动画截两个时刻（`settle_ms` 不同），改相机后重截。
+## Tools (15; in Hermes the full name is `mcp__ssworld__<name>`)
 
-首次使用若 `ssworld_preview` 报 `engine_not_installed`，调用 `ssworld_engine_status {"install":true}`（下载约 54 MB），然后重试。
+### Projects
+| Tool | What it does |
+|------|--------------|
+| `ssworld_project_list` | Existing projects and their paths on disk. Call it first when the user says "change that scene from before" |
+| `ssworld_project_create` | `{"name":"MyScene","longitude":114.06,"latitude":22.54,"height":150}`. The name must start with a letter and contain only letters, digits, `_` and `-`. Pass the coordinates (WGS84 degrees / metres) when the scene has a real location, otherwise the default anchor is used. Pass `"template":"empty"` to start from nothing |
+| `ssworld_engine_status` | Whether the engine is installed; `{"install":true}` downloads it now (~54 MB). Use it when `ssworld_preview` reports `engine_not_installed` |
 
-## SSDL 语义要点
+### Reading the contract
+| Tool | What it does |
+|------|--------------|
+| `ssworld_catalog` | **Read this before writing code.** `{}` lists every component; `{"components":["Box","SpotLight"],"detail":"compact"}` returns property names, types, units, required members and `member_notes` for several components at once. The reply carries a `catalog_digest`; pass it back as `if_digest` next time and you get `unchanged` when nothing moved |
 
-- **右手 Z-up，单位米**：X 东、Y 北、Z 上。Box 的 width/depth/height 对应 X/Y/Z，`position` 是中心点，底面贴地要 `z = height/2`。场景原点在项目锚点（经纬度）处，局部坐标以米偏移。
-- **相机用局部坐标构图**：`CameraView { id: v; position: [60, -80, 40]; lookAt: [0, 0, 12]; fov: 50 }` + `Camera { initialView: v }`（`fov` 是水平视场角）。`position`/`lookAt` 与节点同一坐标系（米），`lookAt` 自动推出 heading/pitch；也可显式 `heading`（0 = 北，顺时针）/ `pitch`（负 = 俯视）/ `roll`。`nearPlane`/`farPlane` 会被引擎按相机高度每帧重算，写了也不生效。`longitude/latitude/height` 只在需要飞到别处时用，与 `position` 二选一。低机位街景：z 取 1.5–3 米，`fov` 45–60。
-- **几何体 rotation 是四元数 `[x, y, z, w]`**（w 在最后，单位四元数 `[0,0,0,1]`）；绕 Z 转 θ 度写 `[0, 0, sin(θ/2), cos(θ/2)]`。要转动就用 `RotationAnimation`。`DirectionalLight`/`SkyAtmosphere` 等环境组件的 `rotation` 是欧拉角度 `[x, y, z]`，太阳方向优先用 `sunAzimuth/sunElevation`。`intensity` 是无量纲倍率（默认 1），不是勒克斯。
-- **重复结构先组件化**：立面格栅、树、路灯写成 `Tower.ssdl`/`Tree.ssdl` 这类组件文件，在入口里 `Tree { id: tree1; position: [...] }` 多次使用，id 用语义名（`civicRoof`、`eastTower`）而不是 `b123`；`ssworld_scene_inspect` 的 `by_file`/`largest_subtrees` 能看出哪部分吃掉预算。
-- **每个节点给唯一 `id`**，尤其是自定义组件文件里的多个同类兄弟；匿名节点在组件内会报 `duplicate_id`。
-- **DirectionalLight 两种模式**：`atmosphereSunLight: true` 接管天空太阳，只能改 `intensity/lightColor/castShadows/temperature/indirectLightingIntensity/volumetricScatteringIntensity` 和 `sunAzimuth/sunElevation`；`lightSourceAngle`/`lightSourceSoftAngle`/`cloudScatteredLuminanceScale` 只有 `atmosphereSunLight` 不为 true 的自有灯才能写，编译器会以 `runtime_unsupported` 拒绝错误组合。
-- **PointLight / SpotLight / RectLight 0.7.4 起可见**（0.7.3 及之前建得起来但不出光）。`intensityUnits: "Lumens"` 时室内一盏 600~3000 lm 够用，上万流明会触发镜头眩光（画面里对称于屏幕中心的一串光斑不是第二盏灯）。`SpotLight`/`RectLight` 沿自身局部 **-X** 出光：`rotation: [0, 0, 0]` 朝西（-X），`[0, 0, 90]` 朝南，`[0, 0, 180]` 朝东，`[0, 0, 270]` 朝北，`[0, -90, 0]` 朝正下、`[0, 90, 0]` 朝天；`attenuationRadius` 是米，锥角 `innerConeAngle/outerConeAngle` 是度。
-- QML 风格：`id`、属性绑定表达式、`State { when }`、组件文件。事件处理器只能做受检的属性赋值和已声明的宿主调用，不是任意 JavaScript。
-- **场景逻辑（计分、阶段、胜负）用逻辑属性，不用"8 盏灯"**：在 `Scene` 根上声明 `property real score: 0` / `property bool armed: true` / `property string phase: "idle"`（类型 real/bool/string/length/degrees/duration/radians）；处理器里 `score = score + 1`，绑定里 `when: score >= 8 && misses < 3`（支持 `+ - * / === !== < <= > >= && || ! ?:` 与 `min/max/clamp/lerp`，只有数值算术，没有字符串拼接）。一个处理器里的多条赋值是一笔事务，任一失败整批回滚。截图返回的 `logic.properties` 就是这些值。**绑定也是逐帧一笔事务**：任何一条绑定的值被目标拒绝（负的 `width`、类型不对、原生拒绝），整批回滚、该绑定失效、相关值停止变化，页面不抛异常，只在 `runtime.errors` 里给 `binding_error`（`节点.属性: 代码: 信息`，映射到源码行）并列进 `logic.bindings.invalid`。分段路径用 `clamp/lerp/min/max` 按进度属性写，不写分支式 `?:` 链，且每个分支都要落在目标合法范围内。`Behavior` 会把目标属性的每次变化按 `duration` 缓动，挂在逐帧变化的属性上会滞后约"速度 × duration"，只用于离散跳变（命中、状态切换），连续运动直接绑定。State 由 `when` 派生，不能写，改它读的属性。每次编译都会热重载页面并把逻辑属性重置为初值（`ssworld_compile` 返回 `hot_reload.logic_reset`），测试中途别编译，或编译后用 `ssworld_logic_write` 恢复局面。
-- **规则需要 JS 时走宿主接口，不把几何搬进 JS**：先写 `host_interfaces.json`（`{"Game":{"methods":{"hit":{"args":[{"name":"targetId","type":"string"}]},"reset":{"args":[]}}}}`），再写 `logic.mjs`（`export function createHostInterfaces(api) { return { Game: { hit({ targetId }) { … api.logical.write("score", n) … }, reset() {} } }; }`），SSDL 里 `TapHandler { onTapped: { Game.hit(targetId: "balloonA"); } }`。未声明的接口/方法/参数在编译期报 `host_interface_unknown` / `host_method_unknown` / `host_arg_missing`；`logic.mjs` 缺实现页面拒绝加载（`host_interface_missing`）。回调同步、无返回值，只能通过 `api.logical.write` 改场景状态；抛错会记进 `logic.host_call_errors` 并出现在 `runtime.errors`。热重载时 `logic.mjs` 重新导入、逻辑属性回到初值。
-- **`CameraView.fov` 是水平视场角**：垂直视场角 = 2·atan(tan(fov/2)/宽高比)，同一个 fov 在宽画面上看到的天空更少；算"哪个物体在画面内"要按水平 fov。
-- **`Label` 不能用**：引擎要加载 `assets/font/msyh.ttc` 而包里没有字体，写了整个场景加载失败（编译器现在直接报 `runtime_unsupported`）；文字放 `index.html` 浮层（记得给浮层 `pointer-events: none`，否则会挡住点击），或用几何体拼。
-- **程序化几何用参数化生成器，不写顶点**：`HeightField { width; depth; columns; rows; heights: [...] }`（heights 共 (columns+1)×(rows+1) 个，按行从 -depth/2 起）、`Lathe { profile: [[r, 0, z], …]; segments; closed }`（绕 Z 旋成，做花瓶/塔/柱）、`Tube { path: [...]; radius; segments; closed }`（沿路径扫管，做管道/栏杆/桥索）、`Loft { sections: [[环], [环], …]; cap }`（同点数的环逐层放样，做船体/楼体收分）。参数必须是常量，每个节点最多 65535 顶点（超出编译报 `mesh_budget`），`ssworld_compile` 的 `usage.mesh` 给出三角形数。任意网格走 `Model` 资产，没有逐顶点函数。
-- **外部模型走 `Model` 资产**：把 glb 复制到项目目录的 `assets/`（`ssworld_project_list` 给出项目路径），写 `Model { id: m; source: "assets/name.glb"; position: [...]; scale: [...] }`；`ssworld_compile` 会自动登记 `assets/` 下的 glb/png/jpg 并在 `usage.assets` 列出，单个 glb ≤ 32 MiB、贴图 ≤ 8 MiB、每项目 ≤ 64 个（超出报 `asset_budget`）；文件不在 `assets/` 下报 `asset_unresolved`。Model 自带材质，不接受 `color`/`opacity` 等材质属性；换了文件要重新编译（页面按摘要校验）。
-- **`Group` / `GeoAnchor` / `Model` 只能动画 `position` / `rotation` / `scale` / `visible`**（动画、Behavior、Binding 都可以，整组一起动）；材质属性只在几何体上，指向 Group 的材质动画编译报 `property_not_animatable`。
-- 动画：`NumberAnimation` / `Vector3dAnimation` / `RotationAnimation` / `ColorAnimation` / `QuaternionAnimation`，`duration` 毫秒，循环 `loops: Animation.Infinite`，`running` 可绑定状态。目标属性必须在目录允许的注册表内，编译器会拒绝其它组合。
-- 交互：`TapHandler { onTapped: { ... } }`、`HoverHandler`；灯光/材质/环境先查目录，`supported: false` 的不要用。
-- 默认预算 2048 原生对象 / 256 绑定 / 128 处理器 / 32 计时器 / **256 条原生时间线**；大场景先用少量体块出画面，再加细节。
-- **动画数量有硬上限**：每页最多 256 条原生时间线（引擎 `max_active_timelines`，按小游戏"一靶一动画 + 每次命中一个 Behavior 过渡"定的）：顶层的每个 `NumberAnimation`/`Vector3dAnimation`/`RotationAnimation`/`ColorAnimation` 各占一条，跑完也不释放；`ParallelAnimation`/`SequentialAnimation` 连同全部子动画只占一条；Behavior 平时不占，过渡进行中才各占一条。超出编译报 `animation_budget`，`usage.timelines` 看占用；接近上限就把同时跑的动画收进一个 `ParallelAnimation`，或用 Behavior + 绑定驱动重复物体。
+### Editing sources (always pass `expected_digest`; on a conflict re-read rather than overwrite)
+| Tool | What it does |
+|------|--------------|
+| `ssworld_source_read` | Source plus `digest`. For a large scene start with `{"mode":"metadata"}` to get only the digest; `{"node":"sun"}` reads one node; `{"file":"*"}` reads every file. Past 100 000 characters you get `has_more`/`next_offset` |
+| `ssworld_source_write` | Whole-file write (a new file takes `expected_digest: "new"`). Writes `.ssdl`, `host_interfaces.json` and `logic.mjs` |
+| `ssworld_source_patch` | One replacement; `old_string` must be unique including whitespace. Add `replace_all` for several |
+| `ssworld_source_batch` | **Preferred for multi-site edits.** One atomic batch — if any edit fails nothing is written: `{"expected_digest":"…","validate":"compile","edits":[{"node_id":"sun","set":{"intensity":1.7}},{"node_id":"view","set":{"fov":48},"unset":["farPlane"]},{"old_string":"…","new_string":"…"}]}`. With `validate: compile` a failing compile rolls the batch back. Values are JSON numbers, strings, booleans or `[x,y,z]`; ids, enums and binding expressions go through `{"raw":"photoView"}` |
 
-最小可交互动画示例（这也是 `ssworld_project_create` 生成的起始场景）：
+You may also edit the project's `.ssdl` files directly with the host's file tools — `ssworld_compile` always rebuilds from disk — you just lose the digest lock.
 
+### Compiling and inspecting
+| Tool | What it does |
+|------|--------------|
+| `ssworld_compile` | On failure: `scene.ssdl:line:column: code: message`. On success: `node_count`, budget `usage` and `logic` (declared properties, States, host calls) |
+| `ssworld_scene_inspect` | **Anything you can learn without rendering, learn here instead of spending a screenshot.** Budget ratios, the largest subtrees, leaves counted by type, how many nodes each file contributes, geometry bounds (lowest floor / highest roof) and the camera the scene asks for (including the heading/pitch implied by `lookAt`) |
+
+### Preview and capture
+| Tool | What it does |
+|------|--------------|
+| `ssworld_preview` | Returns `viewer_url`. `page.connected` says whether a page is open; `page.clients` lists every browser currently syncing |
+| `ssworld_capture_frame` | Screenshots an open page. Returns the image, pixel statistics, `receipt`, `framing`, `runtime.errors`, camera `effective/requested/deviation` and `logic`. Optional `width`/`height`/`settle_ms`/`client`/`await` (`{"state":"corner"}` or `{"property":"p","min":0.3,"max":0.5}` — the shot waits for the condition). **Use `"detail":"brief"` inside an iteration loop**: it keeps the verdict, errors, luma, the 3×3 regions and the image path, and drops the several thousand tokens of framing, receipt, camera and colour coverage |
+
+### Runtime logic
+| Tool | What it does |
+|------|--------------|
+| `ssworld_logic_read` | Reads page logic **and whether the module loaded at all** without a screenshot: `runtime.state`, `runtime.errors` (already mapped to `scene.ssdl:line`), property values, States, `bindings.invalid`, `binding_errors`. When the scene module dies, a screenshot only shows you the default globe view — use this instead and save the image |
+| `ssworld_environment_read` | **Asks the engine what it actually received**, so you do not have to bisect with screenshots: the true direction of the adopted sun (read back from the native sun and converted to azimuth/elevation at the anchor, with the deviation from what the scene asked for), which light drives the atmosphere, and the current native values of every environment component (`SkyAtmosphere`, fog, cloud, `SkyLight`, post-process, your own lights). "Why is the sky orange" and "where is the sun really" are one call away |
+| `ssworld_logic_write` | Writes several declared properties in one transaction: `{"set":{"p":0.4,"pace":0.0025}}`. Use it to put a game into a particular state before a screenshot — **do not edit the initial values in the source for that**. If any value is rejected the whole batch rolls back (`logical_write_rejected`); States are derived and cannot be written, so write the properties they read |
+
+## The 45 built-in components at a glance
+
+Pick a shape from this table, then read the exact properties with `ssworld_catalog`. **Never guess property names from QML or three.js experience.**
+
+| Group | Components | Notes |
+|-------|-----------|-------|
+| **Skeleton** | `Scene` `Group` `Camera` `CameraView` | A parent can only be `Scene` or `Group`. Geometry cannot be a parent |
+| **Primitives** | `Box` `Sphere` `Cylinder` `Cone` `Plane` | All carry UVs and take textures. Box width/depth/height map to X/Y/Z |
+| **Procedural geometry** | `HeightField` `Lathe` `Tube` `Loft` | Parameters must be constants; at most 65535 vertices per node. **These four are the only ones with tangents**, so `normalMap` only works on them |
+| | `Polygon` `ExtrudedPolygon` `Polyline` | Flat polygon / extrusion / polyline. They carry their own `color` and `opacity`. **No UVs, so no textures**, and they cannot be a Prefab source |
+| **Assets** | `Model` `Texture` | glb ≤ 32 MiB, images ≤ 8 MiB, both under the project's `assets/`, at most 64 per project |
+| **Materials** | `PrincipledMaterial` | `target` points at geometry. `baseColorMap` / `metallicRoughnessMap` / `normalMap` / `emissiveMap` |
+| **Instancing** | `Prefab` `Instances` | A whole batch is one native object. The source may be geometry or a Model |
+| **Lights** | `DirectionalLight` `PointLight` `SpotLight` `RectLight` `SkyLight` | The sun is `DirectionalLight { atmosphereSunLight: true }` |
+| **Environment** | `SkyAtmosphere` `ExponentialHeightFog` `VolumetricCloud` `PostProcessVolume` | On environment components `rotation` is Euler degrees `[x,y,z]`, not a quaternion |
+| **Animation** | `NumberAnimation` `Vector3dAnimation` `RotationAnimation` `QuaternionAnimation` `ColorAnimation` | `duration` in milliseconds, `loops: Animation.Infinite`, `running` is bindable |
+| | `ParallelAnimation` `SequentialAnimation` `PauseAnimation` `Behavior` | A group animation costs one timeline for the whole group |
+| **Logic and input** | `State` `Timer` `TapHandler` `HoverHandler` `KeyHandler` | |
+| **Unavailable** | `Label` `SunSky` | `Label` has no font, and using it fails the whole scene load (the compiler already reports `runtime_unsupported`); use `SkyAtmosphere` instead of `SunSky` |
+
+## Planning a scene: settle the shape before writing code
+
+Walk these five in order before the first line of SSDL. Getting them wrong means rewriting later.
+
+**1. Is there a model for it? Then use `Model`.** Cars, people, trees, furniture, sculpture — organic shapes should not be assembled from primitives; a dozen boxes neither look right nor fit the budget. The cost: a Model brings its own materials and **does not accept `baseColor` or `emissiveColor`**, so recolouring means building your own geometry.
+
+**2. Dozens of copies or more? Use `Prefab` + `Instances`.** 240 street lamps are one native object and one draw call; 240 hand-written nodes are 240 of each. Build the source from `Cylinder`/`Lathe`/`Tube`/`Loft` if you want to recolour it, or hand it a glb if you want the real shape. Something appearing three to five times is not worth a Prefab.
+
+**3. Do several parts move or rotate together? Make a `Group` the root.** Headlights on a car body, rotors on a fuselage — wrap them in a Group, write the attachments as fixed metric constants in local coordinates, and bind only the Group's own `position`/`rotation`. That saves unrolling quaternions into world coordinates every frame.
+
+**4. Will it recur, or is it over roughly 30 lines? Split it into its own `.ssdl`.** PascalCase filename (`Tower.ssdl`), instantiated from the entry as `Tower { id: eastTower; position: [...] }`. Expose the differences as `property`. Keep the entry `scene.ssdl` a skeleton: camera, lights, environment, ground, and a screenful of component instances.
+
+**5. Picture first, detail second.** Block the composition, camera and lighting out with a dozen masses and confirm with a screenshot. Past ~500 instances generate the source from a script in the project (`gen_*.py`) rather than typing it.
+
+In one line: **use a glb rather than assembling primitives; instance rather than repeating a glb; group what moves together; split what gets reused.**
+
+## SSDL semantics
+
+### Coordinates and units
+- **Right-handed Z-up, metres**: X east, Y north, Z up. `position` is the centre, so a box sitting on the ground needs `z = height/2`. The origin is the project anchor (its longitude/latitude).
+- **Units are about the decimal point, not dimensional analysis**: `length`, `degrees`, `radians` and `real` all share one fixed-point lane, and only `duration` (milliseconds) uses another. Mixing them is not an error; values are taken at face value. That is why `position: [x + 2*qx*qw*11, …]` compiles. The cost: nobody warns you about a wrong unit.
+- **List values may span lines**: a newline after `sections: [`, one ring per line, comments inside the brackets — all compile (since 0.9.8). A property still ends at a newline or `;`, so spanning lines only works inside `[ ]`.
+- **`#rrggbb` is read as sRGB** (the value your colour picker gives you): the runtime converts sRGB to linear before handing it to the engine, so the screen shows the colour you picked and reading it back gives the same hex. Before 0.9.8 that step was missing and every flat colour came out roughly three times too bright. Native materials keep only 8 bits of **linear** light per channel, so very dark colours drift by a level or two (`#16260f` reads back as `#16260d`).
+- **Geometry `rotation` is a quaternion `[x,y,z,w]`** (w last; identity is `[0,0,0,1]`). θ degrees about Z is `[0, 0, sin(θ/2), cos(θ/2)]`. To make something turn, use `RotationAnimation`. Environment components use Euler degrees instead.
+
+### Camera
+```ssdl
+CameraView { id: v; position: [60, -80, 40]; lookAt: [0, 0, 12]; fov: 50 }
+Camera { id: cam; initialView: v }
+```
+- `fov` is the **horizontal** field of view. The vertical fov follows the aspect ratio, so a wide frame shows less sky.
+- `lookAt` derives heading and pitch; you can also set `heading` (0 = north, clockwise), `pitch` (negative looks down) and `roll` explicitly.
+- `nearPlane`/`farPlane` are recomputed by the engine every frame from the camera height; writing them has no effect.
+- `longitude`/`latitude`/`height` and `position` are alternatives, not a pair. For a street-level camera use z 1.5–3 m and fov 45–60.
+- **For a chase camera, bind the pose directly**: `position`, `heading`, `pitch`, `roll`, `fov` and the geographic triple are all bindable and animatable. Angles are always degrees. `label`, `duration`, `lookAt` and the clip planes stay one-shot scene-setup values.
+
+### Lights
+- **`DirectionalLight` has two modes.** With `atmosphereSunLight: true` it adopts the sky's sun and only `intensity`, `lightColor`, `castShadows`, `temperature`, `indirectLightingIntensity`, `volumetricScatteringIntensity`, `sunAzimuth` and `sunElevation` may be written; members such as `lightSourceAngle` belong to a standalone light, and the wrong combination is a compile-time `runtime_unsupported`.
+- **`intensity` is a dimensionless multiplier** (default 1), not lux.
+- **Watch the conversion on point/spot/rect lights**: with `intensityUnits: "Lumens"` the engine divides a point light by about 795.8, so `intensity: 5.5, intensityUnits: "Lumens"` is roughly 0.007 and the frame is nearly black. When in doubt leave `intensityUnits` out and use 1–4 for neon and street lamps. Indoors 600–3000 lm per lamp is plenty; tens of thousands trigger lens glare (a string of blobs symmetric about the screen centre is not a second lamp).
+- **Tint the sky through the sun; never touch the scattering terms.** On `SkyAtmosphere`, `rayleighScattering`, `mieScattering`, `mieAbsorption`, `otherAbsorption` and `skyLuminanceFactor` are UE's **normalised direction vectors** (the magnitude lives in the neighbouring `*Scale`). The engine's default `rayleighScattering` is `[0.175, 0.410, 1.000]` — blue weighted 5.7× red, which is the entire reason the sky is blue. Writing any "neutral-looking" vector raises red and turns the sky orange-brown; copying the physical coefficients `[0.0058, 0.0136, 0.0331]` divides the whole term by 30 and turns it orange-brown too. **All five members are refused at compile time** (`sky_scattering_refused`). For warmth write the sun's `lightColor`; for a warm low horizon lower `sunElevation`; for ground bounce use `groundAlbedo`; for haze use `ExponentialHeightFog`; for overall grade use `PostProcessVolume`.
+- **`temperature` is an unnormalised multiplier**, normalised by luminance rather than by the largest component, so it changes brightness as well as hue: 3000K = `(1.77, 0.85, 0.27)`, 4000K = `(1.41, 0.92, 0.53)`, 5000K = `(1.22, 0.96, 0.76)`, 6500K = `(1.04, 0.98, 1.04)` (the neutral default), 8000K = `(0.95, 0.99, 1.24)`. On a sun with `atmosphereSunLight: true` that multiplier covers the whole sky — "golden dusk, 3500K" gives you an orange-brown sky from edge to edge. Write `lightColor` for warmth and leave `temperature` near 6500.
+- **`SpotLight` and `RectLight` emit along their own -X**: `[0,0,0]` faces west, `[0,0,90]` south, `[0,0,180]` east, `[0,0,270]` north, `[0,-90,0]` straight down, `[0,90,0]` up. `attenuationRadius` is metres, cone angles are degrees.
+
+### Materials and textures
+Put PNG/JPG under `assets/`, declare a `Texture`, then hand it to a material:
+```ssdl
+Texture { id: brick; source: "assets/brick.png" }
+Box { id: wall; width: 12; depth: 0.4; height: 6; position: [0, 0, 3] }
+PrincipledMaterial { id: m; target: wall; baseColorMap: brick; uvScale: [0.25, 0.25] }
+```
+- `uvScale` multiplies the UV, so smaller values repeat the texture more densely.
+- **Roughness maps go through `metallicRoughnessMap`** (linear space, G = roughness, B = metalness, multiplied by the scalars on the material). That is what separates wet patches from dry ones on a road after rain.
+- **Normal maps go through `normalMap` + `normalScale`** (0..2). **Only `HeightField`, `Lathe`, `Tube` and `Loft` carry tangents**; a normal map on a Box, Plane or Sphere is a compile-time `material_requires_tangent`. To give a wall relief, lay a flat HeightField grid instead of a Box.
+- **Emission goes through `emissiveMap` / `emissiveColor`**, which need UVs but not tangents, so every primitive can use them. `emissiveColor` is a **multiplier**, not a 0..1 colour: each component goes up to 16, and you need roughly 2–6 to cross `settings.bloomThreshold` and actually glow. Emission does not light its surroundings — add a light for that.
+- Identical image content counts once against the texture budget even under different paths and on several objects. The same image used as both a colour map and a metallic-roughness map counts twice, because the colour spaces differ.
+
+### Instancing
+```ssdl
+Cylinder { id: lampPost; radius: 0.12; height: 6; position: [0, 0, 3]; visible: false }
+PrincipledMaterial { target: lampPost; baseColor: "#2a2a30"; metalness: 0.8 }
+Prefab { id: pfLamp; source: lampPost }
+Instances { id: lamps; prefab: pfLamp; placement: "grid"; origin: [0,0,3]; spacing: [18,40]; columns: 20; count: 240 }
+```
+Placing them one by one: `Instances { prefab: pfLamp; positions: [[0,0,3],[12,0,3],[24,0,3]] }` (giving `positions` implies explicit placement, and it needs **at least two**).
+
+**A Model works as a source too**: `Model { id: car; source: "assets/car.glb" }` plus `Prefab { id: pfCar; source: car }` gives a fleet sharing the glb's own geometry and materials. Two rules apply only to Model sources: the source Model **must finish loading first** (the compiler guarantees Models are built before every other node, so just write it normally), and **you must not delete that Model while the Prefab is alive** (instances *borrow* its geometry, so deleting it is a dangling pointer and the runtime refuses outright). A multi-material glb costs one draw call per primitive and `draw_calls` reports that honestly; a geometry source is always 1.
+
+Limits: the source must be geometry or a Model, never a `Polygon`; **the source node still renders itself**, so give it `visible: false` if you do not want to see it; instances **only translate** — no per-instance rotation or scale, and **the source node's own `rotation` is not baked in either**, so different orientations need several sources each turned differently; `seed` does not currently jitter positions; at most 512 per batch and 2048 per Prefab. Every member of `Instances` is a one-shot scene-setup value and cannot be bound or animated.
+
+### Scene logic
+Declare properties on the `Scene` root instead of using "eight lamps" as state:
+```ssdl
+property real score: 0        // types: real / bool / string / length / degrees / duration / radians
+State { id: stWin; name: "win"; when: score >= 8 && misses < 3 }
+```
+- Handlers write `score = score + 1`; expressions support `+ - * / === !== < <= > >= && || ! ?:`. **Arithmetic only — there is no string concatenation.**
+- **The assignments inside one handler are a single transaction**; if any fails the batch rolls back.
+- **Bindings are also one transaction per frame**: if any bound value is rejected by its target (a negative `width`, a wrong type, a native refusal) the batch rolls back, that binding is invalidated, the values it drove stop changing, and the page throws nothing — you only get a `binding_error` in `runtime.errors` and an entry in `logic.bindings.invalid`. Write piecewise paths with `clamp`/`lerp`/`min`/`max` against a progress property rather than chains of `?:`, and keep every branch inside the target's legal range.
+- **A `State` is referenced in expressions by `id`, not by `name`**: write `stWin.when`; `win.when` is an `unknown_reference`. Giving both the same spelling is the least trouble.
+- A `State` is derived from `when` and cannot be written; write the properties it reads.
+- **Every compile hot-reloads and resets logic properties to their initial values** (`ssworld_compile` returns `hot_reload.logic_reset`). Do not compile in the middle of a test, or restore the situation afterwards with `ssworld_logic_write`.
+
+**Gameplay maths**: `min`/`max`/`clamp`/`lerp`, `abs` `sign` `floor` `ceil` `round`, `mod` (the remainder takes the dividend's sign), `sqrt`, `hypot`, `sin` and `cos` (**degrees** when no unit is given), `atan2(y,x)` (returns degrees), `hash01(seed)`.
+- Distance tests can be written either way: `hypot(dx, dy) < 4` and `dx*dx + dy*dy < 16` both work.
+- **There is no `random()`**: bindings re-evaluate every frame, so true randomness would read back differently each time. For variation use `hash01(integer seed)` — same seed, same result, range `[0,1)`: `height: 2 + hash01(i) * 3`.
+- Heading to a forward vector: `position: [x + sin(heading)*6, y + cos(heading)*6, z]`.
+
+### Input
+```ssdl
+KeyHandler { id: kThrust; key: "ArrowUp"; onPressed: { throttle = 1; } onReleased: { throttle = 0; } }
+KeyHandler { id: kBoost; key: " " }
+State { id: boosting; name: "boosting"; when: kBoost.pressed }
+```
+`key` is the `KeyboardEvent.key` value (`"ArrowUp"`, letters case-insensitive, `" "` for space, `"Enter"`), one key per handler. **Read `pressed` for continuous actions (throttle, steering); use `onPressed` for discrete ones (fire, switch view).** The listener sits on the window, calls `preventDefault` for the keys it claims, force-releases on blur, and ignores the operating system's key repeat by default (set `autoRepeat: true` if you want it).
+
+Mouse movement, the wheel and gamepads have no components yet: listen in `index.html` and call `window.SSWorld.logical.write("name", value)` or `.writeBatch({a:1,b:2})`.
+
+### Animation
+- Easing is `easing.type: "Easing.InOutSine"` — the enum must be fully qualified; `easing: "InOutSine"` is an `unknown_property`. (The equivalent member on `Behavior` is spelled `easing`.)
+- `Behavior` eases every change of its target property over `duration`; put it on a property that changes each frame and it lags by roughly speed × duration. **Use it for discrete jumps only; bind continuous motion directly.**
+- `Group` and `Model` can only animate `position`, `rotation`, `scale` and `visible`; a material animation pointing at them is a compile-time `property_not_animatable`.
+- **There is a hard ceiling of 256 native timelines**: every top-level animation takes one and never gives it back, a `ParallelAnimation`/`SequentialAnimation` takes one for itself and all its children, and a `Behavior` takes one only while a transition is running. Going over is `animation_budget`; watch `usage.timelines`.
+
+### Host JS
+When a rule needs JS, go through a host interface — **do not move geometry into JS**:
+1. `host_interfaces.json`: `{"Game":{"methods":{"hit":{"args":[{"name":"targetId","type":"string"}]}}}}`
+2. `logic.mjs`: `export function createHostInterfaces(api) { return { Game: { hit({targetId}) { api.logical.write("score", n); } } }; }`
+3. SSDL: `TapHandler { onTapped: { Game.hit(targetId: "balloonA"); } }`
+
+An undeclared interface, method or argument is a compile-time `host_interface_unknown` / `host_method_unknown` / `host_arg_missing`; a missing implementation makes the page refuse to load (`host_interface_missing`). Callbacks are synchronous and return nothing, so state changes go through `api.logical.write`; anything thrown lands in `logic.host_call_errors`.
+
+### Post-processing
+All 33 knobs are open: `settings.bloomThreshold`, `autoExposureMinBrightness`/`MaxBrightness`, `lowPercent`/`highPercent`, `histogramLogMin`/`Max`, `toneCurveAmount`, `temperature`, `ambientOcclusion*` and the rest. **To stop a night scene's exposure drifting with the number of neon signs**, set `autoExposureMinBrightness` and `MaxBrightness` to the same value (that locks exposure) and grade with `autoExposureBias` (the multiplier is 2^bias).
+
+### Odds and ends
+- **Anonymous nodes are fine**: without an `id` the compiler injects a file-scoped name. Still, name sibling nodes of the same type inside a custom component file explicitly, so `ssworld_scene_inspect` and `ssworld_logic_write` can point at them precisely.
+- Use meaningful ids (`civicRoof`, `eastTower`), not `b123`.
+- **Default budgets**: 2048 native objects / 2048 material shells / 32 distinct images / 256 bindings / 128 handlers / 32 timers / 256 timelines / 64 Prefabs / 2048 instances.
+
+The smallest interactive example, which is also the starter scene `ssworld_project_create` writes:
 ```ssdl
 Scene {
   id: main
@@ -85,16 +228,45 @@ Scene {
 }
 ```
 
-## 大体量场景实测要点（城市/园区级，2026-09 实测）
+## Reading a capture
 
-- **子节点父级只能是 Scene / Group / GeoAnchor**：几何体不能当父节点——把 Cone/Box 作为子节点挂在另一个 Box 下会**编译通过**，但页面加载失败：`SceneObject.parent must be a live Scene, Group or GeoAnchor from the same runtime`（receipt 里 `camera.source` 变 `engine_default`、`runtime.errors` 给出该条）。多部件单元要么用 Group 根组件（每实例 +1 原生对象），要么在生成器里把部件平铺成 Scene 同级节点（绝对坐标，省那 1 个对象，旋转部件用逐节点四元数）。
-- **预算成本模型**：`usage.native_objects` 把 Scene/相机/灯/每个 Group/每个几何体都各计 1。实测 1848~1905 节点渲染稳定，1930+ 后置顶运行有风险；1200×900 以上尺寸的 `capture_frame` 在大场景下可能 `saveImage2Base64 timed out`。大场景（>500 实例）用项目内生成器脚本（`gen_*.py`）出源码再 `ssworld_compile`（总是从磁盘重建），别手写；脚本自估节点数会偏 2~10%，以编译收据为准。
-- **截图超时的真凶常常是预览页被节流**：`capture_frame` 报 `saveImage2Base64 timed out` 时先看返回里的 `status.visibility`——为 `"hidden"` 说明页面在后台/被切走（浏览器把 rAF 节流），并非场景问题；先把桌面预览面板 close 再 open（或让窗口可见）再截。连续大场景截图还可能把 MCP 服务拖到 `unreachable`，等 ~1 分钟自动恢复即可，别连击重试。
-- **组件实例参数可以传四元数分量和缩放**：`property real rz: 0` + `rotation: [0, 0, rz, rw]`、`property real sc: 1` + `scale: [sc, sc, sc]` 都可编译通过，是给重复实例（楼、车）加变化的最省事办法。
+**Check `receipt.in_sync` first.** False means the frame belongs to an older compile or the source on disk has changed since; `staleness` says which. Recompile and recapture as `next` tells you — **never report from a stale frame**.
 
-## 边界
+**Then check `runtime.errors`.** A non-empty list is a runtime failure: compiling is not running. Each entry carries `source.file:line:column`, so go fix that line. In this state `camera.source` becomes `engine_default`, so the pose in that frame is not your CameraView — do not judge the composition from it.
 
-- `ssworld_source_write` 只写项目内 `.ssdl`、`host_interfaces.json`、`logic.mjs`；页面排版、锚点、默认相机在项目目录的 `index.html` / `scene.mjs`（路径在 `ssworld_project_create` 返回的 `directory`），需要时用文件工具改。模板页面把 WebGPU 画布和信息面板并排摆放，没有任何浮层盖在画布上；自己加的浮层不要压住画布，装饰性浮层给 `pointer-events: none`，否则会吞掉 `TapHandler` 需要的点击。几何、材质、动画、事件一律留在 SSDL，JS 只做数据与规则，不要在 JS 里建几何或直接操作引擎。
-- `SkyAtmosphere.skyLuminanceFactor`、`rayleighScattering` 等散射项是三维向量 `[r, g, b]`，不是标量；写错编译期就会报 `type_mismatch`。`SunSky` 不可用，改用 `SkyAtmosphere` + `DirectionalLight { atmosphereSunLight: true; sunAzimuth; sunElevation }`（0.7.4 起 `sunAzimuth/sunElevation` 真正驱动太阳与影子；热重载后仍生效）。
-- 不要删除或覆盖用户已有项目；`ssworld_project_create` 对重名会直接报错。
-- 最终回复给出：项目名与源码路径、`viewer_url`、截图路径（`capture_path`）与从图上看到的内容、运行时错误（如有），以及没验证的部分。
+**Then look at the image.** With vision, judge the composition, whether the camera is aimed correctly and whether things are in frame. Without it, read `stats`:
+- `luma.p10/p50/p90` plus `under_exposed_ratio`/`over_exposed_ratio` for exposure
+- `coverage` and `regions.cells` (3×3, starting top-left) — green/blue/white/neutral shares answer "is there greenery along the bottom, is the top actually sky"
+- `colormap_top` for the dominant colours
+
+**Easy misreadings:**
+- The `nearPlane`/`farPlane` entries in `camera.deviation` come from the engine recomputing the clip planes each frame; they do not mean your parameters were ignored. A large `heading_error_deg` or `position_error_m` does.
+- `render_verified: true` only means "ready, no errors, the frame is not black". Whether it is *right* is a question for the image.
+- `reference_match` is always `not_evaluated`: the tool does no reference-image comparison. **Do not invent a match score.**
+- On `page_not_open`, open `viewer_url` with `open_preview` first (the window must be visible — a minimised one produces no frames) and then capture.
+- On `saveImage2Base64 timed out`, check `status.visibility`: `"hidden"` means the page was switched away and the browser throttled rAF, which is not a scene problem — close and reopen the preview panel. Capturing a large scene repeatedly can drag the MCP service to `unreachable`; it recovers on its own in about a minute, so do not hammer it. Sizes above 1200×900 also time out easily on a large scene.
+- With both the desktop panel and your own browser open, read `receipt.client` to see which page the frame came from (the default is the most recently synced visible one; `client` selects explicitly).
+
+For an animated scene capture two moments (different `settle_ms`), and recapture after moving the camera.
+
+## Traps
+
+- **Geometry cannot be a parent.** Hanging a Cone under a Box **compiles** and then fails to load: `SceneObject.parent must be a live Scene, Group or GeoAnchor from the same runtime`. Use a `Group` root for a multi-part unit, or have the generator flatten the parts into siblings under Scene with absolute coordinates.
+- **Degenerate meshes take the whole scene module down, and are now refused at compile time.** A radius of 0 in a `Lathe` `profile` (trying to make a point), exactly repeated adjacent points, a `Tube` path that doubles back on itself or repeats a point, two identical adjacent `Loft` rings — these used to fail the entire module with `GeometryFacade.createMesh: triangle is degenerate` without naming a node. Now the compiler reports `mesh_degenerate` with the node and the index. Use a small positive radius (say 0.02) instead of 0 for a point. And to be clear: **a vertical first segment of a `Tube` is fine** — the frame switches reference axis automatically once `|tangent.z| >= 0.9`.
+- **Writing a `Label` fails the whole scene load.** Put text in an `index.html` overlay (give the overlay `pointer-events: none` or it swallows clicks) or build it from geometry.
+- **An orange-brown sky means a scattering term or the sun's colour temperature was touched.** The five scattering vectors are now a compile-time `sky_scattering_refused` (see Lights); `temperature` is still writable but drags brightness along with hue. A bare `SkyAtmosphere` plus the sun's `lightColor` is the only tinting path confirmed on real hardware.
+- **Accepting an interactive scene requires a real browser.** The desktop preview panel's `drive_preview` reports `clicked`/`pressed`, but the page's own `click`/`keydown` listeners never fire once (synthetic input is not delivered), so using it to accept mouse/keyboard gameplay gives false negatives. The panel is for looking at the picture. To assert the interaction path, drive a real Chrome over CDP with `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` and read the state back from `logic.properties`.
+- **Editing a file under `assets/` hot-reloads as is** — the page keys its asset cache on content digests.
+- **Do not compare budget numbers across categories**: native objects, material shells and distinct images are counted separately, the compiler only reports usage, and the real texture gate is at runtime. A generator script's own node estimate runs 2–10% off; trust the compile receipt.
+
+## What is genuinely missing — do not work around it
+
+There is no particle system, no audio, no creating or destroying nodes at runtime (use an object pool: build them up front and reuse with `visible` and position), no colliders or physics (write the distance tests yourself), and logic properties have neither arrays nor string concatenation (eight targets means eight boolean properties, and HUD text is assembled on the page side).
+
+`GeoAnchor` **does not exist** in SSDL 0.3 and writing it is an `unknown_type`; geographic placement comes from the anchor coordinates given to `ssworld_project_create`.
+
+Never delete or overwrite an existing project of the user's; `ssworld_project_create` errors on a duplicate name.
+
+## Always finish with
+
+The project name and source path, the `viewer_url`, the screenshot path (`capture_path`) and **what you saw in it**, any runtime errors, and which parts you did not verify.

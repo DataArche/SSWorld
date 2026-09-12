@@ -118,17 +118,14 @@
         },
         "fov": {
           "unit": "deg",
-          "update_class": "create_only",
           "value_type": "scalar"
         },
         "heading": {
           "unit": "deg",
-          "update_class": "create_only",
           "value_type": "scalar"
         },
         "height": {
           "unit": "scalar",
-          "update_class": "create_only",
           "value_type": "scalar"
         },
         "label": {
@@ -137,12 +134,10 @@
         },
         "latitude": {
           "unit": "scalar",
-          "update_class": "create_only",
           "value_type": "scalar"
         },
         "longitude": {
           "unit": "scalar",
-          "update_class": "create_only",
           "value_type": "scalar"
         },
         "lookAt": {
@@ -157,17 +152,14 @@
         },
         "pitch": {
           "unit": "deg",
-          "update_class": "create_only",
           "value_type": "scalar"
         },
         "position": {
           "unit": "m",
-          "update_class": "create_only",
           "value_type": "vector3"
         },
         "roll": {
           "unit": "deg",
-          "update_class": "create_only",
           "value_type": "scalar"
         }
       }
@@ -654,6 +646,84 @@
         "onHoveredChanged"
       ]
     },
+    "Instances": {
+      "adapter": "direct",
+      "factory": "createInstances",
+      "members": {
+        "columns": {
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "count": {
+          "note": "instance count for grid placement; at most 512 per batch and 2048 per Prefab. The whole batch costs 0 additional native objects",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "origin": {
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector3"
+        },
+        "placement": {
+          "note": "explicit (give positions) or grid (give origin/spacing/columns/count); when omitted it is inferred from whether positions was given",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "positions": {
+          "note": "per-instance positions for explicit placement, in local metres, in the same coordinate system as every other node",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector3_list"
+        },
+        "prefab": {
+          "required": true,
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "seed": {
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "spacing": {
+          "note": "row and column spacing [dx, dy] for grid placement; both must be positive",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector2"
+        }
+      }
+    },
+    "KeyHandler": {
+      "adapter": "interaction",
+      "factory": "createKeyHandler",
+      "members": {
+        "autoRepeat": {
+          "note": "false by default: the operating system's key repeat no longer fires onPressed, so holding counts once.",
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "enabled": {
+          "value_type": "boolean"
+        },
+        "key": {
+          "note": "the KeyboardEvent.key value: \"ArrowUp\", \"w\" (letters are case-insensitive), \" \" (space), \"Enter\", \"Escape\". One KeyHandler claims one key.",
+          "required": true,
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "pressed": {
+          "note": "true while held, false on release or when the page loses focus; readable in bindings and State.when, not writable.",
+          "read_only": true,
+          "value_type": "boolean"
+        }
+      },
+      "signals": [
+        "onPressed",
+        "onReleased"
+      ]
+    },
     "Label": {
       "adapter": "direct",
       "factory": "createLabel",
@@ -688,7 +758,6 @@
           "value_type": "color"
         },
         "fontSize": {
-          "divisor": 1,
           "unit": "scalar",
           "update_class": "create_only",
           "value_type": "scalar"
@@ -1221,19 +1290,77 @@
           "unit": "scalar",
           "value_type": "scalar"
         },
+        "settings.ambientOcclusionFadeDistance": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.ambientOcclusionFadeRadius": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.ambientOcclusionIntensity": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.ambientOcclusionPower": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
         "settings.autoExposureBias": {
+          "note": "exposure compensation; the actual multiplier is 2^bias",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.autoExposureMaxBrightness": {
+          "note": "upper bound of the auto-exposure white point",
           "unit": "scalar",
           "value_type": "scalar"
         },
         "settings.autoExposureMethod": {
+          "note": "Histogram / Basic / Manual; Manual is fixed exposure, where the multiplier is 2^autoExposureBias",
           "value_type": "string"
+        },
+        "settings.autoExposureMinBrightness": {
+          "note": "lower bound of the auto-exposure white point; set it equal to MaxBrightness to lock exposure",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.autoExposureSpeedDown": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.autoExposureSpeedUp": {
+          "unit": "scalar",
+          "value_type": "scalar"
         },
         "settings.bloomIntensity": {
           "unit": "scalar",
           "value_type": "scalar"
         },
         "settings.bloomMethod": {
+          "note": "Standard / Convolution",
           "value_type": "string"
+        },
+        "settings.bloomThreshold": {
+          "note": "bloom threshold; neon in a night scene only glows once its emission crosses it",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.blueCorrection": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.depthOfFieldFocalDistance": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.expandGamut": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.filmBlackClip": {
+          "unit": "scalar",
+          "value_type": "scalar"
         },
         "settings.filmShoulder": {
           "unit": "scalar",
@@ -1247,12 +1374,72 @@
           "unit": "scalar",
           "value_type": "scalar"
         },
+        "settings.filmWhiteClip": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.highPercent": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.histogramLogMax": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.histogramLogMin": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.lensFlareBokehSize": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.lensFlareIntensity": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.lensFlareThreshold": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.lowPercent": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.motionBlurAmount": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.temperature": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.temperatureTint": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.toneCurveAmount": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
         "settings.vignetteIntensity": {
           "unit": "scalar",
           "value_type": "scalar"
         },
         "unbound": {
           "value_type": "boolean"
+        }
+      }
+    },
+    "Prefab": {
+      "adapter": "direct",
+      "factory": "createPrefab",
+      "members": {
+        "source": {
+          "note": "points at a geometry node (Box/Sphere/Cylinder/Cone/Plane/HeightField/Lathe/Tube/Loft) or a fully loaded Model; the instances reuse its geometry and materials. Polygon cannot be an instance source",
+          "required": true,
+          "update_class": "create_only",
+          "value_type": "object_ref"
         }
       }
     },
@@ -1264,7 +1451,37 @@
         "baseColor": {
           "value_type": "color"
         },
+        "baseColorMap": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "emissiveColor": {
+          "note": "emissive multiplier [r,g,b], 0..16; 1 is the map as authored and higher values push neon past the bloom threshold. Without an emissiveMap this is a flat emissive colour",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "vector3"
+        },
+        "emissiveMap": {
+          "note": "emissive map (sRGB); like baseColorMap it needs UVs but not tangents. The sampled value is multiplied by emissiveColor",
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "metallicRoughnessMap": {
+          "note": "G is roughness, B is metalness; both multiply the roughness/metalness scalars on the material",
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
         "metalness": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "normalMap": {
+          "note": "tangent-space normal map; the host geometry must carry tangents, which only HeightField/Lathe/Tube/Loft do - anything else is refused at compile time",
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "normalScale": {
+          "note": "normal strength, 0..2, default 1",
           "unit": "scalar",
           "value_type": "scalar"
         },
@@ -1279,6 +1496,11 @@
         "target": {
           "update_class": "create_only",
           "value_type": "object_ref"
+        },
+        "uvScale": {
+          "note": "multiplies the UV, so smaller values repeat the texture more densely; confirm the visual direction on real hardware",
+          "update_class": "create_only",
+          "value_type": "vector2"
         }
       }
     },
@@ -1815,7 +2037,6 @@
       "factory": "createTimer",
       "members": {
         "interval": {
-          "divisor": 1,
           "unit": "ms",
           "value_type": "scalar"
         },

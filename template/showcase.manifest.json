@@ -17,6 +17,8 @@
   "module_digest": "sha256:abddf8fa46d915776aef04c3ea9174e491d348fe4f6ac7ee7a03b0005400f41f",
   "budgets": {
     "native_objects": 16,
+    "materials": 16,
+    "textures": 32,
     "bindings": 8,
     "handlers": 4,
     "timers": 2,

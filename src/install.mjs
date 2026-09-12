@@ -8,6 +8,17 @@ import { PACKAGE, PACKAGE_ROOT, SERVER_NAME, repositorySlug } from "./paths.mjs"
 import { ensureEngine } from "./engine.mjs";
 
 const CLIENTS = ["claude", "codex", "hermes", "cursor"];
+
+/** Copy skills/ssworld into a client's skill directory. Hermes and Codex both discover
+ *  <home>/skills/<name>/SKILL.md on their own, so the file is the whole registration --
+ *  Codex's [[skills.config]] only records skills that were explicitly disabled. */
+function installSkill(skillsRoot) {
+  const source = path.join(PACKAGE_ROOT, "skills", "ssworld");
+  if (!existsSync(source)) return null;
+  const target = path.join(skillsRoot, "ssworld");
+  cpSync(source, target, { recursive: true });
+  return target;
+}
 const log = (line) => process.stderr.write(`${line}\n`);
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 
@@ -68,9 +79,11 @@ const WRITERS = {
     return { client: "claude", via: file };
   },
   codex(spec) {
+    const codexHome = process.env.CODEX_HOME || path.join(home, ".codex");
+    const skill = installSkill(path.join(codexHome, "skills"));
     const cli = run(process.platform === "win32" ? "codex.cmd" : "codex", ["mcp", "add", SERVER_NAME, "--", spec.command, ...spec.args]);
-    if (cli.ok) return { client: "codex", via: "codex mcp add" };
-    const file = path.join(process.env.CODEX_HOME || path.join(home, ".codex"), "config.toml");
+    if (cli.ok) return { client: "codex", via: "codex mcp add", skill };
+    const file = path.join(codexHome, "config.toml");
     const current = existsSync(file) ? readFileSync(file, "utf8") : "";
     const header = `[mcp_servers.${SERVER_NAME}]`;
     const block = `${header}\ncommand = ${JSON.stringify(spec.command)}\nargs = ${JSON.stringify(spec.args)}\n`;
@@ -82,7 +95,7 @@ const WRITERS = {
     }
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, next.replace(/^\n+/, ""), "utf8");
-    return { client: "codex", via: file };
+    return { client: "codex", via: file, skill };
   },
   hermes(spec) {
     const hermesHome = process.env.HERMES_HOME || path.join(home, ".hermes");
@@ -101,10 +114,7 @@ const WRITERS = {
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, next.replace(/^\n+/, ""), "utf8");
     // Ship the SSWorld skill so Hermes reaches for the server on its own.
-    const skillSource = path.join(PACKAGE_ROOT, "skills", "ssworld");
-    const skillTarget = path.join(hermesHome, "skills", "ssworld");
-    if (existsSync(skillSource)) cpSync(skillSource, skillTarget, { recursive: true });
-    return { client: "hermes", via: file, skill: existsSync(skillSource) ? skillTarget : null };
+    return { client: "hermes", via: file, skill: installSkill(path.join(hermesHome, "skills")) };
   },
   cursor(spec) {
     const file = path.join(home, ".cursor", "mcp.json");

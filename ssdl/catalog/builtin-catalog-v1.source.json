@@ -593,6 +593,15 @@
         "baseColor": {
           "value_type": "color"
         },
+        "baseColorMap": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "metallicRoughnessMap": {
+          "value_type": "object_ref",
+          "update_class": "create_only",
+          "note": "G is roughness, B is metalness; both multiply the roughness/metalness scalars on the material"
+        },
         "opacity": {
           "value_type": "scalar",
           "unit": "scalar"
@@ -604,6 +613,32 @@
         "roughness": {
           "value_type": "scalar",
           "unit": "scalar"
+        },
+        "uvScale": {
+          "value_type": "vector2",
+          "update_class": "create_only",
+          "note": "multiplies the UV, so smaller values repeat the texture more densely; confirm the visual direction on real hardware"
+        },
+        "normalMap": {
+          "value_type": "object_ref",
+          "update_class": "create_only",
+          "note": "tangent-space normal map; the host geometry must carry tangents, which only HeightField/Lathe/Tube/Loft do - anything else is refused at compile time"
+        },
+        "normalScale": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "normal strength, 0..2, default 1"
+        },
+        "emissiveMap": {
+          "value_type": "object_ref",
+          "update_class": "create_only",
+          "note": "emissive map (sRGB); like baseColorMap it needs UVs but not tangents. The sampled value is multiplied by emissiveColor"
+        },
+        "emissiveColor": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "emissive multiplier [r,g,b], 0..16; 1 is the map as authored and higher values push neon past the bloom threshold. Without an emissiveMap this is a flat emissive colour"
         }
       },
       "factory": "createPrincipledMaterial",
@@ -1045,12 +1080,40 @@
       ],
       "implicit_target": true
     },
+    "KeyHandler": {
+      "members": {
+        "key": {
+          "value_type": "string",
+          "required": true,
+          "update_class": "create_only",
+          "note": "the KeyboardEvent.key value: \"ArrowUp\", \"w\" (letters are case-insensitive), \" \" (space), \"Enter\", \"Escape\". One KeyHandler claims one key."
+        },
+        "enabled": {
+          "value_type": "boolean"
+        },
+        "pressed": {
+          "value_type": "boolean",
+          "read_only": true,
+          "note": "true while held, false on release or when the page loses focus; readable in bindings and State.when, not writable."
+        },
+        "autoRepeat": {
+          "value_type": "boolean",
+          "update_class": "create_only",
+          "note": "false by default: the operating system's key repeat no longer fires onPressed, so holding counts once."
+        }
+      },
+      "factory": "createKeyHandler",
+      "adapter": "interaction",
+      "signals": [
+        "onPressed",
+        "onReleased"
+      ]
+    },
     "Timer": {
       "members": {
         "interval": {
           "value_type": "scalar",
-          "unit": "ms",
-          "divisor": 1
+          "unit": "ms"
         },
         "repeat": {
           "value_type": "boolean"
@@ -1586,11 +1649,79 @@
           "value_type": "scalar",
           "unit": "scalar"
         },
+        "settings.autoExposureMethod": {
+          "value_type": "string",
+          "note": "Histogram / Basic / Manual; Manual is fixed exposure, where the multiplier is 2^autoExposureBias"
+        },
         "settings.autoExposureBias": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "exposure compensation; the actual multiplier is 2^bias"
+        },
+        "settings.autoExposureMinBrightness": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "lower bound of the auto-exposure white point; set it equal to MaxBrightness to lock exposure"
+        },
+        "settings.autoExposureMaxBrightness": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "upper bound of the auto-exposure white point"
+        },
+        "settings.autoExposureSpeedUp": {
           "value_type": "scalar",
           "unit": "scalar"
         },
+        "settings.autoExposureSpeedDown": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.lowPercent": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.highPercent": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.histogramLogMin": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.histogramLogMax": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.bloomMethod": {
+          "value_type": "string",
+          "note": "Standard / Convolution"
+        },
         "settings.bloomIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.bloomThreshold": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "bloom threshold; neon in a night scene only glows once its emission crosses it"
+        },
+        "settings.lensFlareIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.lensFlareBokehSize": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.lensFlareThreshold": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.depthOfFieldFocalDistance": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.motionBlurAmount": {
           "value_type": "scalar",
           "unit": "scalar"
         },
@@ -1610,14 +1741,113 @@
           "value_type": "scalar",
           "unit": "scalar"
         },
-        "settings.autoExposureMethod": {
-          "value_type": "string"
+        "settings.filmBlackClip": {
+          "value_type": "scalar",
+          "unit": "scalar"
         },
-        "settings.bloomMethod": {
-          "value_type": "string"
+        "settings.filmWhiteClip": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.temperature": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.temperatureTint": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.blueCorrection": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.expandGamut": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.toneCurveAmount": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.ambientOcclusionFadeRadius": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.ambientOcclusionFadeDistance": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.ambientOcclusionIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "settings.ambientOcclusionPower": {
+          "value_type": "scalar",
+          "unit": "scalar"
         }
       },
       "factory": "createPostProcessVolume",
+      "adapter": "direct"
+    },
+    "Prefab": {
+      "members": {
+        "source": {
+          "value_type": "object_ref",
+          "update_class": "create_only",
+          "required": true,
+          "note": "points at a geometry node (Box/Sphere/Cylinder/Cone/Plane/HeightField/Lathe/Tube/Loft) or a fully loaded Model; the instances reuse its geometry and materials. Polygon cannot be an instance source"
+        }
+      },
+      "factory": "createPrefab",
+      "adapter": "direct"
+    },
+    "Instances": {
+      "members": {
+        "prefab": {
+          "value_type": "object_ref",
+          "update_class": "create_only",
+          "required": true
+        },
+        "placement": {
+          "value_type": "string",
+          "update_class": "create_only",
+          "note": "explicit (give positions) or grid (give origin/spacing/columns/count); when omitted it is inferred from whether positions was given"
+        },
+        "positions": {
+          "value_type": "vector3_list",
+          "unit": "m",
+          "update_class": "create_only",
+          "note": "per-instance positions for explicit placement, in local metres, in the same coordinate system as every other node"
+        },
+        "origin": {
+          "value_type": "vector3",
+          "unit": "m",
+          "update_class": "create_only"
+        },
+        "spacing": {
+          "value_type": "vector2",
+          "unit": "m",
+          "update_class": "create_only",
+          "note": "row and column spacing [dx, dy] for grid placement; both must be positive"
+        },
+        "columns": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only"
+        },
+        "count": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "instance count for grid placement; at most 512 per batch and 2048 per Prefab. The whole batch costs 0 additional native objects"
+        },
+        "seed": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only"
+        }
+      },
+      "factory": "createInstances",
       "adapter": "direct"
     },
     "CameraView": {
@@ -1628,18 +1858,15 @@
         },
         "longitude": {
           "value_type": "scalar",
-          "unit": "scalar",
-          "update_class": "create_only"
+          "unit": "scalar"
         },
         "latitude": {
           "value_type": "scalar",
-          "unit": "scalar",
-          "update_class": "create_only"
+          "unit": "scalar"
         },
         "height": {
           "value_type": "scalar",
-          "unit": "scalar",
-          "update_class": "create_only"
+          "unit": "scalar"
         },
         "duration": {
           "value_type": "scalar",
@@ -1648,23 +1875,19 @@
         },
         "heading": {
           "value_type": "scalar",
-          "unit": "deg",
-          "update_class": "create_only"
+          "unit": "deg"
         },
         "pitch": {
           "value_type": "scalar",
-          "unit": "deg",
-          "update_class": "create_only"
+          "unit": "deg"
         },
         "roll": {
           "value_type": "scalar",
-          "unit": "deg",
-          "update_class": "create_only"
+          "unit": "deg"
         },
         "position": {
           "value_type": "vector3",
-          "unit": "m",
-          "update_class": "create_only"
+          "unit": "m"
         },
         "lookAt": {
           "value_type": "vector3",
@@ -1673,8 +1896,7 @@
         },
         "fov": {
           "value_type": "scalar",
-          "unit": "deg",
-          "update_class": "create_only"
+          "unit": "deg"
         },
         "nearPlane": {
           "value_type": "scalar",
@@ -1744,7 +1966,6 @@
         "fontSize": {
           "value_type": "scalar",
           "unit": "scalar",
-          "divisor": 1,
           "update_class": "create_only"
         },
         "bold": {

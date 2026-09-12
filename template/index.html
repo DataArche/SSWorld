@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,7 +17,7 @@
   <main class="panel">
     <div class="eyebrow">SSWorld · SceneModule/1</div>
     <h1>__TITLE__</h1>
-    <p class="hint" id="hint">正在连接 SSEngine WebGPU…</p>
+    <p class="hint" id="hint">Connecting to SSEngine WebGPU…</p>
     <dl class="readout">
       <dt>logical state</dt><dd id="logical-state">loading</dd>
       <dt>generation</dt><dd id="generation">—</dd>
@@ -257,12 +257,59 @@
       return { before, after, receipt: { batch_id: receipt.batch_id, status: receipt.status, ok: receipt.ok, evaluated: receipt.evaluated, committed: receipt.committed, changed: receipt.changed } };
     }
 
+    // What the ENGINE actually holds for the environment, read back from the native components rather than
+    // echoed from the source: the adopted sun's real direction (as azimuth/elevation at the anchor), which
+    // light drives the atmosphere, and every environment component's live values (atmosphere, fog, cloud,
+    // sky light, post process).  "Why is the sky orange" is otherwise five compile+screenshot rounds of
+    // bisection, because nothing else in this tool can be asked what the engine received.
+    function readEnvironment() {
+      const runtime = currentBridge?.runtime;
+      if (!runtime) throw Object.assign(new Error(`no scene module is mounted (runtime state '${document.body.dataset.runtime}')`), { code: "environment_unavailable" });
+      const rad = Math.PI / 180, deg = 180 / Math.PI;
+      const anchor = runtime.anchor || { lon: 0, lat: 0, height: 0 };
+      const components = [];
+      for (const [id, component] of runtime.environmentComponents || []) {
+        const entry = { id, type: component.type || component.component_type, handle: component.handle ?? null,
+          authored: component.authorValues ? { ...component.authorValues } : null };
+        try { entry.engine_values = component.describe()?.values ?? null; }
+        catch (error) { entry.engine_values = null; entry.read_error = error.message; }
+        if (component.type === "DirectionalLight") {
+          entry.atmosphere_sun_light = component.authorValues?.atmosphereSunLight === true;
+          if (component.sunDirection) entry.requested_sun = { azimuth: component.sunAzimuth, elevation: component.sunElevation, direction: component.sunDirection };
+          if (component.sunDirectionLocked !== undefined) entry.sun_direction_locked = component.sunDirectionLocked;
+        }
+        components.push(entry);
+      }
+      // The engine's own sun vector, turned back into the azimuth/elevation an author writes.  The ENU
+      // basis below is the exact transpose of the one sunDirectionFromAnchor uses, so this is the inverse.
+      let sun = { readable: false, reason: "the engine sun exposes no direction() in this build" };
+      try {
+        const native = runtime.scene?.sun;
+        if (native && typeof native.direction === "function") {
+          const vector = native.direction();
+          const d = { x: vector.x, y: vector.y, z: vector.z };
+          if (typeof vector.delete === "function") vector.delete();
+          const lon = anchor.lon * rad, lat = anchor.lat * rad;
+          const east = d.x * Math.sin(lon) - d.y * Math.cos(lon);
+          const north = d.x * Math.sin(lat) * Math.cos(lon) + d.y * Math.sin(lat) * Math.sin(lon) - d.z * Math.cos(lat);
+          const up = -d.x * Math.cos(lat) * Math.cos(lon) - d.y * Math.cos(lat) * Math.sin(lon) - d.z * Math.sin(lat);
+          const elevation = Math.asin(Math.max(-1, Math.min(1, up))) * deg;
+          const azimuth = (Math.atan2(east, north) * deg + 360) % 360;
+          sun = { readable: true, direction: d, azimuth_deg: Number(azimuth.toFixed(2)), elevation_deg: Number(elevation.toFixed(2)),
+            note: "azimuth 0 = north, clockwise; elevation is degrees above the horizon at the project anchor" };
+          if (typeof native.intensity === "function") { try { sun.intensity = native.intensity(); } catch (_) {} }
+        }
+      } catch (error) { sun = { readable: false, reason: error.message }; }
+      return { schema_version: "SSWorldEnvironmentReadback/1", anchor, engine_sun: sun, components };
+    }
+
     async function runCommand(command) {
       try {
         if (command.kind === "status") return { id: command.id, ok: true, status: pageStatus(), camera: cameraState() };
         if (command.kind === "capture") return { id: command.id, ok: true, ...(await captureFrame(command.params)) };
         if (command.kind === "logic_read") return { id: command.id, ok: true, logic: readLogic(), status: pageStatus() };
         if (command.kind === "logic_write") return { id: command.id, ok: true, ...writeLogic(command.params), status: pageStatus() };
+        if (command.kind === "environment_read") return { id: command.id, ok: true, environment: readEnvironment(), status: pageStatus() };
         return { id: command.id, ok: false, error: `unknown command ${command.kind}` };
       } catch (error) {
         return { id: command.id, ok: false, error: error.message, ...(error.code ? { code: error.code } : {}),
@@ -293,10 +340,15 @@
 
     // Managed assets (Model / Texture sources) live under the project's assets/ directory and are fetched
     // by the asset_id the compiler embedded into SceneIR, then verified against its size and digest.
+    // Keyed by asset_id AND content_digest: an asset_id is a stable file name, so a page-level cache keyed
+    // by it alone hands the engine the OLD bytes after the author replaces the file and hot-reloads, which
+    // trips the runtime's size/digest check and can only be cleared by a full page reload.  Adding the
+    // digest means a changed file always misses while an unchanged one still survives the reload.
     const assetCache = new Map();
     async function resolveManagedAsset(ref) {
-      if (!assetCache.has(ref.asset_id)) {
-        assetCache.set(ref.asset_id, (async () => {
+      const cacheKey = `${ref.asset_id}@${ref.content_digest}`;
+      if (!assetCache.has(cacheKey)) {
+        assetCache.set(cacheKey, (async () => {
           const response = await fetch(`./${ref.asset_id}`, { cache: "no-store" });
           if (!response.ok) throw new Error(`asset '${ref.asset_id}' request failed (${response.status}); put the file under the project's assets/ directory`);
           const bytes = new Uint8Array(await response.arrayBuffer());
@@ -305,10 +357,10 @@
           const digest = "sha256:" + [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
           if (digest !== ref.content_digest) throw new Error(`asset '${ref.asset_id}' digest mismatch; recompile after replacing the file`);
           return bytes;
-        })().catch((error) => { assetCache.delete(ref.asset_id); throw error; }));
+        })().catch((error) => { assetCache.delete(cacheKey); throw error; }));
       }
       // Each consumer gets its own copy: the engine takes ownership of the buffer it is handed.
-      return new Uint8Array(await assetCache.get(ref.asset_id));
+      return new Uint8Array(await assetCache.get(cacheKey));
     }
 
     function showFailure(error) {
@@ -318,8 +370,8 @@
       document.body.dataset.runtime = retained ? "ready" : "failed";
       ui.hint.textContent = error.message;
       document.getElementById("status").textContent = retained
-        ? "热更新失败 · 上一 generation 保持运行"
-        : "首次加载失败";
+        ? "Hot reload failed · the previous generation is still running"
+        : "Initial load failed";
     }
 
     function renderCanvas() {

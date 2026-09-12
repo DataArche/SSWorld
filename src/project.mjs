@@ -6,9 +6,11 @@ import { PROJECTS_ROOT, TEMPLATE_ROOT } from "./paths.mjs";
 import { compileProject, buildSourceProject, CompileError, HOST_INTERFACES_FILE } from "./compile.mjs";
 import { locateNode, editNodeInText } from "./diagnose.mjs";
 import { pageValues, renderTemplate } from "./page.mjs";
+import { DEFAULT_BUDGETS } from "./budgets.mjs";
+
+export { DEFAULT_BUDGETS };
 
 const NAME_RE = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
-export const DEFAULT_BUDGETS = { native_objects: 2048, bindings: 256, handlers: 128, timers: 32, timelines: 256 };
 export const DEFAULT_ANCHOR = { lon: 114.0579, lat: 22.5431, height: 150 };
 
 export function projectDir(name, { mustExist = true } = {}) {

@@ -50,7 +50,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const list = await client.request("tools/list", {});
   const names = list.result.tools.map((tool) => tool.name);
   assert.deepEqual(names, ["ssworld_catalog", "ssworld_project_list", "ssworld_project_create", "ssworld_source_read",
-    "ssworld_source_write", "ssworld_source_patch", "ssworld_source_batch", "ssworld_compile", "ssworld_scene_inspect", "ssworld_preview", "ssworld_capture_frame", "ssworld_logic_read", "ssworld_logic_write", "ssworld_engine_status"]);
+    "ssworld_source_write", "ssworld_source_patch", "ssworld_source_batch", "ssworld_compile", "ssworld_scene_inspect", "ssworld_preview", "ssworld_capture_frame", "ssworld_logic_read", "ssworld_logic_write", "ssworld_environment_read", "ssworld_engine_status"]);
   for (const tool of list.result.tools) assert.equal(tool.rich, undefined, `${tool.name} leaks internal flags`);
   for (const tool of list.result.tools) assert.equal(tool.inputSchema.type, "object", tool.name);
 
@@ -88,8 +88,12 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.deepEqual(Object.keys(batch.body.components), ["Box", "Sphere", "DirectionalLight", "CameraView"]);
   assert.equal(batch.body.unknown[0].component, "SunSky");
   assert.match(batch.body.unknown[0].alternative, /atmosphereSunLight/);
-  assert.equal(batch.body.shared_members, undefined, "CameraView.position is create_only, so nothing is shared by all four");
-  assert.equal(batch.body.components.Box.members.position, "vector3 m");
+  // CameraView.position became writable with the chase-camera work, so it now reads identically to the
+  // three geometry positions and hoists out of all four entries.
+  assert.equal(batch.body.shared_members.position, "vector3 m");
+  assert.equal(batch.body.components.Box.members.position, undefined);
+  assert.equal(batch.body.components.CameraView.members.position, undefined);
+  assert.equal(batch.body.components.CameraView.members.lookAt, "vector3 m create_only");
   const geometry = await client.call("ssworld_catalog", { components: ["Box", "Sphere", "Cylinder"], detail: "compact" });
   assert.equal(geometry.body.shared_members.position, "vector3 m", "position is declared identically by all three and hoisted");
   assert.equal(geometry.body.shared_members.rotation, "quaternion");
@@ -645,7 +649,12 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(bindingCapture.body.logic.bindings.invalid[0].target, "car");
   const bindingRead = await client.call("ssworld_logic_read", { project: "demo" });
   assert.equal(bindingRead.body.next.action, "fix_source");
-  assert.match(bindingRead.body.next.reason, /car\.position binding_commit_failed/);
+  // Since 0.9.8 logic_read merges runtime.errors, so `next` comes from the same fixRuntime branch the
+  // capture tool uses and therefore carries the source location instead of only naming the binding.
+  assert.match(bindingRead.body.next.reason, /car\.position: binding_commit_failed/);
+  assert.equal(bindingRead.body.next.file, "scene.ssdl");
+  assert.equal(bindingRead.body.next.line, 7);
+  assert.equal(bindingRead.body.loaded, true);
   clearInterval(pump3);
   writeFileSync(path.join(HOME, "projects", "demo", "scene.ssdl"), good);
 

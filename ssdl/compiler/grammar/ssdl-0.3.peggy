@@ -26,9 +26,9 @@ Product = h:Unary t:(H ("*" / "/") H Unary)* {return binary(h,t.map(x=>[x[0],x[1
 Unary = "!" H a:Unary {return at({kind:'op',op:'not',args:[a]});} / "-" H a:Unary {return at({kind:'negative',arg:a});} / Primary
 Primary = Constructor / Call / Reference / Number / String / Boolean / Array / "(" H e:Expression H ")" {return e;} / id:Identifier {return at({kind:'identifier',value:id});}
 Constructor = unit:('ms' / 'rad' / 'deg' / 'm') ![A-Za-z_0-9] H "(" H token:SignedDecimal H ")" {return at({kind:'number',token:token.startsWith('+')?token.slice(1):token,raw_token:token,unit});}
-Call = name:Identifier H "(" H args:(h:Expression t:(H "," H Expression)* {return [h,...t.map(x=>x[3])];})? H ")" {if(['m','rad','deg','ms'].includes(name))bad('unit_constructor_token_required');if(!['min','max','clamp','lerp'].includes(name))bad('unknown_function');return at({kind:'call',name,args:args||[]});}
+Call = name:Identifier H "(" H args:(h:Expression t:(H "," H Expression)* {return [h,...t.map(x=>x[3])];})? H ")" {if(['m','rad','deg','ms'].includes(name))bad('unit_constructor_token_required');if(!['min','max','clamp','lerp','abs','sign','floor','ceil','round','mod','sqrt','hypot','sin','cos','atan2','hash01'].includes(name))bad('unknown_function');return at({kind:'call',name,args:args||[]});}
 Reference = head:Identifier tail:("." Identifier)+ {return at({kind:'reference',segments:[head,...tail.map(x=>x[1])]});}
-Array = "[" H values:(h:Expression t:(H "," H Expression)* {return [h,...t.map(x=>x[3])];})? H "]" {return at({kind:'array',values:values||[]});}
+Array = "[" W values:(h:Expression t:(W "," W Expression)* {return [h,...t.map(x=>x[3])];})? W "]" {return at({kind:'array',values:values||[]});}
 Number = token:Decimal suffix:(H ('scalar' / 'rad' / 'deg' / 'ms' / 'm') ![A-Za-z_0-9])? ![A-Za-z_0-9] {if(suffix)bad('legacy_unit_syntax');return at({kind:'number',token,unit:'scalar'});}
 SignedDecimal = $([+-]? ('0' / [1-9][0-9]*) ('.'[0-9]+)? ([eE][+-]?[0-9]+)?)
 Decimal = $(('0' / [1-9][0-9]*) ('.'[0-9]+)? ([eE][+-]?[0-9]+)?)
@@ -40,4 +40,5 @@ Newline = "\r\n" / "\r" / "\n"
 LineComment = "//" [^\r\n]*
 BlockComment = "/*" (!"*/" .)* "*/"
 H = ([ \t] / BlockComment / LineComment)*
+W = ([ \t\r\n] / BlockComment / LineComment)*
 _ = ([ \t\r\n;] / BlockComment / LineComment)*

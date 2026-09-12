@@ -56,6 +56,8 @@
     "Model",
     "Texture",
     "PrincipledMaterial",
+    "Prefab",
+    "Instances",
     "Repeater",
     "Animation",
     "PropertyAnimation",
@@ -94,6 +96,7 @@
     "PostProcessVolume",
     "TapHandler",
     "HoverHandler",
+    "KeyHandler",
     "Timer",
   ]);
 
@@ -117,7 +120,7 @@
   function assertAnimationMembers(spec, type, ownMembers) {
     const allowed = new Set([...ANIMATION_COMMON_MEMBERS, ...ownMembers]);
     const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-    invariant(!unsupported, `qml_member_unsupported: ${type}.${unsupported}`);
+    invariant(!unsupported, `member_unsupported: ${type}.${unsupported}`);
     for (const signal of ["onStarted", "onStopped", "onFinished", "onRunningChanged", "onPausedChanged"]) {
       invariant(spec[signal] === undefined || typeof spec[signal] === "function",
         `${type}.${signal} must be a function`);
@@ -160,12 +163,12 @@
     }
     const allowed = new Set(["type", "amplitude", "bezierCurve", "overshoot", "period"]);
     const unknown = Object.keys(value).find((name) => !allowed.has(name));
-    invariant(!unknown, `qml_member_unsupported: ${type}.easing.${unknown}`);
+    invariant(!unknown, `member_unsupported: ${type}.easing.${unknown}`);
     invariant(typeof value.type === "string", `${type}.easing.type is required`);
     const qmlType = value.type.replace(/^Easing\./, "");
     for (const parameter of ["amplitude", "overshoot", "period"]) {
       invariant(value[parameter] === undefined,
-        `qml_member_unsupported: ${type}.easing.${parameter} needs an unsupported ${qmlType} evaluator`);
+        `member_unsupported: ${type}.easing.${parameter} needs an unsupported ${qmlType} evaluator`);
     }
     if (qmlType === "BezierSpline") {
       invariant(Array.isArray(value.bezierCurve) && value.bezierCurve.length === 6,
@@ -188,7 +191,7 @@
       `${type}.easing.bezierCurve requires Easing.BezierSpline`);
     const kind = QML_EASING_KINDS[qmlType];
     invariant(kind,
-      `qml_member_unsupported: ${type}.easing.type Easing.${qmlType} has no native evaluator`);
+      `member_unsupported: ${type}.easing.type Easing.${qmlType} has no native evaluator`);
     return { kind };
   }
 
@@ -206,13 +209,26 @@
     return value;
   }
 
+  // An author writes #rrggbb the way every colour picker and PBR pipeline means it: sRGB-encoded.  The
+  // engine's shading is linear and takes the material/light colour straight from the float it is given
+  // (UniformValue(QColor) reads redF() with no decode), so the sRGB -> linear transfer has to happen
+  // here, at the one place author colours enter the runtime.  Without it #808080 arrives as linear 0.5
+  // and renders like sRGB 188 -- "every flat colour is about 3x too bright".  Alpha stays linear.
+  function srgbToLinear(channel) {
+    return channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+  }
+
+  function linearToSrgb(channel) {
+    return channel <= 0.0031308 ? channel * 12.92 : 1.055 * Math.pow(channel, 1 / 2.4) - 0.055;
+  }
+
   function hexColor(value) {
     invariant(typeof value === "string" && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value),
       "color must be #rrggbb or #rrggbbaa");
     const channels = value.slice(1).match(/../g).map((part) => Number.parseInt(part, 16));
     if (channels.length === 3) channels.push(255);
-    const [r, g, b, a] = channels.map((channel) => Math.round(channel * 65535 / 255));
-    return { r_u16: r, g_u16: g, b_u16: b, a_u16: a };
+    const [r, g, b] = channels.slice(0, 3).map((channel) => Math.round(srgbToLinear(channel / 255) * 65535));
+    return { r_u16: r, g_u16: g, b_u16: b, a_u16: Math.round(channels[3] * 65535 / 255) };
   }
 
   function quaternionZ(degrees = 0) {
@@ -272,7 +288,7 @@
     invariant(params && typeof params === "object", "Polygon.params is required");
     const allowed = new Set(["outer", "holes"]);
     const unknown = Object.keys(params).find((name) => !allowed.has(name));
-    invariant(!unknown, `qml_member_unsupported: Polygon.params.${unknown}`);
+    invariant(!unknown, `member_unsupported: Polygon.params.${unknown}`);
     invariant(Array.isArray(params.outer), "Polygon.params.outer must be an array");
     invariant(params.holes === undefined || Array.isArray(params.holes),
       "Polygon.params.holes must be an array");
@@ -290,7 +306,7 @@
     invariant(params && typeof params === "object", "ExtrudedPolygon.params is required");
     const allowed = new Set(["outer", "holes", "height", "cap", "bevel"]);
     const unknown = Object.keys(params).find((name) => !allowed.has(name));
-    invariant(!unknown, `qml_member_unsupported: ExtrudedPolygon.params.${unknown}`);
+    invariant(!unknown, `member_unsupported: ExtrudedPolygon.params.${unknown}`);
     invariant(Array.isArray(params.outer), "ExtrudedPolygon.params.outer must be an array");
     invariant(params.holes === undefined || Array.isArray(params.holes),
       "ExtrudedPolygon.params.holes must be an array");
@@ -319,7 +335,7 @@
     invariant(params && typeof params === "object", "Polyline.params is required");
     const allowed = new Set(["points", "width"]);
     const unknown = Object.keys(params).find((name) => !allowed.has(name));
-    invariant(!unknown, `qml_member_unsupported: Polyline.params.${unknown}`);
+    invariant(!unknown, `member_unsupported: Polyline.params.${unknown}`);
     invariant(Array.isArray(params.points) && params.points.length >= 2 && params.points.length <= 256,
       "Polyline.params.points must hold 2..256 points");
     const points = params.points.map((point, index) => meshPoint(point, `Polyline.params.points[${index}]`));
@@ -409,11 +425,12 @@
 
   function authorValue(property, value) {
     if (property === "material.color" || property === "material.glow_color") {
-      const byte = (channel) => Math.max(0, Math.min(255, Math.round(channel * 255 / 65535)));
-      const channels = Object.hasOwn(value, "r_u16")
-        ? [value.r_u16, value.g_u16, value.b_u16, value.a_u16].map(byte)
-        : [value.r, value.g, value.b, value.a].map((channel) =>
-          Math.max(0, Math.min(255, Math.round(channel * 255))));
+      // The inverse of hexColor: the wire and the native material hold linear light, the author reads sRGB.
+      const clamp = (channel) => Math.max(0, Math.min(255, Math.round(channel)));
+      const unit = Object.hasOwn(value, "r_u16")
+        ? [value.r_u16, value.g_u16, value.b_u16, value.a_u16].map((channel) => channel / 65535)
+        : [value.r, value.g, value.b, value.a];
+      const channels = [...unit.slice(0, 3).map((channel) => clamp(linearToSrgb(channel) * 255)), clamp(unit[3] * 255)];
       return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
     }
     if (property === "visible" || property === "material.glow"
@@ -524,7 +541,7 @@
     if (property === "transform.rotation") {
       return { kind: "native", value_type: "quaternion", unit: "scalar", length: 4, divisor: 1e6 };
     }
-    throw codedError("qml_member_unsupported", `qml_member_unsupported: Binding.${property}`);
+    throw codedError("member_unsupported", `member_unsupported: Binding.${property}`);
   }
 
   function cloneLogical(value) {
@@ -560,6 +577,9 @@
     return leftKeys.length === rightKeys.length && leftKeys.every((key) => left[key] === right[key]);
   }
 
+  // An expression result carries a unit tag that need not match the target's -- units are tags, not
+  // dimensions, and every scalar the 0.3 compiler emits already sits in the same fixed-point lane. So
+  // the tag is not checked here; the target's own divisor is what decodes the number.
   function safeCanonicalInteger(value, field, divisor = 1e6) {
     const encoded = Math.round(finite(value, field) * divisor);
     invariant(Number.isSafeInteger(encoded), `${field} is outside the canonical integer range`);
@@ -599,7 +619,6 @@
     }
     if (descriptor.value_type === "scalar") {
       if (result.type !== "scalar") throw codedError("type_mismatch");
-      if (result.unit !== descriptor.unit) throw codedError("unit_mismatch");
       invariant(Number.isSafeInteger(result.value), `${field} returned an unsafe integer`);
       return normalizeLogical(descriptor, result.value / descriptor.divisor, field);
     }
@@ -607,11 +626,8 @@
       || !Array.isArray(result.value) || result.value.length !== descriptor.length) {
       throw codedError("type_mismatch");
     }
-    if (result.unit !== descriptor.unit) throw codedError("unit_mismatch");
     const values = result.value.map((item) => {
-      if (item?.type !== "scalar" || item.unit !== descriptor.unit || !Number.isSafeInteger(item.value)) {
-        throw codedError(item?.unit === descriptor.unit ? "type_mismatch" : "unit_mismatch");
-      }
+      if (item?.type !== "scalar" || !Number.isSafeInteger(item.value)) throw codedError("type_mismatch");
       return item.value / descriptor.divisor;
     });
     const candidate = descriptor.value_type === "vector3"
@@ -730,7 +746,7 @@
 
   class Animation {
     constructor() {
-      throw new Error("qml_type_abstract: Animation cannot be instantiated");
+      throw new Error("type_abstract: Animation cannot be instantiated");
     }
   }
 
@@ -773,7 +789,7 @@
         `AnimationFacade.${nativeMethod} is unavailable`);
       invariant(typeof runtime.animationFacade.configureLifecycle === "function"
         && typeof runtime.animationFacade.controlLifecycle === "function",
-      "AnimationFacade QML lifecycle is unavailable");
+      "AnimationFacade lifecycle is unavailable");
       const receipt = nativeResult(runtime.animationFacade[nativeMethod](JSON.stringify(timeline), runtime.scene),
         `AnimationFacade.${nativeMethod}`);
       this.handle = receipt.animation_handle;
@@ -948,7 +964,7 @@
       ]);
       for (const member of ["targets", "properties", "exclude"]) {
         invariant(spec[member] === undefined,
-          `qml_member_unsupported: ${type}.${member} needs multi-target timeline ownership`);
+          `member_unsupported: ${type}.${member} needs multi-target timeline ownership`);
       }
       propertyTarget(spec.target, runtime);
       invariant(typeof spec.property === "string", "PropertyAnimation.property is required");
@@ -1056,7 +1072,7 @@
     constructor(spec = {}) {
       const allowed = new Set(["duration", "duration_ms"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: PauseAnimation.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: PauseAnimation.${unsupported}`);
       const duration = propertyAnimationDuration(spec, "PauseAnimation");
       this.type = "PauseAnimation";
       this.duration = duration;
@@ -1073,7 +1089,7 @@
     if (type === "PauseAnimation") {
       const allowed = new Set(["type", "duration", "duration_ms"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: PauseAnimation.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: PauseAnimation.${unsupported}`);
       const duration = propertyAnimationDuration(spec, type);
       return { type, duration_ms: duration, property: null, keys: [] };
     }
@@ -1082,7 +1098,7 @@
       ...(type === "RotationAnimation" ? ["direction"] : []),
     ]);
     const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-    invariant(!unsupported, `qml_member_unsupported: ${type}.${unsupported}`);
+    invariant(!unsupported, `member_unsupported: ${type}.${unsupported}`);
     propertyTarget(spec.target, runtime);
     invariant(typeof spec.property === "string", `${type}.property is required`);
     assertAnimatableProperty(spec.target, spec.property, type);
@@ -1235,7 +1251,7 @@
   class Keyframe {
     constructor(spec = {}) {
       invariant(Object.keys(spec).every((name) => ["frame", "value"].includes(name)),
-        "qml_member_unsupported: Keyframe only supports frame and value");
+        "member_unsupported: Keyframe only supports frame and value");
       this.frame = finite(spec.frame, "Keyframe.frame");
       invariant(spec.value !== undefined, "Keyframe.value is required");
       this.value = spec.value;
@@ -1246,7 +1262,7 @@
   class KeyframeGroup {
     constructor(spec = {}) {
       invariant(Object.keys(spec).every((name) => ["target", "property", "keyframes"].includes(name)),
-        "qml_member_unsupported: KeyframeGroup only supports target, property and keyframes");
+        "member_unsupported: KeyframeGroup only supports target, property and keyframes");
       invariant(spec.target && typeof spec.target.handle === "string", "KeyframeGroup.target is required");
       invariant(typeof spec.property === "string" && spec.property.length > 0,
         "KeyframeGroup.property is required");
@@ -1267,7 +1283,7 @@
   class Timeline {
     constructor(runtime, spec = {}) {
       invariant(Object.keys(spec).every((name) => ["id", "key", "startFrame", "endFrame", "currentFrame", "enabled", "keyframeGroups"].includes(name)),
-        "qml_member_unsupported: Timeline member has no adapter");
+        "member_unsupported: Timeline member has no adapter");
       this.id = spec.id || spec.key || null;
       this.startFrame = finite(spec.startFrame ?? 0, "Timeline.startFrame");
       this.endFrame = finite(spec.endFrame, "Timeline.endFrame");
@@ -1405,7 +1421,7 @@
     constructor(runtime, spec = {}) {
       const allowed = new Set(["target", "center", "radius", "axis", "angularSpeed", "phase", "faceTravel", "autoplay"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: SSE.OrbitAnimation.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: SSE.OrbitAnimation.${unsupported}`);
       const center = vector3(spec.center, null, "SSE.OrbitAnimation.center");
       const radius = finite(spec.radius, "SSE.OrbitAnimation.radius");
       const angularSpeed = finite(spec.angularSpeed, "SSE.OrbitAnimation.angularSpeed");
@@ -1426,7 +1442,7 @@
     constructor(runtime, spec = {}) {
       const allowed = new Set(["target", "path", "speed", "loopMode", "orient", "phaseSeed", "autoplay"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: SSE.Path3DAnimation.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: SSE.Path3DAnimation.${unsupported}`);
       invariant(Array.isArray(spec.path) && spec.path.length >= 2 && spec.path.length <= 1024,
         "SSE.Path3DAnimation.path needs 2..1024 points");
       const points = spec.path.map((point, index) => meshPoint(point, `SSE.Path3DAnimation.path[${index}]`));
@@ -1539,11 +1555,11 @@
     const type = animation.type || "PropertyAnimation";
     const allowed = new Set(["type", "duration", "duration_ms", "easing"]);
     const unsupported = Object.keys(animation).find((name) => !allowed.has(name));
-    invariant(!unsupported, `qml_member_unsupported: Behavior.animation.${unsupported}`);
+    invariant(!unsupported, `member_unsupported: Behavior.animation.${unsupported}`);
     invariant([
       "PropertyAnimation", "NumberAnimation", "Vector3dAnimation",
       "QuaternionAnimation", "ColorAnimation",
-    ].includes(type), `qml_member_unsupported: Behavior.animation type '${type}'`);
+    ].includes(type), `member_unsupported: Behavior.animation type '${type}'`);
     if (type === "NumberAnimation") {
       invariant(!property.startsWith("transform.") && property !== "visible"
         && !property.endsWith(".color") && !property.endsWith(".glow_color"),
@@ -1586,7 +1602,7 @@
     constructor(runtime, spec = {}) {
       const allowed = new Set(["id", "key", "target", "property", "expression", "when"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: Binding.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: Binding.${unsupported}`);
       invariant(runtime.expressionEvaluate, "expression_runtime_unavailable");
       invariant(spec.target && typeof spec.target === "object" && spec.target.runtime === runtime
         && spec.target.disposed !== true,
@@ -1612,7 +1628,7 @@
       this.disposed = false;
       this.slot = runtime.ensureLogicalSlot(this.target, this.property);
       invariant(this.slot.descriptor.writable !== false,
-        `qml_member_readonly: '${runtime.ownerId(this.target)}.${this.property}' cannot be a Binding target`);
+        `member_readonly: '${runtime.ownerId(this.target)}.${this.property}' cannot be a Binding target`);
       invariant(this.slot.binding === null,
         `property_bound: '${runtime.ownerId(this.target)}.${this.property}' already has a Binding`);
       const references = expressionReferences(this.expression);
@@ -1717,7 +1733,7 @@
         "duration_ms", "easing",
       ]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: Behavior.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: Behavior.${unsupported}`);
       propertyTarget(spec.target, runtime);
       invariant(typeof spec.property === "string" && spec.property.length > 0,
         "Behavior.property is required");
@@ -1837,7 +1853,7 @@
     constructor(spec = {}) {
       const allowed = new Set(["target", "values", "restoreEntryValues"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: PropertyChanges.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: PropertyChanges.${unsupported}`);
       invariant(spec.target && typeof spec.target.handle === "string", "PropertyChanges.target is required");
       invariant(spec.values && typeof spec.values === "object" && !Array.isArray(spec.values),
         "PropertyChanges.values must be an object");
@@ -1855,7 +1871,7 @@
     constructor(runtime, spec = {}) {
       const allowed = new Set(["id", "key", "name", "when", "changes", "extend"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: State.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: State.${unsupported}`);
       invariant(typeof spec.name === "string" && spec.name.length > 0, "State.name is required");
       invariant(spec.id === undefined || typeof spec.id === "string" && spec.id.length > 0,
         "State.id must be a non-empty string");
@@ -1911,7 +1927,7 @@
     constructor(spec = {}) {
       const allowed = new Set(["target", "property", "value"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: PropertyAction.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: PropertyAction.${unsupported}`);
       invariant(spec.target && typeof spec.target.handle === "string", "PropertyAction.target is required");
       invariant(typeof spec.property === "string" && spec.property.length > 0, "PropertyAction.property is required");
       invariant(spec.value !== undefined, "PropertyAction.value is required");
@@ -1957,11 +1973,11 @@
     const type = spec.type || "PropertyAnimation";
     const allowed = new Set(["type", "property", "properties", "duration", "duration_ms", "easing"]);
     const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-    invariant(!unsupported, `qml_member_unsupported: Transition.${type}.${unsupported}`);
+    invariant(!unsupported, `member_unsupported: Transition.${type}.${unsupported}`);
     invariant([
       "PropertyAnimation", "NumberAnimation", "Vector3dAnimation",
       "QuaternionAnimation", "ColorAnimation",
-    ].includes(type), `qml_member_unsupported: Transition animation type '${type}'`);
+    ].includes(type), `member_unsupported: Transition animation type '${type}'`);
     invariant(spec.property === undefined || (typeof spec.property === "string" && spec.property.length > 0),
       `Transition.${type}.property must be a non-empty string`);
     invariant(spec.properties === undefined || typeof spec.properties === "string",
@@ -1987,7 +2003,7 @@
   function transitionPropertyActionDefinition(spec) {
     const allowed = new Set(["type", "target", "property", "value"]);
     const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-    invariant(!unsupported, `qml_member_unsupported: Transition.PropertyAction.${unsupported}`);
+    invariant(!unsupported, `member_unsupported: Transition.PropertyAction.${unsupported}`);
     invariant(spec.target === undefined || (spec.target && typeof spec.target.handle === "string"),
       "Transition.PropertyAction.target must be a scene object");
     invariant(spec.property === undefined || (typeof spec.property === "string" && spec.property.length > 0),
@@ -2014,13 +2030,13 @@
     if (type === "PauseAnimation") {
       const allowed = new Set(["type", "duration", "duration_ms"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: Transition.PauseAnimation.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: Transition.PauseAnimation.${unsupported}`);
       return { animations: [], duration_ms: propertyAnimationDuration(spec, type) };
     }
     if (type === "ParallelAnimation" || type === "SequentialAnimation") {
       const allowed = new Set(["type", "animations"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: Transition.${type}.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: Transition.${type}.${unsupported}`);
       invariant(Array.isArray(spec.animations) && spec.animations.length > 0,
         `Transition.${type}.animations must not be empty`);
       const animations = [];
@@ -2077,7 +2093,7 @@
         "duration_ms", "easing", "properties", "actions",
       ]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: Transition.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: Transition.${unsupported}`);
       invariant(spec.enabled === undefined || typeof spec.enabled === "boolean",
         "Transition.enabled must be boolean");
       invariant(spec.onRunningChanged === undefined || typeof spec.onRunningChanged === "function",
@@ -2585,7 +2601,7 @@
     constructor(runtime, spec = {}) {
       const allowed = new Set(["id", "key"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: Scene.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: Scene.${unsupported}`);
       invariant(runtime.sceneRoot === null, "only one Scene ownership root is allowed per runtime");
       this.runtime = runtime;
       this.id = spec.id || spec.key || "scene";
@@ -2606,7 +2622,7 @@
         "color", "opacity", "glow",
       ]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: ${(spec.component_type || "SceneObject")}.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: ${(spec.component_type || "SceneObject")}.${unsupported}`);
       invariant(spec.rotation === undefined || spec.rotation_z === undefined,
         `${spec.component_type || "SceneObject"}.rotation and rotation_z are mutually exclusive`);
       const id = spec.id || spec.key;
@@ -2658,6 +2674,12 @@
       const created = nativeResult(runtime.geometryFacade[createMethod](JSON.stringify(geometrySpec)),
         `GeometryFacade.${createMethod}`);
       this.handle = created.geometry_handle;
+      // Kept verbatim: PrefabFacade rebuilds its own renderer from these exact bytes, so a Prefab that
+      // uses this node as its source must hand over the spec that was actually built, not a re-derived one.
+      this.geometrySpec = geometrySpec;
+      // Older native builds did not return stream metadata; absence means false.
+      this.geometryHasUv = created.has_uv === true;
+      this.geometryHasTangent = created.has_tangent === true;
       this.animations = [];
       this.drivers = [];
       this.materials = new Set();
@@ -2719,7 +2741,7 @@
         "SceneObject.setTransform needs a patch");
       const allowed = new Set(["position", "x", "y", "z", "rotation", "rotation_z", "scale"]);
       const unsupported = Object.keys(patch).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: ${(this.spec.component_type || "SceneObject")}.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: ${(this.spec.component_type || "SceneObject")}.${unsupported}`);
       invariant(patch.rotation === undefined || patch.rotation_z === undefined,
         `${this.spec.component_type || "SceneObject"}.rotation and rotation_z are mutually exclusive`);
       const transform = { target: this.handle, space: "local" };
@@ -2761,6 +2783,29 @@
       return result;
     }
 
+    snapshot() {
+      return {
+        id: this.spec.id,
+        handle: this.handle,
+        kind: this.spec.kind || "box",
+        component_type: this.spec.component_type || "SceneObject",
+        has_uv: this.geometryHasUv,
+        has_tangent: this.geometryHasTangent,
+      };
+    }
+
+    describe() {
+      invariant(!this.disposed, "SceneObject is disposed");
+      const facade = this.runtime.geometryFacade;
+      const receipt = typeof facade.describe === "function"
+        ? nativeResult(facade.describe(this.handle), "GeometryFacade.describe")
+        : { geometry_handle: this.handle };
+      // Preserve creation metadata when an intermediate native facade lacks describe fields.
+      if (receipt.has_uv !== undefined) this.geometryHasUv = receipt.has_uv === true;
+      if (receipt.has_tangent !== undefined) this.geometryHasTangent = receipt.has_tangent === true;
+      return { ...receipt, has_uv: this.geometryHasUv, has_tangent: this.geometryHasTangent };
+    }
+
     dispose() {
       if (this.disposed) return { ok: true, removed: false, idempotent: true };
       this.runtime.disposeTargetDependents(this);
@@ -2780,7 +2825,7 @@
       invariant(spec && typeof spec === "object", "Group needs a spec");
       const allowed = new Set(["id", "key", "parent", "position", "x", "y", "z", "rotation", "rotation_z", "scale", "visible"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: Group.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: Group.${unsupported}`);
       invariant(spec.rotation === undefined || spec.rotation_z === undefined,
         "Group.rotation and Group.rotation_z are mutually exclusive");
       const id = spec.id || spec.key;
@@ -2838,7 +2883,7 @@
         `${this.component_type}.setTransform needs a patch`);
       const allowed = new Set(["position", "x", "y", "z", "rotation", "rotation_z", "scale"]);
       const unsupported = Object.keys(patch).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: ${this.component_type}.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: ${this.component_type}.${unsupported}`);
       invariant(patch.rotation === undefined || patch.rotation_z === undefined,
         `${this.component_type}.rotation and rotation_z are mutually exclusive`);
       const transform = { target: this.handle, space: "local" };
@@ -2877,7 +2922,7 @@
       invariant(!this.disposed, `${this.component_type} is disposed`);
       const member = property.startsWith("transform.") ? property.slice(10) : "";
       invariant(["position", "rotation", "scale"].includes(member),
-        `qml_member_unsupported: ${this.component_type}.${property}`);
+        `member_unsupported: ${this.component_type}.${property}`);
       const result = nativeResult(this.runtime.sceneGraphFacade.setTransform(JSON.stringify({
         target: this.handle,
         space: "local",
@@ -2925,7 +2970,7 @@
         "position", "x", "y", "z", "rotation", "rotation_z", "scale", "visible",
       ]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: GeoAnchor.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: GeoAnchor.${unsupported}`);
       invariant(spec.rotation === undefined || spec.rotation_z === undefined,
         "GeoAnchor.rotation and GeoAnchor.rotation_z are mutually exclusive");
       const id = spec.id || spec.key;
@@ -2990,7 +3035,7 @@
   function meshParams(type, params, allowed) {
     invariant(params && typeof params === "object", `${type}.params is required`);
     const unknown = Object.keys(params).find((name) => !allowed.includes(name));
-    invariant(!unknown, `qml_member_unsupported: ${type}.params.${unknown}`);
+    invariant(!unknown, `member_unsupported: ${type}.params.${unknown}`);
     return params;
   }
   function meshInteger(value, field, min, max) {
@@ -3015,13 +3060,100 @@
       }
     }
   }
-  function ringCap(positions, indices, start, n, center, up) {
+  // Use a shared coordinate scale so finite author coordinates cannot overflow arc-length math.
+  function normalizedArcFractions(points, closed, axes) {
+    let scale = 0;
+    for (const point of points) {
+      for (const axis of axes) scale = Math.max(scale, Math.abs(point[axis]));
+    }
+    if (!(scale > 0)) return points.map(() => 0);
+    const distance = (a, b) => Math.hypot(...axes.map((axis) => a[axis] / scale - b[axis] / scale));
+    const lengths = [];
+    for (let index = 1; index < points.length; index += 1) lengths.push(distance(points[index - 1], points[index]));
+    if (closed) lengths.push(distance(points[points.length - 1], points[0]));
+    const total = lengths.reduce((sum, length) => sum + length, 0);
+    if (!(total > 0) || !Number.isFinite(total)) return points.map(() => 0);
+    let cumulative = 0;
+    return points.map((_, index) => {
+      if (index > 0) cumulative += lengths[index - 1];
+      return Math.min(1, Math.max(0, cumulative / total));
+    });
+  }
+  function ringUvMean(uvs, start, n) {
+    let u = 0, v = 0;
+    for (let j = 0; j < n; j += 1) {
+      u += uvs[start + j].u;
+      v += uvs[start + j].v;
+    }
+    return { u: u / n, v: v / n };
+  }
+  function ringCap(positions, uvs, indices, start, n, center, up, centerUv) {
     const centerIndex = positions.length;
     positions.push(center);
+    uvs.push(centerUv);
     for (let j = 0; j < n; j += 1) {
       const a = start + j, b = start + (j + 1) % n;
       if (up) indices.push(centerIndex, a, b); else indices.push(centerIndex, b, a);
     }
+  }
+
+  // M4: analytic tangent frames for the generators. Their UVs are analytic (u = around/varying
+  // parameter, v = arc length), so reconstructing dP/du from the (position, uv) triangle pairs is
+  // exact here rather than the usual guess over an arbitrary unwrap. Handedness (w = ±1) comes
+  // from the orientation of cross(N, T) against the accumulated bitangent, matching the RGBA8
+  // SNorm TANGENT stream the native side packs.
+  function tangentFrames(positions, uvs, indices) {
+    const count = positions.length;
+    const accumT = positions.map(() => ({ x: 0, y: 0, z: 0 }));
+    const accumB = positions.map(() => ({ x: 0, y: 0, z: 0 }));
+    const accumN = positions.map(() => ({ x: 0, y: 0, z: 0 }));
+    for (let i = 0; i + 2 < indices.length; i += 3) {
+      const i0 = indices[i], i1 = indices[i + 1], i2 = indices[i + 2];
+      if (i0 === i1 || i1 === i2 || i0 === i2) continue;
+      const p0 = positions[i0], p1 = positions[i1], p2 = positions[i2];
+      const w0 = uvs[i0], w1 = uvs[i1], w2 = uvs[i2];
+      const e1 = { x: p1.x - p0.x, y: p1.y - p0.y, z: p1.z - p0.z };
+      const e2 = { x: p2.x - p0.x, y: p2.y - p0.y, z: p2.z - p0.z };
+      const du1 = w1.u - w0.u, dv1 = w1.v - w0.v;
+      const du2 = w2.u - w0.u, dv2 = w2.v - w0.v;
+      const det = du1 * dv2 - du2 * dv1;
+      const face = { x: e1.y * e2.z - e1.z * e2.y, y: e1.z * e2.x - e1.x * e2.z, z: e1.x * e2.y - e1.y * e2.x };
+      for (const index of [i0, i1, i2]) {
+        accumN[index].x += face.x; accumN[index].y += face.y; accumN[index].z += face.z;
+      }
+      if (!Number.isFinite(det) || Math.abs(det) < 1e-12) continue;
+      const r = 1 / det;
+      const tangent = { x: (e1.x * dv2 - e2.x * dv1) * r, y: (e1.y * dv2 - e2.y * dv1) * r, z: (e1.z * dv2 - e2.z * dv1) * r };
+      const bitangent = { x: (e2.x * du1 - e1.x * du2) * r, y: (e2.y * du1 - e1.y * du2) * r, z: (e2.z * du1 - e1.z * du2) * r };
+      for (const index of [i0, i1, i2]) {
+        accumT[index].x += tangent.x; accumT[index].y += tangent.y; accumT[index].z += tangent.z;
+        accumB[index].x += bitangent.x; accumB[index].y += bitangent.y; accumB[index].z += bitangent.z;
+      }
+    }
+    return positions.map((_, index) => {
+      const n = accumN[index];
+      const nLength = Math.hypot(n.x, n.y, n.z);
+      const normal = nLength > 0 ? { x: n.x / nLength, y: n.y / nLength, z: n.z / nLength } : { x: 0, y: 0, z: 1 };
+      let t = accumT[index];
+      const along = t.x * normal.x + t.y * normal.y + t.z * normal.z;
+      t = { x: t.x - normal.x * along, y: t.y - normal.y * along, z: t.z - normal.z * along };
+      const tLength = Math.hypot(t.x, t.y, t.z);
+      if (!(tLength > 1e-12)) {
+        // Degenerate u direction (e.g. a collapsed ring): fall back to any axis perpendicular to N.
+        const axis = Math.abs(normal.z) < 0.9 ? { x: 0, y: 0, z: 1 } : { x: 0, y: 1, z: 0 };
+        t = { x: axis.y * normal.z - axis.z * normal.y, y: axis.z * normal.x - axis.x * normal.z, z: axis.x * normal.y - axis.y * normal.x };
+        const fallback = Math.hypot(t.x, t.y, t.z) || 1;
+        t = { x: t.x / fallback, y: t.y / fallback, z: t.z / fallback };
+      } else {
+        t = { x: t.x / tLength, y: t.y / tLength, z: t.z / tLength };
+      }
+      const b = accumB[index];
+      const cx = normal.y * t.z - normal.z * t.y;
+      const cy = normal.z * t.x - normal.x * t.z;
+      const cz = normal.x * t.y - normal.y * t.x;
+      const handedness = (cx * b.x + cy * b.y + cz * b.z) < 0 ? -1 : 1;
+      return [t.x, t.y, t.z, handedness];
+    });
   }
 
   function heightFieldMesh(params) {
@@ -3034,11 +3166,14 @@
     meshBudget("HeightField", count);
     invariant(Array.isArray(params.heights) && params.heights.length === count,
       `HeightField.params.heights needs (columns+1)*(rows+1) = ${count} values`);
-    const positions = [], indices = [];
+    const positions = [], uvs = [], indices = [];
     for (let r = 0; r <= rows; r += 1) {
       for (let c = 0; c <= columns; c += 1) {
-        positions.push({ x: -width / 2 + width * c / columns, y: -depth / 2 + depth * r / rows,
+        const x = -width / 2 + width * (c / columns);
+        const y = -depth / 2 + depth * (r / rows);
+        positions.push({ x, y,
           z: finite(params.heights[r * (columns + 1) + c], `HeightField.params.heights[${r * (columns + 1) + c}]`) });
+        uvs.push({ u: (x + width / 2) / width, v: (y + depth / 2) / depth });
       }
     }
     for (let r = 0; r < rows; r += 1) {
@@ -3047,7 +3182,7 @@
         indices.push(a, b, d, a, d, cc);
       }
     }
-    return { positions, indices };
+    return { positions, uvs, indices, tangents: tangentFrames(positions, uvs, indices) };
   }
 
   function latheMesh(params) {
@@ -3057,20 +3192,29 @@
     invariant(profile.every((point) => point.x >= 0), "Lathe.params.profile radius (x) must be >= 0");
     invariant(params.closed === undefined || typeof params.closed === "boolean", "Lathe.params.closed must be boolean");
     meshBudget("Lathe", profile.length * segments + 2);
-    const positions = [], indices = [];
-    for (const point of profile) {
+    const positions = [], uvs = [], indices = [];
+    const profileV = normalizedArcFractions(profile, false, ["x", "z"]);
+    for (let index = 0; index < profile.length; index += 1) {
+      const point = profile[index];
+      const uDegenerate = point.x === 0;
       for (let j = 0; j < segments; j += 1) {
         const angle = 2 * Math.PI * j / segments;
         positions.push({ x: point.x * Math.cos(angle), y: point.x * Math.sin(angle), z: point.z });
+        uvs.push({ u: uDegenerate ? 0 : j / segments, v: profileV[index] });
       }
     }
     ringQuads(indices, profile.length, segments, true);
     if (params.closed) {
       const first = profile[0], last = profile[profile.length - 1];
-      if (first.x > 0) ringCap(positions, indices, 0, segments, { x: 0, y: 0, z: first.z }, first.z > last.z);
-      if (last.x > 0) ringCap(positions, indices, (profile.length - 1) * segments, segments, { x: 0, y: 0, z: last.z }, last.z >= first.z);
+      if (first.x > 0) ringCap(positions, uvs, indices, 0, segments,
+        { x: 0, y: 0, z: first.z }, first.z > last.z, ringUvMean(uvs, 0, segments));
+      if (last.x > 0) {
+        const start = (profile.length - 1) * segments;
+        ringCap(positions, uvs, indices, start, segments,
+          { x: 0, y: 0, z: last.z }, last.z >= first.z, ringUvMean(uvs, start, segments));
+      }
     }
-    return { positions, indices };
+    return { positions, uvs, indices, tangents: tangentFrames(positions, uvs, indices) };
   }
 
   function tubeMesh(params) {
@@ -3093,7 +3237,8 @@
     // Parallel-transport frame: start perpendicular to the first tangent, then rotate minimally.
     const reference = Math.abs(tangents[0].z) < 0.9 ? { x: 0, y: 0, z: 1 } : { x: 0, y: 1, z: 0 };
     let normal = norm(cross(reference, tangents[0]), "Tube frame");
-    const positions = [], indices = [];
+    const positions = [], uvs = [], indices = [];
+    const pathV = normalizedArcFractions(path, false, ["x", "y", "z"]);
     for (let i = 0; i < path.length; i += 1) {
       if (i > 0) {
         const projected = { x: normal.x - tangents[i].x * dot(normal, tangents[i]), y: normal.y - tangents[i].y * dot(normal, tangents[i]), z: normal.z - tangents[i].z * dot(normal, tangents[i]) };
@@ -3103,14 +3248,17 @@
       for (let j = 0; j < segments; j += 1) {
         const angle = 2 * Math.PI * j / segments, c = Math.cos(angle) * radius, s = Math.sin(angle) * radius;
         positions.push({ x: path[i].x + normal.x * c + binormal.x * s, y: path[i].y + normal.y * c + binormal.y * s, z: path[i].z + normal.z * c + binormal.z * s });
+        uvs.push({ u: j / segments, v: pathV[i] });
       }
     }
     ringQuads(indices, path.length, segments, true);
     if (params.closed) {
-      ringCap(positions, indices, 0, segments, path[0], false);
-      ringCap(positions, indices, (path.length - 1) * segments, segments, path[path.length - 1], true);
+      ringCap(positions, uvs, indices, 0, segments, path[0], false, ringUvMean(uvs, 0, segments));
+      const start = (path.length - 1) * segments;
+      ringCap(positions, uvs, indices, start, segments, path[path.length - 1], true,
+        ringUvMean(uvs, start, segments));
     }
-    return { positions, indices };
+    return { positions, uvs, indices, tangents: tangentFrames(positions, uvs, indices) };
   }
 
   function loftMesh(params) {
@@ -3121,14 +3269,25 @@
     invariant(sections.every((ring) => ring.length === count), "Loft.params.sections must all have the same number of points");
     invariant(params.cap === undefined || typeof params.cap === "boolean", "Loft.params.cap must be boolean");
     meshBudget("Loft", sections.length * count + 2);
-    const positions = sections.flat(), indices = [];
+    const positions = [], uvs = [], indices = [];
+    for (let k = 0; k < sections.length; k += 1) {
+      const ring = sections[k];
+      const ringU = normalizedArcFractions(ring, true, ["x", "y", "z"]);
+      const v = k / (sections.length - 1);
+      for (let j = 0; j < ring.length; j += 1) {
+        positions.push(ring[j]);
+        uvs.push({ u: ringU[j], v });
+      }
+    }
     ringQuads(indices, sections.length, count, true);
     if (params.cap) {
       const centroid = (ring) => ({ x: ring.reduce((sum, p) => sum + p.x, 0) / ring.length, y: ring.reduce((sum, p) => sum + p.y, 0) / ring.length, z: ring.reduce((sum, p) => sum + p.z, 0) / ring.length });
-      ringCap(positions, indices, 0, count, centroid(sections[0]), false);
-      ringCap(positions, indices, (sections.length - 1) * count, count, centroid(sections[sections.length - 1]), true);
+      ringCap(positions, uvs, indices, 0, count, centroid(sections[0]), false, ringUvMean(uvs, 0, count));
+      const start = (sections.length - 1) * count;
+      ringCap(positions, uvs, indices, start, count, centroid(sections[sections.length - 1]), true,
+        ringUvMean(uvs, start, count));
     }
-    return { positions, indices };
+    return { positions, uvs, indices, tangents: tangentFrames(positions, uvs, indices) };
   }
 
   function geometryComponentSpec(type, kind, spec) {
@@ -3192,7 +3351,7 @@
     invariant(value && typeof value === "object" && !Array.isArray(value), `${field} must be an object`);
     const allowed = new Set(["longitude", "latitude", "altitude"]);
     const unknown = Object.keys(value).find((name) => !allowed.has(name));
-    invariant(!unknown, `qml_member_unsupported: ${field}.${unknown}`);
+    invariant(!unknown, `member_unsupported: ${field}.${unknown}`);
     const longitude = finite(value.longitude, `${field}.longitude`);
     const latitude = finite(value.latitude, `${field}.latitude`);
     const altitude = finite(value.altitude ?? 0, `${field}.altitude`);
@@ -3259,7 +3418,7 @@
         "fontSize", "bold", "italic", "underline", "lineToGround",
       ]);
       const unknown = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unknown, `qml_member_unsupported: Label.${unknown}`);
+      invariant(!unknown, `member_unsupported: Label.${unknown}`);
       const id = spec.id || spec.key;
       invariant(typeof id === "string" && id.length > 0, "Label.id or key is required");
       invariant(!runtime.labels.has(id), `Label '${id}' is already registered`);
@@ -3330,7 +3489,7 @@
         "fontColor", "backgroundColor", "strokeColor", "fontSize", "bold", "italic", "underline", "lineToGround",
       ]);
       const unknown = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unknown, `qml_member_unsupported: Label.${unknown}`);
+      invariant(!unknown, `member_unsupported: Label.${unknown}`);
       return this.patch({ style: labelStyle(spec, "Label") });
     }
 
@@ -3359,7 +3518,7 @@
       invariant(spec && typeof spec === "object", "Texture needs a spec");
       const allowed = new Set(["id", "key", "source"]);
       const unknown = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unknown, `qml_member_unsupported: Texture.${unknown}`);
+      invariant(!unknown, `member_unsupported: Texture.${unknown}`);
       const id = spec.id || spec.key;
       invariant(typeof id === "string" && id.length > 0, "Texture.id or key is required");
       invariant(!runtime.textures.has(id) && !runtime.models.has(id) && !runtime.modelReservations.has(id)
@@ -3417,7 +3576,7 @@
         "position", "x", "y", "z", "rotation", "rotation_z", "scale", "visible",
       ]);
       const unknown = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unknown, `qml_member_unsupported: Model.${unknown}`);
+      invariant(!unknown, `member_unsupported: Model.${unknown}`);
       invariant(spec.rotation === undefined || spec.rotation_z === undefined,
         "Model.rotation and Model.rotation_z are mutually exclusive");
       invariant(spec.visible === undefined || typeof spec.visible === "boolean", "Model.visible must be boolean");
@@ -3590,7 +3749,7 @@
       invariant(patch && typeof patch === "object", "Model.setTransform needs a patch");
       const allowed = new Set(["position", "x", "y", "z", "rotation", "rotation_z", "scale"]);
       const unknown = Object.keys(patch).find((name) => !allowed.has(name));
-      invariant(!unknown, `qml_member_unsupported: Model.${unknown}`);
+      invariant(!unknown, `member_unsupported: Model.${unknown}`);
       invariant(patch.rotation === undefined || patch.rotation_z === undefined,
         "Model.rotation and Model.rotation_z are mutually exclusive");
       const request = { target: this.handle, space: "local" };
@@ -3651,6 +3810,14 @@
 
     dispose() {
       if (this.disposed) return { ok: true, removed: false, idempotent: true };
+      // A Prefab built from this Model BORROWS its leaf geometry and materials -- unlike a geometry
+      // prefab, which rebuilds its own copy from frozen spec bytes and does not care what happens to
+      // the source.  Removing the glb out from under a live batch would leave the instanced renderers
+      // pointing at deleted LiGeometry, so refuse instead.  Dispose the Prefab first.
+      const borrowing = [...this.runtime.prefabs.values()]
+        .filter((prefab) => !prefab.disposed && prefab.source === this).map((prefab) => prefab.id);
+      invariant(borrowing.length === 0,
+        `Model '${this.id}' is instanced by Prefab ${borrowing.join(", ")}; dispose the Prefab first`);
       this.runtime.disposeTargetDependents(this);
       const result = nativeResult(this.runtime.modelFacade.remove(JSON.stringify({ target: this.identity })),
         "SSDLSceneFacade.remove");
@@ -3753,7 +3920,7 @@
     }
     invariant(ENVIRONMENT_MEMBERS[type]?.includes(property), `ue_member_unsupported: ${type}.${property}`);
     invariant(property !== "secondFogData",
-      "qml_member_unsupported: ExponentialHeightFog.secondFogData cannot be bound as one value");
+      "member_unsupported: ExponentialHeightFog.secondFogData cannot be bound as one value");
     if (ENVIRONMENT_COLOR_MEMBERS.has(property)) {
       return { kind: "member", value_type: "color", unit: null, length: 1, divisor: 1 };
     }
@@ -3785,7 +3952,7 @@
   });
 
   function sunSkyMemberValueDescriptor(property) {
-    invariant(SUN_SKY_SCALAR_MEMBERS.includes(property), `qml_member_unsupported: SunSky.${property}`);
+    invariant(SUN_SKY_SCALAR_MEMBERS.includes(property), `member_unsupported: SunSky.${property}`);
     if (property === "useDaylightSavingTime") {
       return { kind: "member", value_type: "boolean", unit: null, length: 1, divisor: 1 };
     }
@@ -3946,7 +4113,7 @@
       invariant(!this.disposed, `${this.type} is disposed`);
       invariant(patch && typeof patch === "object" && !Array.isArray(patch), `${this.type} patch must be an object`);
       invariant(patch.id === undefined && patch.key === undefined,
-        `qml_member_unsupported: ${this.type}.${patch.id !== undefined ? "id" : "key"}`);
+        `member_unsupported: ${this.type}.${patch.id !== undefined ? "id" : "key"}`);
       const properties = environmentProperties(this.type, patch);
       for (const property of Object.keys(patch)) {
         if (property === "secondFogData") continue;
@@ -4229,6 +4396,29 @@
     "ambientOcclusionPower",
   ]);
 
+  // CameraView pose members are degrees / metres on the author surface.  Angles are converted to radians
+  // exactly once, inside CameraView.writeCamera.
+  function cameraViewMemberValueDescriptor(property) {
+    if (property === "position") {
+      return { kind: "member", value_type: "vector3", unit: "m", length: 3, divisor: 1e6 };
+    }
+    const ranges = {
+      longitude: ["deg", -180, 180], latitude: ["deg", -90, 90], height: ["m", -1e7, 1e8],
+      heading: ["deg", -360, 360], pitch: ["deg", -90, 90], roll: ["deg", -180, 180],
+      fov: ["deg", 1, 170],
+    };
+    const entry = ranges[property];
+    if (!entry) {
+      throw codedError("member_unsupported", `member_unsupported: CameraView.${property}`);
+    }
+    const [unit, minimum, maximum] = entry;
+    return {
+      kind: "member", value_type: "scalar", unit, length: 1, divisor: 1e6,
+      validate: (value, field) => invariant(value >= minimum && value <= maximum,
+        `${field} must be in ${minimum}..${maximum}`),
+    };
+  }
+
   function postProcessMemberValueDescriptor(property) {
     if (property === "enabled" || property === "unbound") {
       return { kind: "member", value_type: "boolean", unit: null, length: 1, divisor: 1 };
@@ -4251,7 +4441,7 @@
         ? { kind: "member", value_type: "string", unit: null, length: 1, divisor: 1 }
         : { kind: "member", value_type: "scalar", unit: "scalar", length: 1, divisor: 1e6 };
     }
-    throw codedError("qml_member_unsupported", `qml_member_unsupported: PostProcessVolume.${property}`);
+    throw codedError("member_unsupported", `member_unsupported: PostProcessVolume.${property}`);
   }
 
   function postProcessSettings(value, field = "PostProcessVolume.settings") {
@@ -4404,12 +4594,111 @@
     }
   }
 
+  function materialUvScale(value) {
+    if (value === undefined) return [1, 1];
+    let u, v;
+    if (Array.isArray(value)) {
+      invariant(value.length === 2, "PrincipledMaterial.uvScale must be [u, v] or { x, y }");
+      [u, v] = value;
+    } else {
+      invariant(value && typeof value === "object" && !Array.isArray(value)
+        && Object.keys(value).length === 2 && Object.hasOwn(value, "x") && Object.hasOwn(value, "y"),
+      "PrincipledMaterial.uvScale must be [u, v] or { x, y }");
+      ({ x: u, y: v } = value);
+    }
+    finite(u, "PrincipledMaterial.uvScale.u");
+    finite(v, "PrincipledMaterial.uvScale.v");
+    invariant(u > 0 && v > 0, "PrincipledMaterial.uvScale components must be > 0");
+    return [u, v];
+  }
+
+  function emissiveColorComponents(value) {
+    let r, g, b;
+    if (Array.isArray(value)) {
+      invariant(value.length === 3, "PrincipledMaterial.emissiveColor must be [r, g, b] or { x, y, z }");
+      [r, g, b] = value;
+    } else {
+      invariant(value && typeof value === "object"
+        && ["x", "y", "z"].every((axis) => Object.hasOwn(value, axis)),
+      "PrincipledMaterial.emissiveColor must be [r, g, b] or { x, y, z }");
+      ({ x: r, y: g, z: b } = value);
+    }
+    const components = [r, g, b];
+    components.forEach((component, index) => {
+      finite(component, `PrincipledMaterial.emissiveColor[${index}]`);
+      invariant(component >= 0 && component <= MAX_EMISSIVE_COMPONENT,
+        `PrincipledMaterial.emissiveColor[${index}] must be in 0..${MAX_EMISSIVE_COMPONENT}`);
+    });
+    return components;
+  }
+
+  const MANAGED_MATERIAL_TEXTURE_SLOTS = Object.freeze([
+    "baseColorMap", "metallicRoughnessMap", "normalMap", "emissiveMap",
+  ]);
+  // The emissive map is multiplied by this factor in the base pass, so components above 1 are how a
+  // neon surface gets bright enough to cross the bloom threshold.  It is deliberately not a 0..1 colour.
+  const MAX_EMISSIVE_COMPONENT = 16;
+
+  function requireMaterialFacadeV2(runtime, field) {
+    const facade = runtime.materialFacade;
+    invariant(facade && typeof facade.capabilities === "function", `MaterialFacade/v2 is required for ${field}`);
+    const capabilities = nativeResult(facade.capabilities(), "MaterialFacade.capabilities");
+    invariant(capabilities.facade_version === "MaterialFacade/v2"
+      && capabilities.texture_profile === "ManagedTexture/v2"
+      && Array.isArray(capabilities.texture_slots) && capabilities.texture_slots.includes("baseColorMap")
+      && Array.isArray(capabilities.unavailable_properties)
+      && typeof facade.write === "function" && typeof facade.read === "function"
+      && typeof facade.writeTexture === "function" && typeof facade.readTexture === "function"
+      && typeof facade.clearTexture === "function" && typeof facade.setTextureTransform === "function",
+    "MaterialFacade/v2 does not publish the required managed baseColorMap capability");
+    invariant(Array.isArray(capabilities.properties) && capabilities.properties.includes("baseColorMap"),
+      `MaterialFacade/v2 does not publish required property baseColorMap for ${field}`);
+    const unavailableProperties = new Set(capabilities.unavailable_properties);
+    invariant(!unavailableProperties.has("baseColorMap"),
+      `MaterialFacade/v2 declares required property baseColorMap unavailable for ${field}`);
+    return {
+      facade,
+      unavailableProperties,
+      properties: new Set(capabilities.properties),
+      textureSlots: new Set(capabilities.texture_slots),
+    };
+  }
+
+  function assertMaterialMemberAvailable(unavailableProperties, property) {
+    invariant(!unavailableProperties.has(property),
+      `PrincipledMaterial.${property} is unavailable in MaterialFacade/v2`);
+  }
+
+  function assertManagedMaterialTextureSlotAvailable(capability, slot) {
+    invariant(MANAGED_MATERIAL_TEXTURE_SLOTS.includes(slot),
+      `PrincipledMaterial.${slot} is not a managed texture slot`);
+    invariant(capability.properties.has(slot) && capability.textureSlots.has(slot),
+      `MaterialFacade/v2 does not publish required managed ${slot} capability`);
+    assertMaterialMemberAvailable(capability.unavailableProperties, slot);
+  }
+
+  function uvScaleReadbackMatches(receipt, expected) {
+    return Array.isArray(receipt?.uv_scale) && receipt.uv_scale.length === 2
+      && receipt.uv_scale.every((value) => Number.isFinite(value) && value > 0)
+      && receipt.uv_scale.every((value, index) => Math.abs(value - expected[index])
+        <= 1e-6 * Math.max(1, Math.abs(value), Math.abs(expected[index])));
+  }
+
   class PrincipledMaterial {
     constructor(runtime, spec) {
       invariant(spec && typeof spec === "object", "PrincipledMaterial needs a spec");
-      const allowed = new Set(["id", "key", "target", "baseColor", "opacity", "metalness", "roughness", "baseColorMap"]);
+      const materialCapability = requireMaterialFacadeV2(runtime, "PrincipledMaterial");
+      const unavailableMaterialMember = Object.keys(spec).find((name) =>
+        materialCapability.unavailableProperties.has(name));
+      invariant(!unavailableMaterialMember,
+        `PrincipledMaterial.${unavailableMaterialMember} is unavailable in MaterialFacade/v2`);
+      const allowed = new Set([
+        "id", "key", "target", "baseColor", "opacity", "metalness", "roughness",
+        "baseColorMap", "metallicRoughnessMap", "normalMap", "emissiveMap", "normalScale", "uvScale",
+        "emissiveColor",
+      ]);
       const unknown = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unknown, `qml_member_unsupported: PrincipledMaterial.${unknown}`);
+      invariant(!unknown, `member_unsupported: PrincipledMaterial.${unknown}`);
       invariant(spec.target instanceof SceneObject && !spec.target.disposed,
         "PrincipledMaterial.target must be a live scene object");
       invariant(spec.target.materials.size === 0,
@@ -4419,6 +4708,7 @@
       invariant(!runtime.materials.has(id), `PrincipledMaterial '${id}' is already registered`);
       invariant(!runtime.objects.has(id) && !runtime.groups.has(id),
         `PrincipledMaterial id '${id}' is already in use by a scene node`);
+      const uvScale = materialUvScale(spec.uvScale);
       if (spec.baseColor !== undefined) hexColor(spec.baseColor);
       if (spec.opacity !== undefined) {
         finite(spec.opacity, "PrincipledMaterial.opacity");
@@ -4428,54 +4718,75 @@
         if (spec[name] === undefined) continue;
         finite(spec[name], `PrincipledMaterial.${name}`);
         invariant(spec[name] >= 0 && spec[name] <= 1, `PrincipledMaterial.${name} must be in 0..1`);
-        invariant(runtime.materialFacade, `MaterialFacade/v1 is required for PrincipledMaterial.${name}`);
       }
-      if (spec.baseColorMap !== undefined) {
-        invariant(spec.baseColorMap instanceof Texture && !spec.baseColorMap.disposed
-          && spec.baseColorMap.runtime === runtime,
-        "PrincipledMaterial.baseColorMap must be a live Texture from the same runtime");
-        invariant(runtime.materialFacade, "MaterialFacade/v1 is required for PrincipledMaterial.baseColorMap");
-        const capabilities = nativeResult(runtime.materialFacade.capabilities(), "MaterialFacade.capabilities");
-        invariant(capabilities.facade_version === "MaterialFacade/v1"
-          && capabilities.texture_profile === "ManagedTexture/v1"
-          && Array.isArray(capabilities.properties) && capabilities.properties.includes("baseColorMap")
-          && Array.isArray(capabilities.unavailable_properties)
-          && !capabilities.unavailable_properties.includes("baseColorMap")
-          && typeof runtime.materialFacade.writeTexture === "function"
-          && typeof runtime.materialFacade.readTexture === "function"
-          && typeof runtime.materialFacade.clearTexture === "function",
-        "MaterialFacade/v1 does not publish the required managed baseColorMap capability");
+      for (const slot of MANAGED_MATERIAL_TEXTURE_SLOTS) {
+        const texture = spec[slot];
+        if (texture === undefined) continue;
+        invariant(texture instanceof Texture && !texture.disposed && texture.runtime === runtime,
+          `PrincipledMaterial.${slot} must be a live Texture from the same runtime`);
       }
       this.runtime = runtime;
       this.id = id;
       this.target = spec.target;
       this.values = new Map();
-      this.baseColorMap = null;
-      this.baseColorMapRevision = 0;
+      this.uvScale = uvScale;
+      // Slot state and its revision counter come from the same list that drives the allowlist,
+      // initial writes, clear, snapshot and teardown: a hand-written pair per slot silently leaves
+      // a new slot's revision undefined (NaN never equals itself, so every write reads as
+      // "superseded" and the map is dropped without an error the author can see).
+      for (const slot of MANAGED_MATERIAL_TEXTURE_SLOTS) {
+        this[slot] = null;
+        this[`${slot}Revision`] = 0;
+      }
       this.disposed = false;
       runtime.materials.set(id, this);
       this.target.materials.add(this);
       try {
+        this.applyTextureTransform(uvScale, materialCapability);
         if (spec.baseColor !== undefined) this.setBaseColor(spec.baseColor);
         if (spec.opacity !== undefined) this.setOpacity(spec.opacity);
         if (spec.metalness !== undefined) this.setMetalness(spec.metalness);
         if (spec.roughness !== undefined) this.setRoughness(spec.roughness);
+        if (spec.normalScale !== undefined) this.setNormalScale(spec.normalScale);
+        if (spec.emissiveColor !== undefined) this.setEmissiveColor(spec.emissiveColor);
       } catch (error) {
         this.dispose();
         throw error;
       }
-      if (spec.baseColorMap === undefined) {
+      const initialTextureSlots = MANAGED_MATERIAL_TEXTURE_SLOTS.filter((slot) => spec[slot] !== undefined);
+      if (initialTextureSlots.length === 0) {
         this.ready = Promise.resolve(this);
       } else {
-        const initialRevision = this.baseColorMapRevision + 1;
-        const initial = this.setBaseColorMap(spec.baseColorMap);
-        this.ready = initial.catch((error) => {
-          if (!this.disposed && this.baseColorMapRevision === initialRevision && !this.baseColorMap) {
-            this.dispose();
-          }
+        let initial;
+        try {
+          initial = Promise.all(initialTextureSlots.map((slot) => this.setManagedTexture(slot, spec[slot])));
+        } catch (error) {
+          this.dispose();
+          throw error;
+        }
+        this.ready = initial.then(() => this).catch((error) => {
+          if (!this.disposed) this.dispose();
           throw error;
         });
       }
+    }
+
+    applyTextureTransform(value, capability = null) {
+      invariant(!this.disposed, "PrincipledMaterial is disposed");
+      const uvScale = materialUvScale(value);
+      const materialCapability = capability || requireMaterialFacadeV2(this.runtime, "PrincipledMaterial.uvScale");
+      assertMaterialMemberAvailable(materialCapability.unavailableProperties, "uvScale");
+      const materialFacade = materialCapability.facade;
+      const receipt = nativeResult(materialFacade.setTextureTransform(this.target.handle, JSON.stringify({
+        schema_version: "MaterialTextureTransform/v1",
+        uv_scale: uvScale,
+        offset: [0, 0],
+      })), "MaterialFacade.setTextureTransform");
+      if (!uvScaleReadbackMatches(receipt, uvScale)) {
+        throw new Error("MaterialFacade.setTextureTransform returned an invalid uv_scale readback receipt");
+      }
+      this.uvScale = [...uvScale];
+      return this;
     }
 
     setProperty(name, property, value, validate) {
@@ -4497,12 +4808,41 @@
       });
     }
 
-    setPbrScalar(name, value) {
+    // emissiveColor is the factor the base pass multiplies emissiveMap by, so it is an [r, g, b]
+    // multiplier rather than a 0..1 colour: 1 means "the map as authored" and higher values push a
+    // neon surface past the bloom threshold.  It travels on its own frozen shape because
+    // PrincipledMaterialProperty/v1 is closed around a scalar value.
+    setEmissiveColor(value) {
+      invariant(!this.disposed, "PrincipledMaterial is disposed");
+      const components = emissiveColorComponents(value);
+      const materialCapability = requireMaterialFacadeV2(this.runtime, "PrincipledMaterial.emissiveColor");
+      assertMaterialMemberAvailable(materialCapability.unavailableProperties, "emissiveColor");
+      const materialFacade = materialCapability.facade;
+      invariant(materialCapability.properties.has("emissiveColor")
+        && typeof materialFacade.writeColor === "function",
+      "MaterialFacade/v2 does not publish the emissiveColor capability");
+      const receipt = nativeResult(materialFacade.writeColor(this.target.handle, JSON.stringify({
+        schema_version: "PrincipledMaterialColor/v1",
+        property: "emissiveColor",
+        value: components,
+      })), "MaterialFacade.writeColor");
+      invariant(receipt.property === "emissiveColor" && Array.isArray(receipt.value)
+        && receipt.value.length === 3
+        && receipt.value.every((seen, index) => Number.isFinite(seen)
+          && Math.abs(seen - components[index]) <= 1e-5),
+      "MaterialFacade.writeColor returned an invalid emissiveColor readback receipt");
+      this.values.set("emissiveColor", [...components]);
+      return this;
+    }
+
+    setMaterialScalar(name, value, minimum, maximum) {
       invariant(!this.disposed, "PrincipledMaterial is disposed");
       finite(value, `PrincipledMaterial.${name}`);
-      invariant(value >= 0 && value <= 1, `PrincipledMaterial.${name} must be in 0..1`);
-      invariant(this.runtime.materialFacade, `MaterialFacade/v1 is required for PrincipledMaterial.${name}`);
-      const receipt = nativeResult(this.runtime.materialFacade.write(this.target.handle, JSON.stringify({
+      invariant(value >= minimum && value <= maximum, `PrincipledMaterial.${name} must be in ${minimum}..${maximum}`);
+      const materialCapability = requireMaterialFacadeV2(this.runtime, `PrincipledMaterial.${name}`);
+      assertMaterialMemberAvailable(materialCapability.unavailableProperties, name);
+      const materialFacade = materialCapability.facade;
+      const receipt = nativeResult(materialFacade.write(this.target.handle, JSON.stringify({
         schema_version: "PrincipledMaterialProperty/v1",
         property: name,
         value,
@@ -4511,80 +4851,120 @@
       return this;
     }
 
-    setMetalness(value) { return this.setPbrScalar("metalness", value); }
-    setRoughness(value) { return this.setPbrScalar("roughness", value); }
+    setMetalness(value) { return this.setMaterialScalar("metalness", value, 0, 1); }
+    setRoughness(value) { return this.setMaterialScalar("roughness", value, 0, 1); }
+    setNormalScale(value) { return this.setMaterialScalar("normalScale", value, 0, 2); }
 
-    setBaseColorMap(texture) {
+    hasManagedTextureReference(texture) {
+      return MANAGED_MATERIAL_TEXTURE_SLOTS.some((slot) => this[slot] === texture);
+    }
+
+    releaseManagedTextureReference(texture) {
+      if (texture && !this.hasManagedTextureReference(texture)) texture.references.delete(this);
+    }
+
+    setManagedTexture(slot, texture) {
       invariant(!this.disposed, "PrincipledMaterial is disposed");
       invariant(texture instanceof Texture && !texture.disposed && texture.runtime === this.runtime,
-        "PrincipledMaterial.baseColorMap must be a live Texture from the same runtime");
-      invariant(this.runtime.materialFacade,
-        "MaterialFacade/v1 is required for PrincipledMaterial.baseColorMap");
-      const capabilities = nativeResult(this.runtime.materialFacade.capabilities(), "MaterialFacade.capabilities");
-      invariant(capabilities.facade_version === "MaterialFacade/v1"
-        && capabilities.texture_profile === "ManagedTexture/v1"
-        && Array.isArray(capabilities.properties) && capabilities.properties.includes("baseColorMap")
-        && Array.isArray(capabilities.unavailable_properties)
-        && !capabilities.unavailable_properties.includes("baseColorMap")
-        && typeof this.runtime.materialFacade.writeTexture === "function"
-        && typeof this.runtime.materialFacade.readTexture === "function"
-        && typeof this.runtime.materialFacade.clearTexture === "function",
-      "MaterialFacade/v1 does not publish the required managed baseColorMap capability");
-      const revision = ++this.baseColorMapRevision;
+        `PrincipledMaterial.${slot} must be a live Texture from the same runtime`);
+      const materialCapability = requireMaterialFacadeV2(this.runtime, `PrincipledMaterial.${slot}`);
+      assertManagedMaterialTextureSlotAvailable(materialCapability, slot);
+      const materialFacade = materialCapability.facade;
+      const revisionKey = `${slot}Revision`;
+      const revision = ++this[revisionKey];
       const update = (async () => {
         const bytes = await texture.load();
         invariant(!this.disposed, "PrincipledMaterial is disposed");
         invariant(!texture.disposed,
-          "PrincipledMaterial.baseColorMap must remain live until native upload completes");
-        invariant(revision === this.baseColorMapRevision,
-          "PrincipledMaterial.baseColorMap update was superseded");
-        const receipt = nativeResult(this.runtime.materialFacade.writeTexture(
+          `PrincipledMaterial.${slot} must remain live until native upload completes`);
+        invariant(revision === this[revisionKey],
+          `PrincipledMaterial.${slot} update was superseded`);
+        const receipt = nativeResult(materialFacade.writeTexture(
           this.target.handle,
           JSON.stringify({
-            schema_version: "ManagedTexture/v1",
+            schema_version: "ManagedTexture/v2",
+            slot,
             content_digest: texture.source.content_digest,
             size_bytes: texture.source.size_bytes,
             media_type: texture.source.media_type,
           }),
           bytes,
         ), "MaterialFacade.writeTexture");
-        if (receipt.native_present !== true
+        if (receipt.slot !== slot
+          || receipt.native_present !== true
           || receipt.content_digest !== texture.source.content_digest
           || receipt.media_type !== texture.source.media_type
           || receipt.size_bytes !== texture.source.size_bytes
           || !Number.isSafeInteger(receipt.width) || receipt.width <= 0
           || !Number.isSafeInteger(receipt.height) || receipt.height <= 0) {
-          nativeResult(this.runtime.materialFacade.clearTexture(this.target.handle),
+          nativeResult(materialFacade.clearTexture(this.target.handle, slot),
             "MaterialFacade.clearTexture(after invalid write receipt)");
+          // The native slot is empty again, so the JS binding has to go with it: keeping the old
+          // reference would leave snapshot, dispose and hot-reload cleaning up a texture the native
+          // material no longer holds (and the material would keep rendering untextured while the
+          // runtime reports a map).
+          const stale = this[slot];
+          this[slot] = null;
+          this.releaseManagedTextureReference(stale);
           throw new Error("MaterialFacade.writeTexture returned an invalid native readback receipt");
         }
-        const previous = this.baseColorMap;
-        this.baseColorMap = texture;
+        const previous = this[slot];
+        this[slot] = texture;
         texture.references.add(this);
-        if (previous && previous !== texture) previous.references.delete(this);
+        if (previous && previous !== texture) this.releaseManagedTextureReference(previous);
         return this;
       })();
       this.ready = update;
       return update;
     }
 
-    clearBaseColorMap() {
+    setBaseColorMap(texture) { return this.setManagedTexture("baseColorMap", texture); }
+    setMetallicRoughnessMap(texture) { return this.setManagedTexture("metallicRoughnessMap", texture); }
+    setNormalMap(texture) { return this.setManagedTexture("normalMap", texture); }
+    setEmissiveMap(texture) { return this.setManagedTexture("emissiveMap", texture); }
+
+    clearManagedTexture(slot) {
       invariant(!this.disposed, "PrincipledMaterial is disposed");
-      invariant(this.runtime.materialFacade
-        && typeof this.runtime.materialFacade.clearTexture === "function",
-      "MaterialFacade/v1 does not publish the required managed baseColorMap capability");
-      ++this.baseColorMapRevision;
-      const receipt = nativeResult(this.runtime.materialFacade.clearTexture(this.target.handle),
+      const materialCapability = requireMaterialFacadeV2(this.runtime, `PrincipledMaterial.${slot}`);
+      assertManagedMaterialTextureSlotAvailable(materialCapability, slot);
+      const revisionKey = `${slot}Revision`;
+      ++this[revisionKey];
+      const receipt = nativeResult(materialCapability.facade.clearTexture(this.target.handle, slot),
         "MaterialFacade.clearTexture");
-      if (this.baseColorMap) this.baseColorMap.references.delete(this);
-      this.baseColorMap = null;
+      const previous = this[slot];
+      this[slot] = null;
+      this.releaseManagedTextureReference(previous);
       this.ready = Promise.resolve(this);
       return receipt;
     }
 
+    clearBaseColorMap() { return this.clearManagedTexture("baseColorMap"); }
+    clearMetallicRoughnessMap() { return this.clearManagedTexture("metallicRoughnessMap"); }
+    clearNormalMap() { return this.clearManagedTexture("normalMap"); }
+    clearEmissiveMap() { return this.clearManagedTexture("emissiveMap"); }
+
+    managedTextureSnapshot(slot, textureReceipt) {
+      const texture = this[slot];
+      if (!texture) return null;
+      const receipt = textureReceipt?.slots?.[slot] ?? null;
+      invariant(receipt && receipt.slot === slot,
+        "MaterialFacade.readTexture returned an invalid managed texture slots receipt");
+      return {
+        texture: texture.id,
+        content_digest: receipt.content_digest,
+        media_type: receipt.media_type,
+        size_bytes: receipt.size_bytes,
+        width: receipt.width,
+        height: receipt.height,
+        native_present: receipt.native_present,
+      };
+    }
+
     snapshot() {
-      const baseColorMap = this.baseColorMap
-        ? nativeResult(this.runtime.materialFacade.readTexture(this.target.handle), "MaterialFacade.readTexture")
+      const textureReceipt = MANAGED_MATERIAL_TEXTURE_SLOTS.some((slot) => this[slot])
+        ? nativeResult(requireMaterialFacadeV2(this.runtime, "PrincipledMaterial.texture").facade
+          .readTexture(this.target.handle),
+          "MaterialFacade.readTexture")
         : null;
       return {
         id: this.id,
@@ -4593,26 +4973,27 @@
         opacity: this.values.get("opacity") ?? null,
         metalness: this.values.get("metalness") ?? null,
         roughness: this.values.get("roughness") ?? null,
-        baseColorMap: baseColorMap ? {
-          texture: this.baseColorMap.id,
-          content_digest: baseColorMap.content_digest,
-          media_type: baseColorMap.media_type,
-          size_bytes: baseColorMap.size_bytes,
-          width: baseColorMap.width,
-          height: baseColorMap.height,
-          native_present: baseColorMap.native_present,
-        } : null,
+        normalScale: this.values.get("normalScale") ?? null,
+        uvScale: [...this.uvScale],
+        baseColorMap: this.managedTextureSnapshot("baseColorMap", textureReceipt),
+        metallicRoughnessMap: this.managedTextureSnapshot("metallicRoughnessMap", textureReceipt),
+        normalMap: this.managedTextureSnapshot("normalMap", textureReceipt),
       };
     }
 
     dispose() {
       if (this.disposed) return { ok: true, removed: false, idempotent: true };
-      ++this.baseColorMapRevision;
-      if (this.baseColorMap) {
-        nativeResult(this.runtime.materialFacade.clearTexture(this.target.handle),
+      for (const slot of MANAGED_MATERIAL_TEXTURE_SLOTS) {
+        const revisionKey = `${slot}Revision`;
+        ++this[revisionKey];
+        const texture = this[slot];
+        if (!texture) continue;
+        const materialCapability = requireMaterialFacadeV2(this.runtime, `PrincipledMaterial.${slot}`);
+        assertManagedMaterialTextureSlotAvailable(materialCapability, slot);
+        nativeResult(materialCapability.facade.clearTexture(this.target.handle, slot),
           "MaterialFacade.clearTexture");
-        this.baseColorMap.references.delete(this);
-        this.baseColorMap = null;
+        this[slot] = null;
+        this.releaseManagedTextureReference(texture);
       }
       this.runtime.materials.delete(this.id);
       this.target.materials.delete(this);
@@ -4641,7 +5022,7 @@
       invariant(spec && typeof spec === "object", "Repeater needs a spec");
       const allowed = new Set(["id", "key", "parent", "items"]);
       const unknown = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unknown, `qml_member_unsupported: Repeater.${unknown}`);
+      invariant(!unknown, `member_unsupported: Repeater.${unknown}`);
       const id = spec.id || spec.key;
       invariant(typeof id === "string" && id.length > 0, "Repeater.id or key is required");
       invariant(!runtime.repeaters.has(id), `Repeater '${id}' is already registered`);
@@ -4758,6 +5139,249 @@
     return { x: dot(east), y: dot(north), z: dot(up) };
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // Instancing.  A Prefab freezes one geometry node's built spec plus the material that node's own
+  // renderer owns; an Instances batch draws N copies of it in ONE draw call and ONE native object.
+  // That is the answer to "950 material nodes for a city": the copies cost instance rows, not nodes.
+  // ---------------------------------------------------------------------------------------------
+  const PREFAB_MAX_INSTANCES_PER_BATCH = 512;
+  const PREFAB_MAX_INSTANCES_PER_PREFAB = 2048;
+
+  function requirePrefabFacadeV2(runtime, field) {
+    const facade = runtime.prefabFacade;
+    invariant(facade && typeof facade.capabilities === "function"
+      && typeof facade.definePrefab === "function" && typeof facade.instantiate === "function",
+    `PrefabFacade/v2 is required for ${field}`);
+    const capabilities = nativeResult(facade.capabilities(), "PrefabFacade.capabilities");
+    invariant(capabilities.facade_version === "PrefabFacade/v2"
+      && capabilities.coordinate_system === "right_handed_z_up"
+      && Array.isArray(capabilities.placement_modes)
+      && capabilities.placement_modes.includes("explicit") && capabilities.placement_modes.includes("grid"),
+    "PrefabFacade/v2 does not publish the required instancing capability");
+    // Without material_ref every instance renders with a default white material, which makes the
+    // feature useless for the textured props it exists to multiply.  Fail closed rather than ship grey.
+    invariant(capabilities.material_ref === true,
+      "PrefabFacade/v2 does not support material_ref; instances would render with a default material");
+    return { facade, capabilities };
+  }
+
+  // A Model prefab borrows the glb's own leaf geometry and materials, which only the native side can do.
+  // Checked separately from the base capability so a geometry prefab still works against an engine that
+  // predates model instancing instead of failing for a feature it does not use.
+  function requirePrefabModelSupport(capability) {
+    invariant(capability.capabilities.model_ref === true,
+      "PrefabFacade/v2 does not support model_ref; this engine cannot instance a Model");
+  }
+
+  class Prefab {
+    constructor(runtime, spec) {
+      invariant(spec && typeof spec === "object", "Prefab needs a spec");
+      const allowed = new Set(["id", "key", "source"]);
+      const unknown = Object.keys(spec).find((name) => !allowed.has(name));
+      invariant(!unknown, `member_unsupported: Prefab.${unknown}`);
+      const id = spec.id || spec.key;
+      invariant(typeof id === "string" && id.length > 0, "Prefab.id or key is required");
+      invariant(!runtime.prefabs.has(id), `Prefab '${id}' is already registered`);
+      runtime.assertReferenceIdAvailable(id);
+      const source = spec.source;
+      const fromModel = source instanceof Model;
+      invariant((source instanceof SceneObject || fromModel) && !source.disposed && source.runtime === runtime,
+        "Prefab.source must be a live geometry node or Model from the same runtime");
+      if (fromModel) {
+        // The node handle is only set once activation settled, and a staged-but-not-active Model has no
+        // leaves for the native walk to find -- the batch would silently draw zero triangles.  Refuse
+        // now, while the author can still see why.
+        invariant(typeof source.handle === "string" && source.handle.length > 0,
+          `Prefab.source Model '${source.id}' is not loaded yet; instance it after its glb has been activated`);
+      } else {
+        invariant(source.geometrySpec && source.geometrySpec.schema_version === "GeometrySpec/v2",
+          "Prefab.source must be a geometry node built from a GeometrySpec, or a loaded Model (Polygon is not a prefab source)");
+      }
+      const capability = requirePrefabFacadeV2(runtime, "Prefab");
+      if (fromModel) requirePrefabModelSupport(capability);
+      this.runtime = runtime;
+      this.id = id;
+      this.source = source;
+      this.batches = [];
+      this.instanceCount = 0;
+      this.disposed = false;
+      const geometrySpec = fromModel ? null : source.geometrySpec;
+      const definition = {
+        schema_version: "PrefabSpec/v2",
+        name: id,
+        prefab_digest: `sha256:${sha256Text(canonicalJson({ id, spec: geometrySpec ?? { model: source.handle } }))}`,
+        ...(fromModel
+          // A Model prefab names the live node and the native side borrows its leaves; there is no spec
+          // to freeze, because a glb's bytes are not in one.  material_ref stays null: every leaf brings
+          // its own material, so one shared material for the whole tree would be meaningless.
+          ? { model_ref: { model_node_handle: source.handle }, material_ref: null }
+          : {
+            geometry_ref: {
+              geometry_handle: source.handle,
+              spec_digest: `sha256:${sha256Text(canonicalJson(geometrySpec))}`,
+              geometry_spec: geometrySpec,
+            },
+            // The instances share the source node's material, so texturing and colouring a prefab is
+            // just texturing and colouring its source.  The material belongs to that node's renderer;
+            // the prefab only borrows it.
+            material_ref: { material_target_handle: source.handle },
+          }),
+        intrinsic_transform: { position: { x: 0, y: 0, z: 0 }, scale: { x: 1, y: 1, z: 1 } },
+        budget_hints: {},
+      };
+      const receipt = nativeResult(capability.facade.definePrefab(JSON.stringify(definition)),
+        "PrefabFacade.definePrefab");
+      invariant(typeof receipt.prefab_id === "string" && receipt.prefab_id.length > 0,
+        "PrefabFacade.definePrefab returned no prefab_id");
+      this.handle = receipt.prefab_id;
+      this.triangleCount = receipt.triangle_count ?? 0;
+      runtime.prefabs.set(id, this);
+    }
+
+    snapshot() {
+      return {
+        id: this.id,
+        handle: this.handle,
+        component_type: "Prefab",
+        source: this.source.spec?.id ?? this.source.id,
+        instances: this.instanceCount,
+        triangles: this.triangleCount,
+      };
+    }
+
+    dispose() {
+      if (this.disposed) return { ok: true, removed: false, idempotent: true };
+      this.disposed = true;
+      this.runtime.prefabs.delete(this.id);
+      const facade = this.runtime.prefabFacade;
+      if (facade && typeof facade.dispose === "function") {
+        return nativeResult(facade.dispose(this.handle), "PrefabFacade.dispose");
+      }
+      return { ok: true, removed: true };
+    }
+  }
+
+  class Instances {
+    constructor(runtime, spec) {
+      invariant(spec && typeof spec === "object", "Instances needs a spec");
+      const allowed = new Set(["id", "key", "prefab", "placement", "positions", "origin", "spacing",
+        "columns", "count", "seed"]);
+      const unknown = Object.keys(spec).find((name) => !allowed.has(name));
+      invariant(!unknown, `member_unsupported: Instances.${unknown}`);
+      const id = spec.id || spec.key;
+      invariant(typeof id === "string" && id.length > 0, "Instances.id or key is required");
+      invariant(!runtime.instanceBatches.has(id), `Instances '${id}' is already registered`);
+      runtime.assertReferenceIdAvailable(id);
+      const prefab = spec.prefab;
+      invariant(prefab instanceof Prefab && !prefab.disposed && prefab.runtime === runtime,
+        "Instances.prefab must be a live Prefab from the same runtime");
+      const capability = requirePrefabFacadeV2(runtime, "Instances");
+      const placement = spec.placement ?? (spec.positions !== undefined ? "explicit" : "grid");
+      invariant(placement === "explicit" || placement === "grid",
+        'Instances.placement must be "explicit" or "grid"');
+
+      let count;
+      let placementRequest;
+      if (placement === "explicit") {
+        invariant(Array.isArray(spec.positions) && spec.positions.length > 0,
+          "Instances.positions must be a non-empty list of [x, y, z] for explicit placement");
+        for (const name of ["origin", "spacing", "columns"]) {
+          invariant(spec[name] === undefined, `Instances.${name} belongs to grid placement`);
+        }
+        // vector3_list is the one member the compiler hands over undecoded: decode() only reshapes
+        // vector3/quaternion into { x, y, z }, so explicit positions arrive as [[x, y, z], ...] --
+        // exactly what the invariant above promises.  Reading them as objects made every explicit batch
+        // throw on page load while the compile receipt stayed green.
+        const transforms = spec.positions.map((position, index) => ({
+          position: meshPoint(position, `Instances.positions[${index}]`),
+        }));
+        count = transforms.length;
+        if (spec.count !== undefined) {
+          invariant(spec.count === count,
+            "Instances.count must match the number of positions in explicit placement");
+        }
+        placementRequest = { kind: "explicit", transforms };
+      } else {
+        invariant(spec.positions === undefined, "Instances.positions belongs to explicit placement");
+        invariant(Number.isInteger(spec.count) && spec.count > 0, "Instances.count must be a positive integer");
+        count = spec.count;
+        const columns = spec.columns ?? count;
+        invariant(Number.isInteger(columns) && columns >= 1 && columns <= PREFAB_MAX_INSTANCES_PER_BATCH,
+          `Instances.columns must be an integer in 1..${PREFAB_MAX_INSTANCES_PER_BATCH}`);
+        const origin = vector3(spec.origin, { x: 0, y: 0, z: 0 }, "Instances.origin");
+        const spacing = spec.spacing;
+        invariant(Array.isArray(spacing) ? spacing.length === 2
+          : (spacing && typeof spacing === "object" && Object.hasOwn(spacing, "x") && Object.hasOwn(spacing, "y")),
+        "Instances.spacing must be [dx, dy] or { x, y } metres");
+        const [dx, dy] = Array.isArray(spacing) ? spacing : [spacing.x, spacing.y];
+        finite(dx, "Instances.spacing.x");
+        finite(dy, "Instances.spacing.y");
+        invariant(dx > 0 && dy > 0, "Instances.spacing components must be > 0 metres");
+        placementRequest = { kind: "grid", origin, spacing: { x: dx, y: dy }, columns };
+      }
+      invariant(count <= PREFAB_MAX_INSTANCES_PER_BATCH,
+        `Instances is limited to ${PREFAB_MAX_INSTANCES_PER_BATCH} instances per batch`);
+      invariant(prefab.instanceCount + count <= PREFAB_MAX_INSTANCES_PER_PREFAB,
+        `Prefab '${prefab.id}' is limited to ${PREFAB_MAX_INSTANCES_PER_PREFAB} instances`);
+      const seed = spec.seed === undefined ? 0 : spec.seed;
+      invariant(Number.isInteger(seed) && seed >= 0 && seed <= 4294967295,
+        "Instances.seed must be an integer in 0..4294967295");
+
+      const request = {
+        count,
+        seed,
+        placement: placementRequest,
+        // Without an anchor the batch is attached to the scene root, i.e. a different world from every
+        // other SSDL node.  Pinning the runtime anchor puts instance positions in the same local metre
+        // frame the author uses everywhere else.
+        anchor: { lon: runtime.anchor.lon, lat: runtime.anchor.lat, height: runtime.anchor.height },
+        budget: {},
+        allow_clamp: false,
+        instance_tags: [],
+      };
+      const receipt = nativeResult(capability.facade.instantiate(prefab.handle, runtime.scene,
+        JSON.stringify(request)), "PrefabFacade.instantiate");
+      invariant(typeof receipt.batch_handle === "string" && receipt.batch_handle.length > 0,
+        "PrefabFacade.instantiate returned no batch_handle");
+      this.runtime = runtime;
+      this.id = id;
+      this.prefab = prefab;
+      this.handle = receipt.batch_handle;
+      this.count = count;
+      this.placement = placement;
+      this.disposed = false;
+      prefab.batches.push(this);
+      prefab.instanceCount += count;
+      runtime.instanceBatches.set(id, this);
+    }
+
+    snapshot() {
+      return {
+        id: this.id,
+        handle: this.handle,
+        component_type: "Instances",
+        prefab: this.prefab.id,
+        placement: this.placement,
+        count: this.count,
+      };
+    }
+
+    dispose() {
+      if (this.disposed) return { ok: true, removed: false, idempotent: true };
+      this.disposed = true;
+      this.runtime.instanceBatches.delete(this.id);
+      this.prefab.instanceCount -= this.count;
+      const facade = this.runtime.prefabFacade;
+      if (facade && typeof facade.releaseInstances === "function" && !this.prefab.disposed) {
+        return nativeResult(facade.releaseInstances(this.prefab.handle, JSON.stringify({
+          batch_handle: this.handle,
+          instance_ids: [],
+        })), "PrefabFacade.releaseInstances");
+      }
+      return { ok: true, removed: true };
+    }
+  }
+
   class CameraView {
     constructor(runtime, spec) {
       const allowed = new Set(["id", "key", "label", "longitude", "latitude", "height", "duration", "heading", "pitch", "roll",
@@ -4817,7 +5441,71 @@
       this.farPlane = spec.farPlane === undefined ? null : finite(spec.farPlane, "CameraView.farPlane");
       invariant(this.nearPlane === null || this.nearPlane > 0, "CameraView.nearPlane must be positive metres");
       invariant(this.farPlane === null || this.farPlane > (this.nearPlane ?? 0), "CameraView.farPlane must exceed nearPlane");
+      // The pose members are writable (bindable) so a chase camera can be expressed in SSDL alone.
+      // authorValues is what the author reads back; position and longitude/latitude/height stay the two
+      // faces of one pose and are recomputed from each other on every write.
+      this.authorValues = {
+        longitude: this.longitude, latitude: this.latitude, height: this.height,
+        position: { ...this.position }, heading: this.heading, pitch: this.pitch, roll: this.roll,
+        fov: this.fov === null ? 0 : this.fov,
+      };
+      this.coordinatorKey = `cameraview:${this.id}`;
       runtime.views.set(this.id, this);
+    }
+
+    // Writable pose. A write only reaches the camera when this view is the active one, and at most once
+    // per frame however many members the batch touched: the frame coordinator collapses the requests.
+    applyProperty(property, value) {
+      switch (property) {
+        case "position": {
+          this.position = { x: value.x, y: value.y, z: value.z };
+          const geodetic = enuToGeodetic(this.runtime.anchor, this.position);
+          this.longitude = geodetic.longitude;
+          this.latitude = geodetic.latitude;
+          this.height = geodetic.height;
+          this.authorValues.longitude = this.longitude;
+          this.authorValues.latitude = this.latitude;
+          this.authorValues.height = this.height;
+          break;
+        }
+        case "longitude": case "latitude": case "height": {
+          this[property] = value;
+          this.position = geodeticToEnu(this.runtime.anchor, this.longitude, this.latitude, this.height);
+          this.authorValues.position = { ...this.position };
+          break;
+        }
+        case "heading": case "pitch": case "roll":
+          this[property] = value;
+          this.oriented = true;
+          break;
+        case "fov":
+          this.fov = value;
+          break;
+        default:
+          throw codedError("member_unsupported", `member_unsupported: CameraView.${property}`);
+      }
+      this.authorValues[property] = value && typeof value === "object" ? { ...value } : value;
+      this.scheduleCameraWrite();
+      return { ok: true, property };
+    }
+
+    scheduleCameraWrite() {
+      if (this.runtime.activeView !== this.id) return;
+      this.runtime.frameCoordinator.request(this.coordinatorKey, () => this.writeCamera());
+    }
+
+    // setView takes RADIANS (flyTo/flyToCartographic are the ones that convert degrees internally);
+    // the author surface is degrees everywhere, so the conversion belongs here and nowhere else.
+    writeCamera() {
+      const camera = this.runtime.scene.mainCamera;
+      this.applyProjection(camera);
+      const destination = this.runtime.Module.Cartesian3.fromDegrees(this.longitude, this.latitude, this.height);
+      try {
+        camera.cameraController().setView(destination, this.heading * DEG, this.pitch * DEG, this.roll * DEG);
+      } finally {
+        if (destination && typeof destination.delete === "function") destination.delete();
+      }
+      return { ok: true, view: this.id };
     }
 
     applyProjection(camera) {
@@ -4842,6 +5530,7 @@
         : camera.cameraController().flyToCartographic(target, duration / 1000, this.heading, this.pitch, this.roll);
       if (target && typeof target.delete === "function") target.delete();
       this.runtime.activeView = this.id;
+      this.runtime.frameCoordinator.cancel(this.coordinatorKey);
       this.runtime.emit("viewchange", { id: this.id, label: this.label, duration });
       return flight;
     }
@@ -4875,7 +5564,7 @@
     constructor(runtime, spec = {}) {
       const allowed = new Set(["id", "key", "interval", "repeat", "running", "triggeredOnStart", "onTriggered"]);
       const unsupported = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unsupported, `qml_member_unsupported: Timer.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: Timer.${unsupported}`);
       invariant(typeof runtime.animationFacade.createTimer === "function",
         "Timer requires the native shared-frame scheduler");
       const interval = spec.interval ?? 1000;
@@ -5055,7 +5744,7 @@
       invariant(spec && spec.root && typeof spec.root.addEventListener === "function", "TapHandler.root is required");
       const unsupported = Object.keys(spec).find((name) =>
         !["id", "key", "root", "target", "enabled", "onTapped", "onTap"].includes(name));
-      invariant(!unsupported, `qml_member_unsupported: TapHandler.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: TapHandler.${unsupported}`);
       const callback = spec.onTapped || spec.onTap;
       invariant(typeof callback === "function", "TapHandler.onTapped is required");
       invariant(spec.target === undefined || isInteractionTarget(spec.target, runtime),
@@ -5115,7 +5804,7 @@
       invariant(spec && spec.root && typeof spec.root.addEventListener === "function", "HoverHandler.root is required");
       const unsupported = Object.keys(spec).find((name) =>
         !["id", "key", "root", "target", "enabled", "onHoveredChanged"].includes(name));
-      invariant(!unsupported, `qml_member_unsupported: HoverHandler.${unsupported}`);
+      invariant(!unsupported, `member_unsupported: HoverHandler.${unsupported}`);
       invariant(typeof spec.onHoveredChanged === "function", "HoverHandler.onHoveredChanged is required");
       invariant(spec.target === undefined || isInteractionTarget(spec.target, runtime),
         "HoverHandler.target must be a live SceneObject or Model from the same runtime");
@@ -5191,6 +5880,102 @@
       this.root.removeEventListener("pointerleave", this.leaveListener, true);
       this.runtime.hoverHandlers.delete(this);
       this.runtime.unregisterTargetDependent(this);
+      this.runtime.disposeOwnerSlots(this);
+    }
+  }
+
+  // Keyboard is the one input a game cannot fake with picking. It listens on the window rather than
+  // the canvas because the WebGPU canvas is not focusable by default, so a canvas-scoped keydown only
+  // arrives after the player happens to click it — which reads as "the controls randomly do nothing".
+  class KeyHandler {
+    constructor(runtime, spec) {
+      invariant(spec && spec.root && typeof spec.root.addEventListener === "function", "KeyHandler.root is required");
+      const unsupported = Object.keys(spec).find((name) =>
+        !["id", "key", "root", "enabled", "autoRepeat", "onPressed", "onReleased"].includes(name));
+      invariant(!unsupported, `member_unsupported: KeyHandler.${unsupported}`);
+      // Everywhere else in this runtime `key` is an alias for `id`; on KeyHandler it is the keyboard
+      // key, so the id comes from `id` alone and `key` is never read as one.
+      const keyName = spec.key;
+      invariant(typeof keyName === "string" && keyName.length > 0, "KeyHandler.key is required");
+      invariant(spec.enabled === undefined || typeof spec.enabled === "boolean", "KeyHandler.enabled must be boolean");
+      invariant(spec.autoRepeat === undefined || typeof spec.autoRepeat === "boolean", "KeyHandler.autoRepeat must be boolean");
+      for (const signal of ["onPressed", "onReleased"]) {
+        invariant(spec[signal] === undefined || typeof spec[signal] === "function", `KeyHandler.${signal} must be a function`);
+      }
+      this.runtime = runtime;
+      this.id = spec.id || null;
+      this.component_type = "KeyHandler";
+      runtime.assertReferenceIdAvailable(this.id);
+      this.root = spec.root;
+      this.keyName = keyName;
+      // "w" and "W" are the same control; " " is the space bar. Matching is case-insensitive so the
+      // author does not have to think about whether shift is down.
+      this.match = keyName.length === 1 ? keyName.toLowerCase() : keyName;
+      this.enabled = spec.enabled !== false;
+      this.autoRepeat = spec.autoRepeat === true;
+      this.onPressed = spec.onPressed || (() => {});
+      this.onReleased = spec.onReleased || (() => {});
+      this.pressed = false;
+      this.disposed = false;
+      this.view = this.root.ownerDocument?.defaultView || globalThis;
+      const matches = (event) => {
+        const key = typeof event.key === "string" ? event.key : "";
+        return (key.length === 1 ? key.toLowerCase() : key) === this.match;
+      };
+      this.downListener = (event) => {
+        if (this.disposed || !this.enabled || !matches(event)) return;
+        // Arrows, space and the like scroll the page; a scene that has claimed the key must not also
+        // move the document under the player.
+        if (typeof event.preventDefault === "function") event.preventDefault();
+        if (event.repeat && !this.autoRepeat) return;
+        if (this.pressed && !this.autoRepeat) return;
+        this.setPressed(true);
+        this.onPressed(Object.freeze({ key: this.keyName, repeat: Boolean(event.repeat) }));
+      };
+      this.upListener = (event) => {
+        if (this.disposed || !matches(event)) return;
+        if (!this.pressed) return;
+        this.setPressed(false);
+        this.onReleased(Object.freeze({ key: this.keyName, repeat: false }));
+      };
+      // Alt-tabbing away never delivers the keyup, so without this the throttle stays stuck on.
+      this.blurListener = () => { if (this.pressed) { this.setPressed(false); this.onReleased(Object.freeze({ key: this.keyName, repeat: false })); } };
+      this.view.addEventListener("keydown", this.downListener, true);
+      this.view.addEventListener("keyup", this.upListener, true);
+      this.view.addEventListener("blur", this.blurListener, true);
+      runtime.keyHandlers.add(this);
+      runtime.registerLogicalSlot(this, "enabled", this.enabled);
+      runtime.registerLogicalSlot(this, "pressed", this.pressed, { explicit: false });
+    }
+
+    setPressed(pressed) {
+      if (this.pressed === pressed) return;
+      this.pressed = pressed;
+      this.runtime.writeLogical(this, "pressed", pressed, { write: false, explicit: false });
+    }
+
+    setEnabled(value) {
+      invariant(!this.disposed, "KeyHandler is disposed");
+      invariant(typeof value === "boolean", "KeyHandler.enabled must be boolean");
+      if (this.enabled === value) return { ok: true, changed: false, enabled: value };
+      return this.runtime.writeLogical(this, "enabled", value);
+    }
+
+    applyEnabled(value) {
+      this.enabled = value;
+      if (!this.enabled && this.pressed) this.setPressed(false);
+      return { ok: true, changed: true, enabled: value };
+    }
+
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      this.enabled = false;
+      this.pressed = false;
+      this.view.removeEventListener("keydown", this.downListener, true);
+      this.view.removeEventListener("keyup", this.upListener, true);
+      this.view.removeEventListener("blur", this.blurListener, true);
+      this.runtime.keyHandlers.delete(this);
       this.runtime.disposeOwnerSlots(this);
     }
   }
@@ -5279,8 +6064,8 @@
     });
     if (owner instanceof LogicalPropertyBag) {
       const descriptor = owner.descriptors.get(property);
-      if (!descriptor) throw codedError("qml_member_unsupported",
-        `qml_member_unsupported: LogicalPropertyBag.${property}`);
+      if (!descriptor) throw codedError("member_unsupported",
+        `member_unsupported: LogicalPropertyBag.${property}`);
       return {
         ...descriptor,
         write: (value) => owner.apply(property, value),
@@ -5292,8 +6077,8 @@
         return boolean((value) => owner.applyVisible(value));
       }
       if (!["transform.position", "transform.rotation", "transform.scale"].includes(property)) {
-        throw codedError("qml_member_unsupported",
-          `qml_member_unsupported: ${owner.component_type}.${property}`);
+        throw codedError("member_unsupported",
+          `member_unsupported: ${owner.component_type}.${property}`);
       }
       const member = property.slice(10);
       return {
@@ -5310,9 +6095,10 @@
     }
     if (owner instanceof PrincipledMaterial) {
       const mapping = { baseColor: ["setBaseColor", "color"], opacity: ["setOpacity", "scalar"],
-        metalness: ["setMetalness", "scalar"], roughness: ["setRoughness", "scalar"] };
+        metalness: ["setMetalness", "scalar"], roughness: ["setRoughness", "scalar"],
+        normalScale: ["setNormalScale", "scalar"] };
       const entry = mapping[property];
-      invariant(entry, `qml_member_unsupported: PrincipledMaterial.${property}`);
+      invariant(entry, `member_unsupported: PrincipledMaterial.${property}`);
       return { kind:"member", value_type:entry[1], unit:entry[1] === "scalar" ? "scalar" : null,
         divisor:entry[1] === "scalar" ? 1e6 : 1, length:1,
         read: () => owner.values.get(property),
@@ -5324,7 +6110,10 @@
       if (property === "triggeredOnStart") {
         return boolean((value) => owner.applyTriggeredOnStart(value));
       }
-      if (property === "interval") return scalar("ms", 1, (value) => owner.applyInterval(value),
+      // 1e6 like every other scalar slot: the 0.3 compiler emits one fixed-point lane and the frozen
+      // interpreter divides by 1e6 unconditionally, so a divisor of 1 here made `interval: 100 * 5` fold
+      // to 0 while `interval: 500` stayed right.
+      if (property === "interval") return scalar("ms", 1e6, (value) => owner.applyInterval(value),
         (value, field) => invariant(Number.isInteger(value) && value >= 1, `${field} must be an integer >= 1 ms`));
     }
     if (owner instanceof Behavior && property === "enabled") {
@@ -5336,13 +6125,22 @@
     if (owner instanceof State && property === "when") {
       return boolean((value) => owner.applyWhen(value));
     }
-    if ((owner instanceof TapHandler || owner instanceof HoverHandler) && property === "enabled") {
+    if ((owner instanceof TapHandler || owner instanceof HoverHandler || owner instanceof KeyHandler) && property === "enabled") {
       return boolean((value) => owner.applyEnabled(value));
+    }
+    if (owner instanceof KeyHandler && property === "pressed") {
+      return {
+        ...boolean(() => {
+          throw codedError("member_readonly", "member_readonly: KeyHandler.pressed");
+        }),
+        writable: false,
+        read: () => owner.pressed,
+      };
     }
     if (owner instanceof HoverHandler && property === "hovered") {
       return {
         ...boolean(() => {
-          throw codedError("qml_member_readonly", "qml_member_readonly: HoverHandler.hovered");
+          throw codedError("member_readonly", "member_readonly: HoverHandler.hovered");
         }),
         writable: false,
         read: () => owner.hovered,
@@ -5367,6 +6165,13 @@
         read: () => owner.authorValues[property],
       };
     }
+    if (owner instanceof CameraView) {
+      return {
+        ...cameraViewMemberValueDescriptor(property),
+        write: (value) => owner.applyProperty(property, value),
+        read: () => owner.authorValues[property],
+      };
+    }
     if (owner instanceof PostProcessVolume) {
       return {
         ...postProcessMemberValueDescriptor(property),
@@ -5375,8 +6180,8 @@
           ? owner.authorSettings[property.slice(9)] : owner.authorValues[property],
       };
     }
-    throw codedError("qml_member_unsupported",
-      `qml_member_unsupported: ${owner?.component_type || owner?.constructor?.name || "BindingTarget"}.${property}`);
+    throw codedError("member_unsupported",
+      `member_unsupported: ${owner?.component_type || owner?.constructor?.name || "BindingTarget"}.${property}`);
   }
 
   function componentLogicalDescriptor(owner, property) {
@@ -5449,6 +6254,7 @@
       this.labelFacade = typeof Module.LabelFacade === "function" ? new Module.LabelFacade() : null;
       this.materialFacade = typeof Module.MaterialFacade === "function" ? new Module.MaterialFacade() : null;
       this.modelFacade = typeof Module.SSDLSceneFacade === "function" ? new Module.SSDLSceneFacade() : null;
+      this.prefabFacade = typeof Module.PrefabFacade === "function" ? new Module.PrefabFacade() : null;
       this.environmentFacade = typeof Module.EnvironmentFacade === "function" ? new Module.EnvironmentFacade() : null;
       this.postProcessLease = acquirePostProcessFacade(this.viewer, Module.PostProcessFacade);
       this.postProcessFacade = this.postProcessLease.facade;
@@ -5479,6 +6285,8 @@
       this.sunSkies = new Map();
       this.postProcessVolumes = new Map();
       this.materials = new Map();
+      this.prefabs = new Map();
+      this.instanceBatches = new Map();
       this.repeaters = new Map();
       this.propertyBags = new Map();
       this.animations = new Map();
@@ -5504,6 +6312,7 @@
       this.views = new Map();
       this.tapHandlers = new Set();
       this.hoverHandlers = new Set();
+      this.keyHandlers = new Set();
       this.actionHandlers = new Set();
       this.listeners = new Map();
       this.targetDependents = new WeakMap();
@@ -5705,8 +6514,8 @@
       const slot = this.ensureLogicalSlot(owner, property);
       if (slot.removed) throw codedError("unknown_reference");
       if (options.write !== false && slot.descriptor.writable === false) {
-        throw codedError("qml_member_readonly",
-          `qml_member_readonly: '${this.ownerId(owner)}.${property}'`);
+        throw codedError("member_readonly",
+          `member_readonly: '${this.ownerId(owner)}.${property}'`);
       }
       if (slot.binding?.when && slot.binding !== options.binding && !slot.binding.disposed) {
         throw codedError("property_bound",
@@ -6090,7 +6899,7 @@
     createPath3DAnimation(spec) { return new Path3DAnimation(this, spec); }
     createCamera(spec) { return new Camera(this, spec); }
     createCameraView(spec) { return new CameraView(this, spec); }
-    createLightComponent() { throw new Error("qml_type_abstract: LightComponent cannot be instantiated"); }
+    createLightComponent() { throw new Error("type_abstract: LightComponent cannot be instantiated"); }
     createSunSky(spec) { return new SunSky(this, spec); }
     createDirectionalLight(spec) { return new DirectionalLight(this, spec); }
     createPointLight(spec) { return new PointLight(this, spec); }
@@ -6101,8 +6910,11 @@
     createVolumetricCloud(spec) { return new VolumetricCloud(this, spec); }
     createExponentialHeightFog(spec) { return new ExponentialHeightFog(this, spec); }
     createPostProcessVolume(spec) { return new PostProcessVolume(this, spec); }
+    createPrefab(spec) { return new Prefab(this, spec); }
+    createInstances(spec) { return new Instances(this, spec); }
     createTapHandler(spec) { return new TapHandler(this, spec); }
     createHoverHandler(spec) { return new HoverHandler(this, spec); }
+    createKeyHandler(spec) { return new KeyHandler(this, spec); }
     createTimer(spec) { return new Timer(this, spec); }
     createActionHandler(spec) { return new ActionHandler(this, spec); }
     readProperty(target, property) { return readNativeProperty(this, target, property); }
@@ -6139,12 +6951,7 @@
         active_view: this.activeView,
         scene: this.sceneRoot ? { id: this.sceneRoot.id, key: this.sceneRoot.key, handle: this.sceneRoot.handle } : null,
         locator_handle: this.locatorHandle,
-        objects: [...this.objects.values()].map((item) => ({
-          id: item.spec.id,
-          handle: item.handle,
-          kind: item.spec.kind || "box",
-          component_type: item.spec.component_type || "SceneObject",
-        })),
+        objects: [...this.objects.values()].map((item) => item.snapshot()),
         groups: [...this.groups.values()].map((item) => ({
           id: item.id,
           handle: item.handle,
@@ -6153,6 +6960,8 @@
         labels: [...this.labels.values()].map((item) => item.snapshot()),
         models: [...this.models.values()].map((item) => item.snapshot()),
         textures: [...this.textures.values()].map((item) => item.snapshot()),
+        prefabs: [...this.prefabs.values()].map((item) => item.snapshot()),
+        instances: [...this.instanceBatches.values()].map((item) => item.snapshot()),
         sun_skies: [...this.sunSkies.values()].map((item) => item.snapshot()),
         environment: [...this.environmentComponents.values()].map((item) => item.snapshot()),
         post_process_volumes: [...this.postProcessVolumes.values()].map((item) => item.snapshot()),
@@ -6179,6 +6988,7 @@
       for (const binding of [...this.bindings.values()]) binding.dispose({ restore: false });
       for (const handler of [...this.tapHandlers]) handler.dispose();
       for (const handler of [...this.hoverHandlers]) handler.dispose();
+      for (const handler of [...this.keyHandlers]) handler.dispose();
       for (const handler of [...this.actionHandlers]) handler.dispose();
       for (const controller of [...this.stateControllers.values()]) controller.dispose();
       for (const behavior of [...this.behaviors]) behavior.dispose();
@@ -6187,16 +6997,24 @@
       for (const bag of [...this.propertyBags.values()]) bag.dispose();
       for (const label of [...this.labels.values()]) label.dispose();
       for (const model of [...this.models.values()]) model.dispose();
-      for (const texture of [...this.textures.values()]) texture.dispose();
       for (const sunSky of [...this.sunSkies.values()]) sunSky.dispose();
       for (const component of [...this.environmentComponents.values()]) component.dispose();
       for (const volume of [...this.postProcessVolumes.values()]) volume.dispose();
+      // Batches before prefabs before source objects: a prefab borrows its source node's material, so
+      // the source must outlive it, and a batch names its prefab when releasing.
+      for (const batch of [...this.instanceBatches.values()]) batch.dispose();
+      for (const prefab of [...this.prefabs.values()]) prefab.dispose();
       for (const object of [...this.objects.values()]) object.dispose();
       for (const animation of [...this.animations.values()]) animation.dispose();
       for (const group of [...this.groups.values()].reverse()) group.dispose();
+      // Textures go last among the content: a live PrincipledMaterial only drops its managed-slot
+      // references when its host object disposes, and Texture.dispose() refuses to run while any
+      // reference remains — disposing textures first aborted the whole teardown (objects, groups,
+      // scene and facades were never released) whenever a material had a map bound.
+      for (const texture of [...this.textures.values()]) texture.dispose();
       nativeResult(this.sceneGraphFacade.dispose(this.scene, this.locatorHandle), "SceneGraphFacade.dispose");
       this.postProcessLease.release();
-      for (const facade of [this.environmentFacade, this.modelFacade, this.materialFacade, this.labelFacade, this.interactionFacade, this.sceneGraphFacade, this.animationFacade, this.geometryFacade]) {
+      for (const facade of [this.prefabFacade, this.environmentFacade, this.modelFacade, this.materialFacade, this.labelFacade, this.interactionFacade, this.sceneGraphFacade, this.animationFacade, this.geometryFacade]) {
         if (facade && typeof facade.delete === "function") facade.delete();
       }
       this.drivers.clear();
@@ -6213,7 +7031,7 @@
     createFrameCoordinator: (queueMicrotask) => new FrameCoordinator(queueMicrotask),
     testing: Object.freeze({
       nativeResult, hexColor, quaternion, quaternionZ, directedRotationDelta, wireValue, authorValue,
-      animationDefinition, compositeTimeline, polygonParams, polylineMesh, sunSkySpec,
+      animationDefinition, compositeTimeline, polygonParams, polylineMesh, sunSkySpec, sunDirectionFromAnchor,
     }),
   });
 });

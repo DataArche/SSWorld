@@ -5,11 +5,18 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { scanProject } from "./diagnose.mjs";
+import { budgetUsage } from "./compile.mjs";
 
 const EARTH_M_PER_DEG = 111320;
 
 export function readIR(directory) {
   const file = path.join(directory, "scene.ir.json");
+  if (!existsSync(file)) return null;
+  try { return JSON.parse(readFileSync(file, "utf8")); } catch { return null; }
+}
+
+function readBindingIR(directory) {
+  const file = path.join(directory, "binding.ir.json");
   if (!existsSync(file)) return null;
   try { return JSON.parse(readFileSync(file, "utf8")); } catch { return null; }
 }
@@ -142,11 +149,12 @@ export function inspectScene(directory, { subtree = null, top = 12 } = {}) {
   const bounds = counted ? { min: min.map(round), max: max.map(round), size: max.map((v, i) => round(v - min[i])), primitives_counted: counted,
     lowest_bottom: lowest, highest_top: highest, ...(Object.keys(ignored).length ? { not_measured: ignored } : {}),
     note: "axis-aligned, local metres, from Box/Plane/Sphere/Cylinder/Cone sizes plus ancestor positions; rotation/scale/Model/polygons ignored" } : null;
-  let budgets = null;
-  try { budgets = JSON.parse(readFileSync(path.join(directory, "showcase.manifest.json"), "utf8")).budgets || null; } catch {}
+  let budgets = {};
+  try { budgets = JSON.parse(readFileSync(path.join(directory, "showcase.manifest.json"), "utf8")).budgets || {}; } catch {}
+  const { node_types: _nodeTypes, ...budget } = budgetUsage({ scene_ir: ir, binding_ir: readBindingIR(directory) }, budgets);
   return {
     ok: true, root: describe(root), node_count: nodes.length,
-    budget: budgets ? { native_objects: { used: nodes.length, limit: budgets.native_objects, ratio: Number((nodes.length / budgets.native_objects).toFixed(3)) } } : null,
+    budget,
     child_subtrees: direct.slice(0, top), ...(direct.length > top ? { child_subtrees_omitted: direct.length - top } : {}),
     leaf_children: { count: directNodes.length - direct.length, by_type: leafTypes },
     largest_subtrees: largest, by_file: byFile, bounds,

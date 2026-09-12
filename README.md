@@ -33,9 +33,39 @@ Manual registration for any other client:
 | `ssworld_scene_inspect` | compiled-scene facts without rendering: budget ratio, subtrees by size, leaf children by type, nodes per source file, primitive extent, the requested camera (lookAt-derived heading/pitch); render stats honestly `unavailable` |
 | `ssworld_compile` | SSDL 0.3 compiler with real diagnostics, `node_count`, budget `usage` and `logic` (declared properties, states, host calls); catalog/runtime mismatches are compile errors (Label without a font, material animations on a Group/Model, undeclared host calls) |
 | `ssworld_preview` | starts the local preview server, returns `http://127.0.0.1:8880/projects/<name>/index.html`, whether the page is open, `page.clients` (every browser syncing the page: id, visibility, canvas, user agent) and a structured `next` (`open_webgpu_viewer` / `capture_frame` / `bring_page_to_front`) |
-| `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`, the scene's `requested` camera and a `deviation` with reasons (clip planes are engine-managed); `receipt` binding the frame to source/IR digests, the page generation (`in_sync`, `staleness`) and the answering page (`client`, `clients_connected`); `framing` describing the offscreen render at the requested size (horizontal fov kept, vertical follows the aspect); `logic` with the page's live declared properties / `State.when` / host call errors / `bindings.invalid`; `await: {state | property, …}` to shoot only once a game state holds; `client` to pick one of several open pages; `reference_match` always `not_evaluated`; PNG returned as image content and saved to `captures/` |
-| `ssworld_logic_read` / `ssworld_logic_write` | read the open page's scene logic without a screenshot, or set declared properties in one transaction (`{set: {p: 0.4, pace: 0.0025}}`) to put a game into a situation before capturing; a refused value rolls the whole set back and names the failing binding |
+| `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`, the scene's `requested` camera and a `deviation` with reasons (clip planes are engine-managed); `receipt` binding the frame to source/IR digests, the page generation (`in_sync`, `staleness`) and the answering page (`client`, `clients_connected`); `framing` describing the offscreen render at the requested size (horizontal fov kept, vertical follows the aspect); `logic` with the page's live declared properties / `State.when` / host call errors / `bindings.invalid`; `await: {state | property, …}` to shoot only once a game state holds; `client` to pick one of several open pages; `reference_match` always `not_evaluated`; `detail: "brief"` for iteration loops (verdict, runtime errors, luma, 3×3 regions, path, `in_sync`, `logic` only); PNG returned as image content and saved to `captures/` |
+| `ssworld_environment_read` | ask the engine what it actually received for the environment: the adopted sun's direction read back from the native sun and converted to azimuth/elevation at the anchor (with the deviation from the scene's request), which `DirectionalLight` drives the atmosphere, and every environment component's live native values. The probe lives in the project's `index.html`, which is project-owned, so a page created before 0.9.8 answers `page_probe_unavailable` and the error names the handler to paste in |
+| `ssworld_logic_read` / `ssworld_logic_write` | read the open page's scene logic (and whether the scene module actually mounted: `runtime.state` plus errors mapped to `scene.ssdl:line`) without a screenshot, or set declared properties in one transaction (`{set: {p: 0.4, pace: 0.0025}}`) to put a game into a situation before capturing; a refused value rolls the whole set back and names the failing binding |
 | `ssworld_engine_status` | engine pair installed? (`install: true` to download) |
+
+### Colours are authored as sRGB
+
+`#rrggbb` is read as sRGB — the value a colour picker gives you. The runtime converts it to linear before handing it to
+the engine, so the frame shows the colour that was picked and reading the value back returns the same hex. Before 0.9.8
+that conversion was missing and every flat colour rendered roughly three times too bright (`#16260f` came out as a light
+green). Native materials keep 8 bits of *linear* light per channel, so very dark colours quantise: `#16260f` reads back
+as `#16260d`, and anything below about `#0a0a0a` collapses towards black. Verified on real hardware with
+`src/ssdl/tools/probe_color_space.py` (headless Chromium + WebGPU, frames captured through the engine).
+
+### What the compiler refuses
+
+Several failures that used to surface only as a dead page are now compile errors naming the node and the member:
+
+- `sky_scattering_refused` — `SkyAtmosphere`'s `rayleighScattering`, `mieScattering`, `mieAbsorption`, `otherAbsorption`
+  and `skyLuminanceFactor` are normalised direction vectors, not colours (their magnitude lives in the neighbouring
+  `*Scale`). Writing a "neutral-looking" vector raises red and turns the whole sky orange-brown. Tint through the sun's
+  `lightColor` instead; the error text carries each member's real engine default.
+- `mesh_degenerate` — a radius of 0 in a `Lathe` profile, exactly repeated adjacent points, a `Tube` path that doubles
+  back or repeats a point, two identical adjacent `Loft` rings. These produced
+  `GeometryFacade.createMesh: triangle is degenerate` and took the *entire* scene module down without naming a node.
+  (A vertical first `Tube` segment is fine: the parallel-transport frame switches reference axis at `|tangent.z| >= 0.9`.)
+- `runtime_unsupported` — `Label` (no font), `sunAzimuth`/`sunElevation` without `atmosphereSunLight: true`, and the
+  members a light may not write in the mode it is in.
+- `material_requires_tangent` — a `normalMap` on geometry without tangents (only `HeightField`/`Lathe`/`Tube`/`Loft` have them).
+- `value_out_of_range` — `emissiveColor` outside its `[r, g, b]` 0..16 range.
+
+List values may span lines since 0.9.8: a newline after `sections: [`, one ring per line and comments inside the
+brackets all compile. A property still ends at a newline or `;`, so this only applies inside `[ ]`.
 
 ### Procedural geometry
 
@@ -87,7 +117,9 @@ recently synced **visible** page unless `client` names another, and every receip
 The project template places the WebGPU canvas and the info panel side by side (nothing floats over the canvas, so taps
 reach the scene's `TapHandler`s). Pages are project-owned; older projects keep their layout.
 
-Hermes also receives the `skills/ssworld` skill (copied to `$HERMES_HOME/skills/ssworld`) so it picks the server on its own for 3D-scene requests.
+Clients that support skills also receive `skills/ssworld`, so they pick the server on their own for 3D-scene requests:
+`ssworld-mcp install` copies it to `$HERMES_HOME/skills/ssworld` for Hermes and `~/.codex/skills/ssworld` for Codex
+(Codex discovers skill directories on its own; `[[skills.config]]` only records the ones that were explicitly disabled).
 
 ## CLI
 

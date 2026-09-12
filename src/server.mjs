@@ -214,12 +214,13 @@ const TOOLS = [
       settle_ms: { type: "integer", minimum: 0, maximum: 10000, description: "Wait before capturing (camera flights, animations); default 500." },
       timeout_ms: { type: "integer", minimum: 1000, maximum: 120000, description: "How long to wait for the page to answer; default 20000 (raised automatically to cover await.timeout_ms)." },
       client: { type: "string", description: "Page client id (from ssworld_preview page.clients / a capture receipt.client.id) that must answer; default: the most recently synced visible page." },
+      detail: { type: "string", enum: ["full", "brief"], description: "'brief' returns only what an iteration loop reads (verdict, next, runtime errors, luma, 3x3 regions, capture path, in_sync, logic) and drops the framing/receipt/camera/coverage blocks; default 'full'." },
       await: { type: "object", description: "Capture only once the scene logic satisfies this: {state: 'corner'} (State.when true; equals: false for the opposite) or {property: 'p', equals: 0.4} / {property: 'p', min: 0.3, max: 0.5}; timeout_ms default 5000 (max 60000).",
         properties: { state: { type: "string" }, property: { type: "string" }, equals: {}, min: { type: "number" }, max: { type: "number" }, timeout_ms: { type: "integer", minimum: 0, maximum: 60000 } }, additionalProperties: false },
     }, additionalProperties: false },
     annotations: { title: "Capture preview frame", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     rich: true,
-    run: async ({ project, width, height, settle_ms, timeout_ms, client, await: awaitSpec }) => {
+    run: async ({ project, width, height, settle_ms, timeout_ms, client, await: awaitSpec, detail }) => {
       const directory = projectDir(project);
       const page = await requirePage(project, client);
       const requestedWidth = width || 800;
@@ -311,9 +312,8 @@ const TOOLS = [
       const verified = loaded && !blank;
       const firstError = status.errors[0];
       const where = firstError?.source ? ` at ${firstError.source.file}:${firstError.source.line}:${firstError.source.column}` : "";
-      return {
-        payload: {
-          ok: true, project, capture_path: file, receipt, framing, stats, camera, runtime: status,
+      const full = {
+        ok: true, project, capture_path: file, receipt, framing, stats, camera, runtime: status,
           logic: status.logic ?? null,
           ...(result.awaited ? { awaited: result.awaited } : {}),
           render_verified: verified,
@@ -325,14 +325,13 @@ const TOOLS = [
             : "frame is blank or nearly black; the camera may be pointing at nothing",
           next: status.errors.length ? NEXT.fixRuntime(firstError) : !loaded ? next("wait_or_reload", `runtime state '${status.state}'; wait for the load to finish or fix the compile error shown on the page`)
             : !receipt.in_sync ? next("recompile_and_recapture", staleness[0]) : NEXT.judge(),
-        },
-        images: [{ data: result.png_base64, mimeType: "image/png" }],
       };
+      return { payload: detail === "brief" ? briefCapture(full) : full, images: [{ data: result.png_base64, mimeType: "image/png" }] };
     },
   },
   {
     name: "ssworld_logic_read",
-    description: "Read the scene logic of the project's open preview page right now, without a screenshot: declared properties, State.when values, host call errors, bindings.invalid (bindings whose last value was refused) and binding_errors. Read it twice a few seconds apart to prove a game loop is actually advancing (a frozen value with no runtime error is what a rolled-back binding batch looks like). client picks one of several open pages.",
+    description: "Read the page's scene logic AND whether the scene module is actually loaded, without a screenshot: runtime.state / runtime.errors (mapped to scene.ssdl:line) plus declared properties, State.when values, host call errors, bindings.invalid (bindings whose last value was refused) and binding_errors. This is the cheap 'did it load' probe: when a scene module fails to mount, a capture only shows the engine's default earth view, while this returns the state and the errors for a fraction of the tokens. Read it twice a few seconds apart to prove a game loop is actually advancing (a frozen value with no runtime error is what a rolled-back binding batch looks like). client picks one of several open pages.",
     inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" }, client: { type: "string", description: "Page client id; default: most recent visible page." },
       timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, description: "Default 10000." } }, additionalProperties: false },
     annotations: { title: "Read scene logic", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -340,11 +339,18 @@ const TOOLS = [
       const page = await requirePage(project, client);
       const reply = await pageCommand(project, "logic_read", {}, { timeoutMs: timeout_ms || 10000, client: page.client?.id });
       if (!reply.ok) throw commandFailure(reply, "retry_logic_read");
-      if (!reply.result.ok) throw Object.assign(new Error(reply.result.error), { code: reply.result.code || "logic_read_failed", extra: { status: reply.result.status, next: next("wait_or_reload", reply.result.error, { blocking: true }) } });
+      // The page answers with its runtime status either way: a module that failed to mount is a normal
+      // answer here (state + located errors), not a tool failure that costs a screenshot to diagnose.
+      const runtime = moduleRuntime(projectDir(project), reply.result.status);
+      if (!reply.result.ok) throw Object.assign(new Error(reply.result.error), { code: reply.result.code || "logic_read_failed", extra: { status: reply.result.status, runtime, next: next("wait_or_reload", reply.result.error, { blocking: true }) } });
       const logic = reply.result.logic;
       const invalid = logic?.bindings?.invalid || [];
-      return { ok: true, project, client: reply.page?.client ?? null, clients_connected: reply.page?.clients?.length ?? null, logic,
-        next: invalid.length ? next("fix_source", `${invalid.length} binding(s) are invalid (their value was refused and the batch rolled back): ${invalid.map((item) => `${item.target}.${item.property} ${item.code || ""}`).join("; ")}`)
+      const firstError = runtime.errors[0];
+      return { ok: true, project, client: reply.page?.client ?? null, clients_connected: reply.page?.clients?.length ?? null,
+        loaded: runtime.loaded, runtime, logic,
+        next: firstError ? NEXT.fixRuntime(firstError)
+          : !runtime.loaded ? next("wait_or_reload", `runtime state '${runtime.state}': ${runtime.hint || "the scene module is not mounted"}`, { blocking: true })
+          : invalid.length ? next("fix_source", `${invalid.length} binding(s) are invalid (their value was refused and the batch rolled back): ${invalid.map((item) => `${item.target}.${item.property} ${item.code || ""}`).join("; ")}`)
           : next("judge_logic", "compare properties/states with what the game should be doing; call again to see whether they advance") };
     },
   },
@@ -372,6 +378,49 @@ const TOOLS = [
     },
   },
   {
+    name: "ssworld_environment_read",
+    description: "Ask the ENGINE what it actually received for the environment, instead of bisecting it with screenshots: the adopted sun's real direction read back from the native sun and converted to azimuth/elevation at the project anchor (with the deviation from what the scene asked for), which DirectionalLight drives the atmosphere, and the live values of every environment component (SkyAtmosphere, ExponentialHeightFog, VolumetricCloud, SkyLight, PostProcessVolume, owned lights) as the native side holds them right now. Answers \"why is the sky orange\" / \"where is the sun\" in one call. Requires the preview page to be open; a page whose index.html predates this probe answers page_probe_unavailable and names the handler to paste in.",
+    inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" },
+      client: { type: "string", description: "Page client id; default: most recent visible page." },
+      timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, description: "Default 10000." } }, additionalProperties: false },
+    annotations: { title: "Read engine environment", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    run: async ({ project, client, timeout_ms }) => {
+      const directory = projectDir(project);
+      const page = await requirePage(project, client);
+      const reply = await pageCommand(project, "environment_read", {}, { timeoutMs: timeout_ms || 10000, client: page.client?.id });
+      if (!reply.ok) throw commandFailure(reply, "retry_environment_read");
+      const result = reply.result;
+      if (!result.ok) {
+        // index.html is project-owned, so an older page simply does not know the command; say exactly how to fix it.
+        if (/unknown command environment_read/.test(result.error || "")) {
+          throw Object.assign(new Error("this project's index.html predates the environment probe"), { code: "page_probe_unavailable",
+            extra: { fix: "add one line to the runCommand switch in index.html (ssworld_source_patch works on it): `if (command.kind === \"environment_read\") return { id: command.id, ok: true, environment: readEnvironment(), status: pageStatus() };` and copy readEnvironment() from a project created with this server version",
+              next: next("patch_page", "the page is project-owned and is not rewritten automatically") } });
+        }
+        throw Object.assign(new Error(result.error), { code: result.code || "environment_read_failed",
+          extra: { runtime: moduleRuntime(directory, result.status), next: next("wait_or_reload", result.error, { blocking: true }) } });
+      }
+      const environment = result.environment;
+      const runtime = moduleRuntime(directory, result.status);
+      // The one comparison the author cannot make by eye: what the scene asked the sun to do vs where it is.
+      const sunLight = (environment.components || []).find((item) => item.atmosphere_sun_light);
+      const requested = sunLight?.requested_sun ?? null;
+      const deviation = requested && environment.engine_sun?.readable ? {
+        azimuth_error_deg: Number(Math.abs(((environment.engine_sun.azimuth_deg - ((requested.azimuth % 360) + 360) % 360) % 360 + 540) % 360 - 180).toFixed(2)),
+        elevation_error_deg: Number(Math.abs(environment.engine_sun.elevation_deg - requested.elevation).toFixed(2)),
+      } : null;
+      return { ok: true, project, client: reply.page?.client ?? null, loaded: runtime.loaded, runtime,
+        anchor: environment.anchor, engine_sun: environment.engine_sun,
+        atmosphere_sun_light: sunLight ? { id: sunLight.id, requested, deviation, locked: sunLight.sun_direction_locked ?? null } : null,
+        components: environment.components,
+        verdict: !runtime.loaded ? `the scene module is not mounted (state '${runtime.state}'), so these are the engine defaults, not your scene`
+          : deviation && (deviation.azimuth_error_deg > 1 || deviation.elevation_error_deg > 1)
+            ? `the engine sun is ${deviation.azimuth_error_deg} deg of azimuth and ${deviation.elevation_error_deg} deg of elevation away from what the scene asked for; something else is writing the sun (another DirectionalLight, or an engine without the direction lock)`
+          : "values are read back from the native components; compare them with the scene source before changing anything",
+        next: next("judge_environment", "compare engine_values with what the source wrote; sky colour comes from the sun (lightColor/sunElevation), not from the scattering vectors") };
+    },
+  },
+  {
     name: "ssworld_engine_status",
     description: "Report whether the SSEngine WebGPU runtime pair (SSmap.js/SSmap.wasm) is installed locally; optionally download it now.",
     inputSchema: { type: "object", properties: { install: { type: "boolean", description: "Download the pinned engine if missing." } }, additionalProperties: false },
@@ -379,6 +428,39 @@ const TOOLS = [
     run: async ({ install }) => { const status = install ? await ensureEngine({ log }) : engineStatus(); return { ...status, next: status.ready ? next("preview", "engine installed; ssworld_preview serves it") : NEXT.engine() }; },
   },
 ];
+
+/** Module load state as the page holds it, with runtime errors mapped back to the sources. */
+function moduleRuntime(directory, status) {
+  const errors = locateRuntimeErrors(directory, dedupeErrors(status?.errors || []));
+  // `loaded` answers one question only: did the scene module mount?  The page sets "ready" when a
+  // generation is retained and "failed" when it is not, so that is the whole answer.  Errors are a
+  // separate axis: a binding that was refused and rolled back leaves a mounted, running page, and
+  // folding it in here would report "not loaded" for exactly the case this tool exists to tell apart.
+  return { state: status?.state ?? null, generation: status?.generation ?? null, hint: status?.hint ?? null,
+    loaded: status?.state === "ready", errors };
+}
+
+/**
+ * What an iteration loop actually reads: the verdict, what failed, how bright the frame is and how the
+ * nine regions look.  The framing/receipt/camera/coverage blocks are several thousand tokens per call
+ * and are only needed when a specific question is about them, so `detail: "brief"` drops them.
+ */
+function briefCapture(full) {
+  const { stats, runtime, receipt } = full;
+  return {
+    ok: true, project: full.project, capture_path: full.capture_path, detail: "brief",
+    in_sync: receipt.in_sync, ...(receipt.in_sync ? {} : { staleness: receipt.staleness }),
+    render_verified: full.render_verified,
+    runtime: { state: runtime.state, errors: runtime.errors, ...(runtime.hint ? { hint: runtime.hint } : {}) },
+    stats: { width: stats.width, height: stats.height, mean_luma: stats.mean_luma, luma: stats.luma,
+      under_exposed_ratio: stats.under_exposed_ratio, over_exposed_ratio: stats.over_exposed_ratio,
+      regions: stats.regions },
+    ...(full.logic ? { logic: full.logic } : {}),
+    ...(full.awaited ? { awaited: full.awaited } : {}),
+    verdict: full.verdict, next: full.next,
+    omitted: "framing, receipt details, camera pose/deviation, colour coverage and colormap_top; call again with detail: 'full' for them",
+  };
+}
 
 function toolError(error) {
   const payload = error instanceof CompileError
@@ -438,4 +520,4 @@ export async function serveStdio() {
   }
 }
 
-export { TOOLS, PREVIEW_PORT };
+export { TOOLS, PREVIEW_PORT, briefCapture, moduleRuntime };

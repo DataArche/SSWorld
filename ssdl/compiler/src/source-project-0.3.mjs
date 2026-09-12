@@ -177,8 +177,13 @@ export function expandSourceProject(project, catalog) {
     try { document = parser.parse(raw.content, { grammarSource: file }); }
     catch (error) { fail(error.code || "syntax_error", { file, location: error.location }, error.message); }
     let anonymous = 0;
+    // Anonymous ids must stay unique across the whole project, not just within one file: the
+    // counter restarts per file, so an entry file and a component file would both inject
+    // `anonymous_<Type>_0` and collide as `duplicate_id` (with the diagnostic pointing at the
+    // wrong file). Seed the name with a short digest of the file path instead.
+    const anonymousScope = createHash("sha256").update(file).digest("hex").slice(0, 8);
     const identify = node => {
-      if (!node.members.some(member => member.kind === 'property' && member.name === 'id')) node.members.unshift({kind:'property',name:'id',value:{kind:'identifier',value:`anonymous_${node.type}_${anonymous++}`,location:node.location},location:node.location});
+      if (!node.members.some(member => member.kind === 'property' && member.name === 'id')) node.members.unshift({kind:'property',name:'id',value:{kind:'identifier',value:`anonymous_${node.type}_${anonymousScope}_${anonymous++}`,location:node.location},location:node.location});
       for (const child of node.members.filter(member => member.kind === 'node')) identify(child);
     };
     identify(document.root);

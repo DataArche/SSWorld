@@ -1,10 +1,11 @@
 // In-process SSDL 0.3 compilation, mirroring src/ssdl/compiler/src/compile-showcase.mjs.
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SSDL_ROOT } from "./paths.mjs";
+import { resolveBudgets } from "./budgets.mjs";
 import { ensureAssetCapablePage } from "./page.mjs";
 import { ASSET_LIMITS, ASSET_MEDIA, ASSETS_DIR, checkRuntimeSupport, TIMELINE_LIMIT, timelineNodes } from "./runtime-support.mjs";
 
@@ -15,6 +16,18 @@ function loadCompiler() {
 }
 
 const hash = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+
+/** Hash an asset stream so large image files never need to reside in memory as one Buffer. */
+async function digestFile(file) {
+  const digest = createHash("sha256");
+  let size_bytes = 0;
+  for await (const chunk of createReadStream(file)) {
+    digest.update(chunk);
+    size_bytes += chunk.byteLength;
+  }
+  return { content_digest: `sha256:${digest.digest("hex")}`, size_bytes };
+}
+
 const stable = (value) => Array.isArray(value) ? value.map(stable)
   : value && typeof value === "object"
     ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]))
@@ -46,9 +59,9 @@ export async function discoverAssets(directory) {
   await walk(root);
   const refs = await Promise.all(files.map(async (file) => {
     const relative = path.relative(directory, file).split(path.sep).join("/");
-    const bytes = await readFile(file);
     const { kind, media_type } = ASSET_MEDIA[path.extname(file).toLowerCase()];
-    return { path: relative, asset: { asset_id: relative, kind, media_type, content_digest: hash(bytes), size_bytes: bytes.byteLength, dependencies: [] } };
+    const { content_digest, size_bytes } = await digestFile(file);
+    return { path: relative, asset: { asset_id: relative, kind, media_type, content_digest, size_bytes, dependencies: [] } };
   }));
   refs.sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
   return refs;
@@ -86,6 +99,20 @@ export class CompileError extends Error {
   }
 }
 
+// M2 dimensions gate artifact writes. Legacy metrics intentionally remain reporting-only for compatibility.
+const ENFORCED_COMPILE_BUDGET_DIMENSIONS = ["materials", "textures"];
+
+function enforcedBudgetProblems(usage) {
+  const problems = [];
+  for (const dimension of ENFORCED_COMPILE_BUDGET_DIMENSIONS) {
+    const entry = usage[dimension];
+    if (!entry || entry.used <= entry.limit) continue;
+    const message = `${dimension} budget exceeded: used=${entry.used}, limit=${entry.limit}`;
+    problems.push({ code: "budget_exceeded", dimension, used: entry.used, limit: entry.limit, message });
+  }
+  return problems;
+}
+
 export async function buildSourceProject(directory, entry = "scene.ssdl") {
   const sources = await discover(directory);
   const files = await Promise.all(sources.map(async (file) => ({
@@ -103,22 +130,132 @@ export async function buildSourceProject(directory, entry = "scene.ssdl") {
 }
 
 const TIMER_TYPES = new Set(["Timer"]);
-/** Declared budget vs what the compiled IR actually uses; limits come from showcase.manifest.json. */
+const NATIVE_OBJECT_ADAPTERS = new Set(["geometry", "group", "model"]);
+const NATIVE_OBJECT_EXISTENCE_TYPES = new Set([
+  "GeoAnchor", // SceneGraphFacade.createLocator creates one native locator per declaration.
+  "PostProcessVolume", // Budget charges each declaration; PostProcessFacade materializes a native post-process proxy on use.
+  "Prefab", // One entity + one renderer per prefab; its instances are rows in that renderer, not objects.
+]);
+const OWNED_LIGHT_TYPES = new Set([
+  "PointLight", "SpotLight", "RectLight", // EnvironmentFacade creates an owned LiEntity + light.
+]);
+let cachedBudgetNodeKinds = null;
+
+function budgetNodeKinds() {
+  if (cachedBudgetNodeKinds) return cachedBudgetNodeKinds;
+  const native = new Set(["Group", "Label", "Model", ...NATIVE_OBJECT_EXISTENCE_TYPES]);
+  const materials = new Set();
+  try {
+    const source = JSON.parse(readFileSync(path.join(SSDL_ROOT, "catalog", "builtin-catalog-v1.source.json"), "utf8"));
+    for (const [type, component] of Object.entries(source.components || {})) {
+      if (NATIVE_OBJECT_ADAPTERS.has(component.adapter) || type === "Label" || type.includes("Mesh")) native.add(type);
+      if (component.adapter === "material" || type.endsWith("Material")) materials.add(type);
+    }
+  } catch {
+    // The checked-in package always includes the catalog. Keep the named public categories usable for isolated callers.
+  }
+  cachedBudgetNodeKinds = { native, materials };
+  return cachedBudgetNodeKinds;
+}
+
+function isNativeObjectNode(node) {
+  const type = node?.type;
+  if (typeof type !== "string") return false;
+  if (NATIVE_OBJECT_EXISTENCE_TYPES.has(type) || OWNED_LIGHT_TYPES.has(type)) return true;
+  // DirectionalLight adopts the scene sun when atmosphereSunLight is true; otherwise EnvironmentFacade
+  // allocates an owned light entity. SkyLight, SkyAtmosphere and fog always adopt scene-owned slots.
+  if (type === "DirectionalLight") return nodeProperty(node, "atmosphereSunLight") !== true;
+  const { native } = budgetNodeKinds();
+  return native.has(type) || type.includes("Mesh");
+}
+
+function instanceRowCount(node) {
+  const positions = nodeProperty(node, "positions");
+  if (Array.isArray(positions)) return positions.length;
+  const count = nodeProperty(node, "count");
+  return Number.isSafeInteger(count) && count > 0 ? count : 0;
+}
+
+function isMaterialNode(type) {
+  if (typeof type !== "string") return false;
+  const { materials } = budgetNodeKinds();
+  return materials.has(type) || type.endsWith("Material");
+}
+
+function nodeProperty(node, property) {
+  return (node.properties || []).find((item) => item.property === property)?.value;
+}
+
+function textureSourceKey(source, fallback) {
+  if (typeof source === "string") return `path:${source}`;
+  if (source && typeof source === "object") {
+    if (typeof source.asset_id === "string") return `asset:${source.asset_id}`;
+    if (typeof source.source === "string") return `path:${source.source}`;
+    return `value:${JSON.stringify(stable(source))}`;
+  }
+  return `unresolved:${fallback}`;
+}
+
+function textureContentKey(source, fallback) {
+  if (source && typeof source === "object" && typeof source.content_digest === "string" && source.content_digest.length) {
+    return `digest:${source.content_digest}`;
+  }
+  // Isolated callers can pass unresolved IR; successful project compiles always carry an AssetRef digest.
+  return textureSourceKey(source, fallback);
+}
+
+/**
+ * `encoded_bytes` is the deduplicated on-disk file size, not decoded texture memory.
+ * The runtime facade reports decoded memory as `shared_texture_bytes`; compile time does not estimate it.
+ */
+function textureBudgetUsage(nodes) {
+  const sources = new Map();
+  for (const node of nodes) {
+    if (node.type !== "Texture") continue;
+    const source = nodeProperty(node, "source");
+    const key = textureContentKey(source, node.id);
+    const size = source && typeof source === "object" && Number.isSafeInteger(source.size_bytes) && source.size_bytes >= 0
+      ? source.size_bytes
+      : null;
+    const known = sources.get(key);
+    if (!known) sources.set(key, { size });
+    else if (known.size === null && size !== null) known.size = size;
+  }
+  const distinct = sources.size;
+  const values = [...sources.values()];
+  const encoded_bytes = distinct && values.every((entry) => entry.size !== null)
+    ? values.reduce((sum, entry) => sum + entry.size, 0)
+    : null;
+  return { used: distinct, distinct, ...(encoded_bytes !== null ? { encoded_bytes } : {}) };
+}
+
+/** Declared budget vs what the compiled IR actually uses; absent manifest keys use project defaults. */
 export function budgetUsage(result, budgets = {}) {
   const nodes = result.scene_ir?.nodes || [];
+  const textures = textureBudgetUsage(nodes);
   const used = {
-    native_objects: nodes.length,
+    native_objects: nodes.filter((node) => isNativeObjectNode(node)).length,
+    materials: nodes.filter((node) => isMaterialNode(node.type)).length,
+    textures: textures.used,
     bindings: (result.binding_ir?.bindings || []).length,
     handlers: nodes.reduce((sum, node) => sum + (node.handlers?.length || 0), 0),
     timers: nodes.filter((node) => TIMER_TYPES.has(node.type)).length,
+    prefabs: nodes.filter((node) => node.type === "Prefab").length,
+    // The cost of an Instances batch is its row count, not one node: 240 lamp posts are 240 instances
+    // and 0 extra native objects. Explicit placement carries its own count in `positions`.
+    instances: nodes.filter((node) => node.type === "Instances")
+      .reduce((sum, node) => sum + instanceRowCount(node), 0),
     timelines: timelineNodes(result.scene_ir).length,
   };
+  const resolvedBudgets = resolveBudgets(budgets);
   const out = {};
   for (const [key, value] of Object.entries(used)) {
     // timelines is a native cap (AnimationFacade max_active_timelines), not a manifest choice.
-    const limit = key === "timelines" ? TIMELINE_LIMIT : Number.isFinite(budgets?.[key]) ? budgets[key] : null;
+    const limit = key === "timelines" ? TIMELINE_LIMIT : resolvedBudgets[key];
     out[key] = { used: value, limit, ...(limit ? { ratio: Number((value / limit).toFixed(3)) } : {}) };
   }
+  out.textures.distinct = textures.distinct;
+  if (Object.hasOwn(textures, "encoded_bytes")) out.textures.encoded_bytes = textures.encoded_bytes;
   const types = {};
   for (const node of nodes) types[node.type] = (types[node.type] || 0) + 1;
   out.node_types = types;
@@ -130,6 +267,7 @@ export async function compileProject(directory, { name, budgets } = {}) {
   const { compileSceneModuleProject, MESH_GENERATORS, MESH_MAX_VERTICES } = await loadCompiler();
   const manifestPath = path.join(directory, "showcase.manifest.json");
   const hybrid = JSON.parse(await readFile(manifestPath, "utf8"));
+  const effectiveBudgets = resolveBudgets(budgets ?? hybrid.budgets);
   const project = await buildSourceProject(directory);
   const overBudget = checkAssetBudget(project.asset_refs);
   if (overBudget.length) throw new CompileError(`${overBudget[0].file}:1:1: asset_budget: ${overBudget[0].message}`, { code: "asset_budget", file: overBudget[0].file, line: 1, column: 1, problems: overBudget });
@@ -138,7 +276,7 @@ export async function compileProject(directory, { name, budgets } = {}) {
   try {
     result = compileSceneModuleProject(project, {
       entry: "scene.generated.mjs", mapName: "scene.generated.mjs.map",
-      name: name || hybrid.name, budgets: budgets || hybrid.budgets,
+      name: name || hybrid.name, budgets: effectiveBudgets,
       hostInterfaces: host.contract,
     });
   } catch (error) {
@@ -152,6 +290,14 @@ export async function compileProject(directory, { name, budgets } = {}) {
     const first = unsupported[0];
     throw new CompileError(`${first.code}: ${first.message}`, { code: first.code, node: first.node, property: first.property, problems: unsupported });
   }
+  const usage = budgetUsage(result, effectiveBudgets);
+  const budgetProblems = enforcedBudgetProblems(usage);
+  if (budgetProblems.length) {
+    const first = budgetProblems[0];
+    throw new CompileError(`budget_exceeded: ${first.message}`, {
+      code: "budget_exceeded", dimension: first.dimension, used: first.used, limit: first.limit, problems: budgetProblems,
+    });
+  }
   await mkdir(directory, { recursive: true });
   await Promise.all([
     writeFile(path.join(directory, "scene.generated.mjs"), result.emitted.module, "utf8"),
@@ -162,6 +308,7 @@ export async function compileProject(directory, { name, budgets } = {}) {
   ]);
   const generated = JSON.parse(result.emitted.manifest);
   Object.assign(hybrid, {
+    budgets: effectiveBudgets,
     compiler_profile: generated.compiler_profile, compiler_profile_digest: generated.compiler_profile_digest,
     catalog_digest: generated.catalog_digest, runtime_abi_digest: generated.runtime_abi_digest,
     scene_ir_digest: generated.scene_ir_digest, binding_ir_digest: generated.binding_ir_digest,
@@ -179,7 +326,7 @@ export async function compileProject(directory, { name, budgets } = {}) {
     catalog_digest: hybrid.catalog_digest, compiler_profile: hybrid.compiler_profile,
     source_digest: project.source_digest, source_files: project.files.map((file) => file.path),
     node_count: Array.isArray(result.scene_ir?.nodes) ? result.scene_ir.nodes.length : undefined,
-    usage: { ...budgetUsage(result, budgets || hybrid.budgets), mesh: meshUsage(result.scene_ir, MESH_GENERATORS, MESH_MAX_VERTICES), assets },
+    usage: { ...usage, mesh: meshUsage(result.scene_ir, MESH_GENERATORS, MESH_MAX_VERTICES), assets },
     logic: logicSummary(result.scene_ir),
   };
 }
