@@ -1,5 +1,8 @@
 # SSWorld
 
+[![npm](https://img.shields.io/npm/v/ssworld-mcp)](https://www.npmjs.com/package/ssworld-mcp)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 *[中文说明](README.zh-CN.md)*
 
 **Agents can't see what they render. SSWorld closes the loop.**
@@ -41,7 +44,7 @@ their attribution.
 ## Install (one command)
 
 ```bash
-npx -y github:DataArche/SSWorld install
+npx -y ssworld-mcp install
 ```
 
 This installs the package globally, registers the `ssworld` MCP server with every agent app it finds

@@ -1,5 +1,8 @@
 # SSWorld
 
+[![npm](https://img.shields.io/npm/v/ssworld-mcp)](https://www.npmjs.com/package/ssworld-mcp)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 *[English](README.md)*
 
 **Agent 看不见自己渲染出了什么。SSWorld 把这个环闭上。**
@@ -36,7 +39,7 @@
 ## 安装(一条命令)
 
 ```bash
-npx -y github:DataArche/SSWorld install
+npx -y ssworld-mcp install
 ```
 
 这会全局安装本包、把 `ssworld` MCP 服务器注册进它能找到的每个 agent 应用

@@ -34,6 +34,14 @@ function globalRoot() {
   return result.stdout;
 }
 
+/** The registry spec for this exact version, or null when it is not published there.  A registry
+ *  fetch beats a `github:` clone -- it is faster, cached, and needs no git on the machine -- but a
+ *  local build or an unreleased version only exists in the repository, so the caller falls back. */
+function registrySource() {
+  const probe = run(npm, ["view", `${PACKAGE.name}@${PACKAGE.version}`, "version"], { allowAlways: true });
+  return probe.ok && probe.stdout === PACKAGE.version ? `${PACKAGE.name}@${PACKAGE.version}` : null;
+}
+
 /** Returns the absolute path of the bin script that agent apps should launch. */
 export function ensureGlobalInstall({ spec } = {}) {
   const root = globalRoot();
@@ -43,7 +51,7 @@ export function ensureGlobalInstall({ spec } = {}) {
     try { return JSON.parse(readFileSync(path.join(root, PACKAGE.name, "package.json"), "utf8")).version === PACKAGE.version; } catch { return false; }
   })();
   if (path.resolve(installed) === path.resolve(here) || sameVersion) return installed;
-  const source = spec || (repositorySlug() ? `github:${repositorySlug()}` : PACKAGE_ROOT);
+  const source = spec || registrySource() || (repositorySlug() ? `github:${repositorySlug()}` : PACKAGE_ROOT);
   log(`installing ${PACKAGE.name}@${PACKAGE.version} globally from ${source} …`);
   const result = run(npm, ["install", "-g", source], { stdio: ["ignore", "inherit", "inherit"] });
   if (!result.ok) throw new Error("npm install -g failed");
