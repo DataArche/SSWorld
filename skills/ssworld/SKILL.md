@@ -1,7 +1,7 @@
 ---
 name: ssworld
 description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.12.1
+version: 1.13.0
 author: SSWorld
 license: MIT
 metadata:
@@ -188,6 +188,13 @@ State { id: boosting; name: "boosting"; when: kBoost.pressed }
 `key` is the `KeyboardEvent.key` value (`"ArrowUp"`, letters case-insensitive, `" "` for space, `"Enter"`), one key per handler. **Read `pressed` for continuous actions (throttle, steering); use `onPressed` for discrete ones (fire, switch view).** The listener sits on the window, calls `preventDefault` for the keys it claims, force-releases on blur, and ignores the operating system's key repeat by default (set `autoRepeat: true` if you want it).
 
 Mouse movement, the wheel and gamepads have no components yet: listen in `index.html` and call `window.SSWorld.logical.write("name", value)` or `.writeBatch({a:1,b:2})`.
+
+**A `Model` is one pick target, and the objects inside the glb cannot be addressed at all.** The engine raycasts *tracked nodes*, and a whole glb is one tracked node: a tap anywhere on it reports the `Model`'s own handle, so a `TapHandler` nested in the Model fires (verified on real hardware — a click on a car glb took its nested handler from 0 to 1, and 329 picks across a 563-node scene resolved to a declared node every time, with no glb leaf ever reported). What you cannot do is tell a door from a wheel: there is no sub-node handle, no child of a `Model` in SSDL, and animation reaches only its transform and visibility.
+
+Three ways to get part-level interaction anyway:
+- **A transparent proxy.** `opacity: 0` geometry is still picked, so a `Box { opacity: 0 }` over the bonnet is a hot zone with a `TapHandler` of its own. `visible: false` is the opposite: it leaves picking entirely, which is how you switch a hot zone off.
+- **Split the glb** into one per interactive part in the DCC tool and mount several `Model` nodes under one `Group`. This is the only way each part can also move independently.
+- **Retexture one material slot** with `baseColorTexture` + `materialSlot: "material_0"` (`material_0`..`material_99`, both create-only, so it is scene setup and not a reaction to a tap).
 
 ### Animation
 - Easing is `easing.type: "Easing.InOutSine"` — the enum must be fully qualified; `easing: "InOutSine"` is an `unknown_property`. (The equivalent member on `Behavior` is spelled `easing`.)

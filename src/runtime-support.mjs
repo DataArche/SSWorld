@@ -3,7 +3,7 @@
 // native EnvironmentFacade (ssdl_environment_bindings.cpp), lirendersystem.cpp and the SSDL browser runtime.
 
 /** Bumped whenever the notes below change meaning, so catalog_digest moves with them. */
-export const NOTES_VERSION = 17;
+export const NOTES_VERSION = 18;
 
 // DirectionalLight with atmosphereSunLight: true adopts the engine's scene sun (LiSun), which only
 // exposes the LiLight base properties. The owned-light-only members fail at runtime with
@@ -127,6 +127,13 @@ const HEIGHTFIELD_GRID_POLICY = Object.freeze({
   heights: "metres at the grid CORNERS, so exactly (columns+1)*(rows+1) values, not columns*rows: columns: 2; rows: 2 needs 9. Row-major, first row at -depth/2 (south) and first value at -width/2 (west), all on one line",
 });
 
+/**
+ * The engine raycasts tracked nodes and a glb is one tracked node, so a pick anywhere inside a Model
+ * reports the Model's own handle -- never a leaf. Measured: 329 picks over a 563-node scene all
+ * resolved to a declared node, and a real click on a car glb fired its nested TapHandler.
+ */
+const MODEL_PICK_POLICY = "a whole glb is ONE pick target: a TapHandler/HoverHandler nested in the Model fires for a tap anywhere on it, but the objects inside the glb have no handles and cannot be addressed individually. For part-level interaction put an opacity: 0 proxy (still picked; visible: false leaves picking) over the part, or split the glb into one Model per part. Per-part appearance is limited to baseColorTexture + materialSlot (material_0..material_99, create-only)";
+
 /** Member-level notes merged into ssworld_catalog output. */
 export function memberNotes(component, member, descriptor = {}) {
   const notes = memberNote(component, member, descriptor);
@@ -189,7 +196,7 @@ export function componentNotes(name) {
   if (name === "CameraView") return { runtime_note: `${CONVENTIONS.camera}. ${FOV_POLICY}. ${CLIP_PLANE_POLICY}` };
   if (name === "SkyAtmosphere") return { runtime_note: `the engine ships Earth defaults; the four scattering vectors and skyLuminanceFactor are refused at compile time because an evenly weighted value there turns the sky orange-brown (${SKY_TINT_POLICY}). The scalar members (multiScatteringFactor, the *Scale magnitudes, mieAnisotropy, the exponential distributions, heightFogContribution, aerial perspective) stay writable` };
   if (name === "Label") return { runtime_note: LABEL_POLICY, runtime_supported: false };
-  if (name === "Model") return { runtime_note: `${ASSET_POLICY}; Model animates position/rotation/scale/visible only (animations, Behaviors and Bindings)` };
+  if (name === "Model") return { runtime_note: `${ASSET_POLICY}; Model animates position/rotation/scale/visible only (animations, Behaviors and Bindings). ${MODEL_PICK_POLICY}` };
   if (name === "Texture") return { runtime_note: `Texture.source is a png/jpg under ${ASSETS_DIR}/ (at most ${ASSET_LIMITS.texture / 1048576} MiB), referenced by project-relative path; pair it with Model.baseColorTexture + materialSlot` };
   if (name === "Behavior") return { runtime_note: `Behavior eases every change of its target property over duration, so on a property that changes every frame the presented value lags the logical one by about speed x duration (57 m/s x 0.12 s = 7 m); use it for discrete jumps (hits, state changes) and bind continuous motion directly. ${BINDING_POLICY}` };
   if (name === "Group" || name === "GeoAnchor" || name === "Model") return { runtime_note: `${name} animates position/rotation/scale/visible only (animations, Behaviors and Bindings); material properties belong to the child geometry` };
