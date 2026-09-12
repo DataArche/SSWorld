@@ -1,7 +1,7 @@
 ---
 name: ssworld
 description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.11.0
+version: 1.12.0
 author: SSWorld
 license: MIT
 metadata:
@@ -209,7 +209,8 @@ All 33 knobs are open: `settings.bloomThreshold`, `autoExposureMinBrightness`/`M
 ### Odds and ends
 - **Anonymous nodes are fine**: without an `id` the compiler injects a file-scoped name. Still, name sibling nodes of the same type inside a custom component file explicitly, so `ssworld_scene_inspect` and `ssworld_logic_write` can point at them precisely.
 - Use meaningful ids (`civicRoof`, `eastTower`), not `b123`.
-- **Default budgets**: 2048 native objects / 2048 material shells / 32 distinct images / 256 bindings / 128 handlers / 32 timers / 256 timelines / 64 Prefabs / 2048 instances.
+- **Default budgets**: 4096 native objects / 4096 material shells / 32 distinct images / 4096 bindings / 2048 handlers / 256 timers / 256 timelines / 1024 Group locators / 1024 Prefabs / 524288 instance rows. A project can raise the guardrails in `showcase.manifest.json`, but not the four the engine owns — distinct images, timers, timelines and Group locators are clamped to the engine's own ceilings, because a scene past them compiles and then fails to mount.
+- **Where scale actually runs out** (measured, not guessed): 6401 native objects + 409 600 instance rows still render at 61 fps. What breaks first is `ssworld_capture_frame`: the offscreen readback dies of a wasm out-of-bounds somewhere between 4001 objects (captures fine) and 5001 (does not), so a scene past ~4000 objects **runs but cannot be screenshotted**. Build big scenes out of `Prefab` + `Instances` rather than individual nodes: 409 600 instance rows cost 200 native objects and capture fine. Also give a large scene a real `timeout_ms` (default 30000) — the readback is the slow part.
 
 The smallest interactive example, which is also the starter scene `ssworld_project_create` writes:
 ```ssdl
@@ -257,6 +258,7 @@ For an animated scene capture two moments (different `settle_ms`), and recapture
 - **An orange-brown sky means a scattering term or the sun's colour temperature was touched.** The five scattering vectors are now a compile-time `sky_scattering_refused` (see Lights); `temperature` is still writable but drags brightness along with hue. A bare `SkyAtmosphere` plus the sun's `lightColor` is the only tinting path confirmed on real hardware.
 - **Accepting an interactive scene requires a real browser.** The desktop preview panel's `drive_preview` reports `clicked`/`pressed`, but the page's own `click`/`keydown` listeners never fire once (synthetic input is not delivered), so using it to accept mouse/keyboard gameplay gives false negatives. The panel is for looking at the picture. To assert the interaction path, drive a real Chrome over CDP with `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` and read the state back from `logic.properties`.
 - **Editing a file under `assets/` hot-reloads as is** — the page keys its asset cache on content digests.
+- **Nesting is limited to 16 levels** (`scene_depth_exceeded`) and a scene mounts at most **64 `Model` nodes** (`model_budget`) and 64 MiB of distinct images in total (`texture_budget`) — all three are the engine's own ceilings and all three are compile errors now. For many copies of one glb, use it as a `Prefab` source instead of mounting a Model per placement.
 - **Do not compare budget numbers across categories**: native objects, material shells and distinct images are counted separately, the compiler only reports usage, and the real texture gate is at runtime. A generator script's own node estimate runs 2–10% off; trust the compile receipt.
 
 ## What is genuinely missing — do not work around it

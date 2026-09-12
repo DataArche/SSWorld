@@ -7,6 +7,8 @@ import path from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
+const { DEFAULT_BUDGETS } = await import("../src/budgets.mjs");
+
 const BIN = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "bin", "ssworld-mcp.mjs");
 const PORT = 18000 + Math.floor(Math.random() * 1000);
 const HOME = mkdtempSync(path.join(os.tmpdir(), "ssworld-test-"));
@@ -224,7 +226,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const inspected = await client.call("ssworld_scene_inspect", { project: "demo" });
   assert.equal(inspected.isError, false, JSON.stringify(inspected.body));
   assert.equal(inspected.body.root.type, "Scene");
-  assert.equal(inspected.body.budget.native_objects.limit, 2048);
+  assert.equal(inspected.body.budget.native_objects.limit, DEFAULT_BUDGETS.native_objects);
   assert.equal(inspected.body.child_subtrees[0].id, "cube");
   assert.deepEqual(inspected.body.bounds.max, [12, 12, 27]);
   assert.equal(inspected.body.bounds.highest_top.id, "cube");

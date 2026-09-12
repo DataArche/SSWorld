@@ -7,6 +7,7 @@ import path from "node:path";
 const home = mkdtempSync(path.join(os.tmpdir(), "ssworld-instancing-home-"));
 process.env.SSWORLD_HOME = home;
 const { createProject, projectDir, compileNamed } = await import("../src/project.mjs");
+const { DEFAULT_BUDGETS } = await import("../src/budgets.mjs");
 
 async function compileScene(name, scene) {
   await createProject(name, { template: "empty" });
@@ -32,7 +33,9 @@ test("an Instances batch costs instance rows, not native objects", async (t) => 
   assert.equal(result.usage.prefabs.used, 1);
   // The source cylinder plus the prefab's own entity+renderer.  Not 242.
   assert.equal(result.usage.native_objects.used, 2);
-  assert.equal(result.usage.instances.limit, 2048);
+  // Pinned to the shared default rather than a copied number: the point is that the batch is
+  // measured against the instance-row budget, not that the budget is any given size.
+  assert.equal(result.usage.instances.limit, DEFAULT_BUDGETS.instances);
 });
 
 test("explicit placement counts the positions it was given", async (t) => {

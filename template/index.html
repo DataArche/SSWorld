@@ -223,9 +223,15 @@
       const awaited = params.await && typeof params.await === "object" ? await awaitLogic(params.await, params.await.timeout_ms) : null;
       if (params.settle_ms) await new Promise((resolve) => setTimeout(resolve, Math.min(params.settle_ms, 10000)));
       let last = "capture produced no image";
+      // The readback of a large scene takes much longer than a small one; the caller's timeout_ms is
+      // the budget for it, and attempts stop when that budget is gone rather than after a fixed count.
+      const readbackMs = Math.min(Math.max(Math.trunc(params.readback_ms) || 8000, 4000), 100000);
+      const deadline = performance.now() + readbackMs;
       for (let attempt = 0; attempt < 3; attempt += 1) {
         if (attempt) await new Promise((resolve) => setTimeout(resolve, 300));
-        const outcome = await awaitNativeFuture(S.saveImage2Base64(width, height, "PNG"), 8000, (pointer) => readByteArrayText(S, pointer));
+        const remaining = deadline - performance.now();
+        if (attempt && remaining < 3000) break;
+        const outcome = await awaitNativeFuture(S.saveImage2Base64(width, height, "PNG"), Math.max(remaining, 4000), (pointer) => readByteArrayText(S, pointer));
         if (outcome.timedOut) { last = "saveImage2Base64 timed out (is the page visible and painting?)"; continue; }
         if (outcome.failed) { last = outcome.failed; continue; }
         if (!outcome.value || !outcome.value.startsWith("iVBOR")) { last = "saveImage2Base64 did not return a PNG"; continue; }

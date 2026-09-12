@@ -38,6 +38,42 @@ Manual registration for any other client:
 | `ssworld_logic_read` / `ssworld_logic_write` | read the open page's scene logic (and whether the scene module actually mounted: `runtime.state` plus errors mapped to `scene.ssdl:line`) without a screenshot, or set declared properties in one transaction (`{set: {p: 0.4, pace: 0.0025}}`) to put a game into a situation before capturing; a refused value rolls the whole set back and names the failing binding |
 | `ssworld_engine_status` | engine pair installed? (`install: true` to download) |
 
+### How big a scene, measured
+
+Budgets are per-project values in `showcase.manifest.json`; the defaults and the ceilings come from
+`src/ssdl/tools/probe_engine_limits.py` (which asks every facade for its own `capabilities()`) and
+`src/ssdl/tools/probe_scale_limits.py` (which raises the budgets and builds a scene past them on real
+hardware). Defaults: 4096 native objects / 4096 material shells / 32 distinct images / 4096 bindings
+/ 2048 handlers / 256 timers / 256 timelines / 1024 Group locators / 1024 Prefabs / 524288 instance
+rows. Four of those are the engine's own and a manifest cannot raise them (`resolveBudgets` clamps
+distinct images, timers, timelines and Group locators), because a scene past them compiles and then
+fails to mount.
+
+What actually runs out, in order:
+
+- **Not rendering.** 6401 native objects with 409 600 instance rows across 200 prefabs compiled in
+  1.2 s, mounted in 4.0 s and ran at 61 fps with no runtime errors.
+- **`ssworld_capture_frame` first.** The offscreen readback dies of a wasm "memory access out of
+  bounds" somewhere between 4001 native objects (captures, `render_verified`, ~21k distinct colours)
+  and 5001 (does not). Past roughly 4000 nodes a scene runs and cannot be screenshotted, which is why
+  `native_objects` sits just under that and why instancing — 409 600 rows for 200 native objects —
+  is the way to build something large. The capture timeout is now the caller's to set: the page used
+  to give the readback a fixed 8 s whatever `timeout_ms` said, so a scene big enough to be worth a
+  screenshot always timed out.
+- **Bindings used to be the hard wall, and are not any more.** `AnimationFacade.captureBatch` refuses
+  a batch of more than 64 items and refuses it whole, so a scene whose first frame carried 65
+  bindings failed to mount with a receipt that said "evaluated 65, committed 0, failed 65" and named
+  nothing — while the shipped budget said 256. The runtime now flushes bindings in chunks of 64 and
+  restores the chunks that already landed if a later one fails, so the flush stays all-or-nothing to
+  the author. Measured after the fix: 1500 bindings + 600 handlers + 914 locators mount in 2.2 s at
+  44 fps.
+
+Three engine ceilings have no budget dimension and are compile errors of their own:
+`scene_depth_exceeded` (SceneGraphFacade.max_depth, 16 levels of nesting), `model_budget`
+(ModelFacade.max_model_instances, 64 `Model` mounts — use one as a `Prefab` source instead of a copy
+per placement) and `texture_budget` (MaterialFacade.max_texture_bytes_total, 64 MiB of distinct
+images however small each file is).
+
 ### Colours are authored as sRGB
 
 `#rrggbb` is read as sRGB — the value a colour picker gives you. The runtime converts it to linear before handing it to

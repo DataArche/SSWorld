@@ -5,7 +5,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SSDL_ROOT } from "./paths.mjs";
-import { resolveBudgets } from "./budgets.mjs";
+import { resolveBudgets, MAX_SCENE_DEPTH, MAX_MODEL_INSTANCES, MAX_TEXTURE_BYTES_TOTAL } from "./budgets.mjs";
 import { ensureAssetCapablePage } from "./page.mjs";
 import { ASSET_LIMITS, ASSET_MEDIA, ASSETS_DIR, checkRuntimeSupport, TIMELINE_LIMIT, timelineNodes } from "./runtime-support.mjs";
 
@@ -99,8 +99,56 @@ export class CompileError extends Error {
   }
 }
 
-// M2 dimensions gate artifact writes. Legacy metrics intentionally remain reporting-only for compatibility.
-const ENFORCED_COMPILE_BUDGET_DIMENSIONS = ["materials", "textures"];
+// Two kinds of dimension. The engine-owned ones are gates: exceeding them is a mount failure, so a
+// compile error is the only place the author can still see why. The rest stay reporting-only -- they
+// are performance guardrails, and a scene that wants 9000 boxes should get a usage ratio, not a wall.
+const ENFORCED_COMPILE_BUDGET_DIMENSIONS = ["materials", "textures", "timers", "timelines", "locators"];
+
+/**
+ * Ceilings the engine publishes but that no budget dimension covers. Each one is a mount failure
+ * rather than a slow frame, so the compiler is the last place the author can still be told which
+ * node is at fault.
+ */
+function structuralProblems(result, usage) {
+  const nodes = result.scene_ir?.nodes || [];
+  const problems = [];
+
+  // SceneGraphFacade.max_depth: how deeply the native graph will accept a parent chain.
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const depthOf = (node, seen = new Set()) => {
+    let depth = 0;
+    let current = node;
+    while (current?.parent && !seen.has(current.id)) {
+      seen.add(current.id);
+      current = byId.get(current.parent);
+      depth += 1;
+    }
+    return depth;
+  };
+  const deepest = nodes.reduce((worst, node) => {
+    const depth = depthOf(node);
+    return depth > worst.depth ? { depth, node } : worst;
+  }, { depth: 0, node: null });
+  if (deepest.depth > MAX_SCENE_DEPTH) {
+    problems.push({ code: "scene_depth_exceeded", node: deepest.node?.id, depth: deepest.depth, limit: MAX_SCENE_DEPTH,
+      message: `'${deepest.node?.id}' nests ${deepest.depth} levels deep; the native scene graph takes at most ${MAX_SCENE_DEPTH} (SceneGraphFacade.max_depth). Flatten the Groups, or place the parts as siblings with absolute positions.` });
+  }
+
+  // ModelFacade.max_model_instances: how many glb mounts one scene may hold.
+  const models = nodes.filter((node) => node.type === "Model").length;
+  if (models > MAX_MODEL_INSTANCES) {
+    problems.push({ code: "model_budget", used: models, limit: MAX_MODEL_INSTANCES,
+      message: `${models} Model nodes; the engine mounts at most ${MAX_MODEL_INSTANCES} (ModelFacade.max_model_instances). Use one Model as a Prefab source and instance it instead of mounting a copy per placement.` });
+  }
+
+  // MaterialFacade.max_texture_bytes_total: the decoded images added up, not the per-file limit.
+  const bytes = usage.textures?.encoded_bytes;
+  if (Number.isSafeInteger(bytes) && bytes > MAX_TEXTURE_BYTES_TOTAL) {
+    problems.push({ code: "texture_budget", used: bytes, limit: MAX_TEXTURE_BYTES_TOTAL,
+      message: `${(bytes / 1048576).toFixed(1)} MiB of distinct images; the engine holds at most ${MAX_TEXTURE_BYTES_TOTAL / 1048576} MiB in total (MaterialFacade.max_texture_bytes_total), however small each file is.` });
+  }
+  return problems;
+}
 
 function enforcedBudgetProblems(usage) {
   const problems = [];
@@ -240,6 +288,8 @@ export function budgetUsage(result, budgets = {}) {
     bindings: (result.binding_ir?.bindings || []).length,
     handlers: nodes.reduce((sum, node) => sum + (node.handlers?.length || 0), 0),
     timers: nodes.filter((node) => TIMER_TYPES.has(node.type)).length,
+    // A Group is a native locator (SceneGraphFacade.max_locators), a far smaller pool than nodes.
+    locators: nodes.filter((node) => node.type === "Group").length,
     prefabs: nodes.filter((node) => node.type === "Prefab").length,
     // The cost of an Instances batch is its row count, not one node: 240 lamp posts are 240 instances
     // and 0 extra native objects. Explicit placement carries its own count in `positions`.
@@ -291,11 +341,11 @@ export async function compileProject(directory, { name, budgets } = {}) {
     throw new CompileError(`${first.code}: ${first.message}`, { code: first.code, node: first.node, property: first.property, problems: unsupported });
   }
   const usage = budgetUsage(result, effectiveBudgets);
-  const budgetProblems = enforcedBudgetProblems(usage);
+  const budgetProblems = [...structuralProblems(result, usage), ...enforcedBudgetProblems(usage)];
   if (budgetProblems.length) {
     const first = budgetProblems[0];
-    throw new CompileError(`budget_exceeded: ${first.message}`, {
-      code: "budget_exceeded", dimension: first.dimension, used: first.used, limit: first.limit, problems: budgetProblems,
+    throw new CompileError(`${first.code}: ${first.message}`, {
+      code: first.code, dimension: first.dimension, node: first.node, used: first.used, limit: first.limit, problems: budgetProblems,
     });
   }
   await mkdir(directory, { recursive: true });

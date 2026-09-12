@@ -212,7 +212,7 @@ const TOOLS = [
       width: { type: "integer", minimum: 64, maximum: 4096, description: "Capture width in pixels; default 800." },
       height: { type: "integer", minimum: 64, maximum: 4096, description: "Capture height; default keeps 16:9." },
       settle_ms: { type: "integer", minimum: 0, maximum: 10000, description: "Wait before capturing (camera flights, animations); default 500." },
-      timeout_ms: { type: "integer", minimum: 1000, maximum: 120000, description: "How long to wait for the page to answer; default 20000 (raised automatically to cover await.timeout_ms)." },
+      timeout_ms: { type: "integer", minimum: 1000, maximum: 120000, description: "How long to wait for the page to answer; default 30000 (raised automatically to cover await.timeout_ms and settle_ms). A large scene needs it: the engine readback is given this budget minus the waits, so raise it rather than retrying a timed-out capture." },
       client: { type: "string", description: "Page client id (from ssworld_preview page.clients / a capture receipt.client.id) that must answer; default: the most recently synced visible page." },
       detail: { type: "string", enum: ["full", "brief"], description: "'brief' returns only what an iteration loop reads (verdict, next, runtime errors, luma, 3x3 regions, capture path, in_sync, logic) and drops the framing/receipt/camera/coverage blocks; default 'full'." },
       await: { type: "object", description: "Capture only once the scene logic satisfies this: {state: 'corner'} (State.when true; equals: false for the opposite) or {property: 'p', equals: 0.4} / {property: 'p', min: 0.3, max: 0.5}; timeout_ms default 5000 (max 60000).",
@@ -226,8 +226,13 @@ const TOOLS = [
       const requestedWidth = width || 800;
       const requestedHeight = height || Math.round(requestedWidth * 9 / 16);
       const awaitBudget = awaitSpec ? Math.min(awaitSpec.timeout_ms ?? 5000, 60000) : 0;
-      const timeoutMs = Math.max(timeout_ms || 20000, awaitBudget + 8000);
-      const reply = await pageCommand(project, "capture", { width: requestedWidth, height: requestedHeight, settle_ms: settle_ms ?? 500, ...(awaitSpec ? { await: { ...awaitSpec, timeout_ms: awaitBudget } } : {}) },
+      const settleMs = settle_ms ?? 500;
+      const timeoutMs = Math.max(timeout_ms || 30000, awaitBudget + settleMs + 12000);
+      // The engine readback is the slow part of a big scene, and the page used to give it a fixed 8 s
+      // no matter what the caller asked for -- so a scene large enough to be worth capturing timed out
+      // and the author lost the only evidence channel they had. Hand the page the budget it may spend.
+      const readbackMs = Math.max(timeoutMs - awaitBudget - settleMs - 3000, 8000);
+      const reply = await pageCommand(project, "capture", { width: requestedWidth, height: requestedHeight, settle_ms: settleMs, readback_ms: readbackMs, ...(awaitSpec ? { await: { ...awaitSpec, timeout_ms: awaitBudget } } : {}) },
         { timeoutMs, client: page.client?.id });
       if (!reply.ok) throw commandFailure(reply, "retry_capture");
       const result = reply.result;

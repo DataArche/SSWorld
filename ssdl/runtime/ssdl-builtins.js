@@ -465,24 +465,64 @@
     })), "AnimationFacade.readProperty");
   }
 
+  // AnimationFacade.captureBatch refuses a batch larger than this, and it refuses it whole: before
+  // chunking, a scene whose first frame carried 65 bindings failed to mount outright, with a receipt
+  // that said "evaluated 65, committed 0, failed 65" and named nothing.  Measured on the real engine:
+  // 64 mounts, 65 does not.  Each chunk is captured before it is written, so a failure part-way can
+  // still restore the chunks that already landed and the flush stays all-or-nothing to the author.
+  const NATIVE_PROPERTY_BATCH = 64;
+
   function nativePropertyBatch(runtime, proposals) {
-    const items = proposals.map(({ binding }) => ({
-      target: propertyTarget(binding.target, runtime),
-      property: binding.property,
-    }));
-    const capture = nativeResult(runtime.animationFacade.captureBatch(JSON.stringify({
-      schema_version: "PropertyBatchCaptureSpec/v1",
-      items,
-    })), "PropertyBridge.captureBatch");
-    const receipt = nativeResult(runtime.animationFacade.writeBatch(capture.capture_handle, JSON.stringify({
-      schema_version: "PropertyBatchWriteSpec/v1",
-      writes: proposals.map(({ binding, next }) => ({
-        target: propertyTarget(binding.target, runtime),
-        property: binding.property,
-        value: wireValue(binding.property, next),
-      })),
-    })), "PropertyBridge.writeBatch");
-    return { capture, receipt };
+    const captures = [];
+    const items = [];
+    const statuses = new Set();
+    let facadeVersion = null;
+    let committed = 0;
+    let verified = 0;
+    try {
+      for (let start = 0; start < proposals.length; start += NATIVE_PROPERTY_BATCH) {
+        const chunk = proposals.slice(start, start + NATIVE_PROPERTY_BATCH);
+        const capture = nativeResult(runtime.animationFacade.captureBatch(JSON.stringify({
+          schema_version: "PropertyBatchCaptureSpec/v1",
+          items: chunk.map(({ binding }) => ({
+            target: propertyTarget(binding.target, runtime),
+            property: binding.property,
+          })),
+        })), "PropertyBridge.captureBatch");
+        captures.push(capture.capture_handle);
+        const receipt = nativeResult(runtime.animationFacade.writeBatch(capture.capture_handle, JSON.stringify({
+          schema_version: "PropertyBatchWriteSpec/v1",
+          writes: chunk.map(({ binding, next }) => ({
+            target: propertyTarget(binding.target, runtime),
+            property: binding.property,
+            value: wireValue(binding.property, next),
+          })),
+        })), "PropertyBridge.writeBatch");
+        facadeVersion = receipt.facade_version ?? facadeVersion;
+        if (receipt.status !== undefined) statuses.add(receipt.status);
+        committed += Number.isFinite(receipt.committed) ? receipt.committed : 0;
+        verified += Number.isFinite(receipt.verified) ? receipt.verified : 0;
+        for (const item of receipt.items || []) items.push(item);
+      }
+    } catch (error) {
+      // Undo the chunks that already committed, so a partial flush never leaves the scene holding
+      // half a transaction; the caller still reports the whole batch as failed.
+      for (const handle of captures) {
+        try { nativeResult(runtime.animationFacade.restoreBatch(handle), "PropertyBridge.restoreBatch"); } catch (_) { /* best effort */ }
+        try { runtime.animationFacade.releaseCapture(handle); } catch (_) { /* best effort */ }
+      }
+      throw error;
+    }
+    // One receipt for the whole flush: the chunks are an implementation detail of the native call
+    // ceiling, so the counts add up and the status only survives if every chunk agreed on it.
+    return {
+      captures,
+      capture: { capture_handle: captures[0] ?? null },
+      receipt: {
+        facade_version: facadeVersion, items, committed, verified, chunks: captures.length,
+        status: statuses.size === 1 ? [...statuses][0] : undefined,
+      },
+    };
   }
 
   const NATIVE_SCALAR_PROPERTIES = Object.freeze(new Set([
@@ -6765,10 +6805,11 @@
             failed += 1;
             let restored = true;
             if (nativeBatch) {
-              try {
-                nativeResult(this.animationFacade.restoreBatch(nativeBatch.capture.capture_handle),
-                  "PropertyBridge.restoreBatch");
-              } catch (_) { restored = false; }
+              for (const handle of nativeBatch.captures) {
+                try {
+                  nativeResult(this.animationFacade.restoreBatch(handle), "PropertyBridge.restoreBatch");
+                } catch (_) { restored = false; }
+              }
             }
             for (const item of [...applied].reverse()) {
               try {
@@ -6806,8 +6847,9 @@
           }
         }
         if (nativeBatch) {
-          nativeResult(this.animationFacade.releaseCapture(nativeBatch.capture.capture_handle),
-            "PropertyBridge.releaseCapture");
+          for (const handle of nativeBatch.captures) {
+            nativeResult(this.animationFacade.releaseCapture(handle), "PropertyBridge.releaseCapture");
+          }
         }
       } finally {
         this.bindingFlushActive = false;
@@ -6819,6 +6861,9 @@
         native_batch: nativeBatch ? {
           facade_version: nativeBatch.receipt.facade_version,
           capture_handle: nativeBatch.capture.capture_handle,
+          // How many native calls the flush took: one per 64 items, so a large first frame is
+          // visible as several chunks rather than looking like a single impossible batch.
+          chunks: nativeBatch.receipt.chunks,
           status: nativeBatch.receipt.status,
           committed: nativeBatch.receipt.committed,
           verified: nativeBatch.receipt.verified,
