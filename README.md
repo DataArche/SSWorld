@@ -52,6 +52,16 @@ This installs the package globally, registers the `ssworld` MCP server with ever
 
 Requirements: Node.js ≥ 22, npm, a WebGPU browser (Chrome/Edge) to look at previews.
 
+### Claude Code: install as a plugin instead
+
+```
+/plugin marketplace add DataArche/SSWorld
+/plugin install ssworld@ssworld
+```
+
+This registers the MCP server *and* the SSDL authoring skill in one step, with no global npm install;
+the pinned engine downloads on the first preview.
+
 Manual registration for any other client:
 
 ```json

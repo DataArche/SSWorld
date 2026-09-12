@@ -47,6 +47,15 @@ npx -y ssworld-mcp install
 
 环境要求:Node.js ≥ 22、npm,以及一个支持 WebGPU 的浏览器(Chrome/Edge)用来看预览。
 
+### Claude Code:也可以当插件装
+
+```
+/plugin marketplace add DataArche/SSWorld
+/plugin install ssworld@ssworld
+```
+
+一步同时注册 MCP 服务器和 SSDL 写作技能,不需要全局 npm 安装;钉死版本的引擎在第一次预览时下载。
+
 手动注册到其他客户端:
 
 ```json

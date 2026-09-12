@@ -1,0 +1,19 @@
+{
+  "name": "ssworld",
+  "owner": { "name": "DataArche", "url": "https://github.com/DataArche" },
+  "description": "SSWorld: agent-authored 3D geographic scenes on a real WebGPU engine.",
+  "plugins": [
+    {
+      "name": "ssworld",
+      "displayName": "SSWorld",
+      "source": "./",
+      "description": "Author, compile, render and inspect SSDL 3D geographic scenes on the SSEngine WebGPU runtime. Bundles the ssworld MCP server and the SSDL authoring skill; the pinned engine (~54 MB) downloads on first preview.",
+      "author": { "name": "DataArche", "url": "https://github.com/DataArche" },
+      "homepage": "https://github.com/DataArche/SSWorld#readme",
+      "repository": "https://github.com/DataArche/SSWorld",
+      "license": "Apache-2.0",
+      "keywords": ["mcp", "3d", "webgpu", "gis", "scene", "ssdl", "rendering", "digital-twin"],
+      "category": "3d-graphics"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "ssworld",
+  "displayName": "SSWorld",
+  "description": "Author, compile, render and inspect SSDL 3D geographic scenes on the SSEngine WebGPU runtime.",
+  "author": { "name": "DataArche", "url": "https://github.com/DataArche" },
+  "homepage": "https://github.com/DataArche/SSWorld#readme",
+  "repository": "https://github.com/DataArche/SSWorld",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "3d", "webgpu", "gis", "scene", "ssdl", "rendering", "digital-twin"],
+  "mcpServers": {
+    "ssworld": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/ssworld-mcp.mjs"]
+    }
+  }
+}
