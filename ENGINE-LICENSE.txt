@@ -1,0 +1,60 @@
+SSEngine WebGPU Runtime -- Binary Distribution License
+Copyright 2026 DataArche. All rights reserved.
+
+This license covers ONLY these two files:
+
+    engine/SSmap.js
+    engine/SSmap.wasm
+
+("the Engine"). Every other file in the ssworld-mcp package is licensed under
+the Apache License 2.0; see LICENSE and NOTICE.
+
+1. GRANT
+
+   Subject to section 4, DataArche grants you a worldwide, royalty-free,
+   non-exclusive licence to
+   download, install, run and redistribute the Engine, unmodified and in
+   binary form, for the purpose of authoring, rendering and previewing scenes
+   with ssworld-mcp -- including in commercial work and in products you ship.
+
+   Redistribution must keep the Engine unmodified, keep this file with it, and
+   must not imply that DataArche endorses your product.
+
+2. RESTRICTIONS
+
+   You may not reverse engineer, decompile or disassemble the Engine, or
+   extract its shaders, assets or internal data formats for the purpose of
+   reimplementing it, except to the extent that such a restriction is
+   unenforceable under law applicable to you.
+
+   You may not sublicense the Engine on terms other than these, or distribute
+   it detached from a working ssworld-mcp installation as a standalone
+   rendering library.
+
+3. NO WARRANTY
+
+   THE ENGINE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+   DATAARCHE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+   AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+   CONNECTION WITH THE ENGINE OR THE USE OR OTHER DEALINGS IN THE ENGINE.
+
+4. THIRD-PARTY COMPONENTS IN THE ENGINE
+
+   The Engine statically links Google Dawn / emdawnwebgpu (BSD-3-Clause) and
+   Qt 6 (The Qt Company Ltd.).
+
+   Qt for WebAssembly is available to open-source users under GPL-3.0-only, and
+   separately under a commercial licence. DataArche holds no Qt commercial
+   licence, and a GPL-3.0 basis cannot coexist with sections 1 and 2 of this
+   file. A Qt-free Engine build is in progress and is what these terms are
+   written for.
+
+   Until that build ships, the redistribution grant in section 1 is SUSPENDED:
+   you may download the Engine and run it as part of ssworld-mcp, but you may
+   not redistribute it, bundle it into a product, or host a copy of it. This
+   paragraph is removed, and section 1 takes full effect, in the first release
+   whose engine binary carries no Qt.
+
+   QT_GPL_UNRESOLVED

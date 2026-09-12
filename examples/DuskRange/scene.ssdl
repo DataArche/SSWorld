@@ -1,0 +1,79 @@
+Scene {
+ id: main
+ property real px: 0
+ property real py: -18
+ property real heading: 0
+ property real pitch: 0
+ property real zoom: 78
+ property real score: 0
+ property real ammo: 12
+ property real remaining: 75
+ property real combo: 0
+ property real shots: 0
+ property real hits: 0
+ property bool playing: false
+ property real clock: 0
+ CameraView { id: view; position: [px, py, 1.8]; heading: heading; pitch: pitch; fov: zoom }
+ Camera { initialView: view }
+ SkyAtmosphere { }
+ DirectionalLight { atmosphereSunLight: true; sunAzimuth: 245; sunElevation: 12; intensity: 2.5; lightColor: "#ffe4bb"; castShadows: true }
+ SkyLight { intensity: 1.3; lightColor: "#c6d0d5"; lowerHemisphereIsBlack: false; lowerHemisphereColor: "#616b72" }
+ ExponentialHeightFog { fogDensity: 0.012; fogHeightFalloff: 0.2; startDistance: 20; fogInscatteringColor: "#8cabb0" }
+ PostProcessVolume { unbound: true; settings.autoExposureMethod: "Manual"; settings.autoExposureBias: 0.9; settings.bloomIntensity: 0.25; settings.bloomThreshold: 1.2; settings.lensFlareIntensity: 0; settings.vignetteIntensity: 0.25; settings.ambientOcclusionIntensity: 1 }
+ Camp { }
+ Timer { interval: 33; repeat: true; running: true; onTriggered: { Game.tick(); } }
+ property real tx0: 0
+ property bool alive0: true
+ Group { id: target0; position: [tx0,12,2.3]; visible: alive0
+ Cylinder { radius: 0.86; height: 0.18; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#233d41"; metalness: 0.75; roughness: 0.35 } }
+ Cylinder { radius: 0.72; height: 0.19; position: [0,-0.025,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#dc6d38"; emissiveColor: [0.65,0.13,0.025]; metalness: 0.4; roughness: 0.5 } }
+ Cylinder { radius: 0.45; height: 0.2; position: [0,-0.055,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e7dcba"; metalness: 0.2; roughness: 0.7 } }
+ Cylinder { radius: 0.19; height: 0.21; position: [0,-0.07,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e35729"; emissiveColor: [1.4,0.15,0.02]; roughness: 0.4 } }
+ Box { position: [0,0,-1.15]; width: 0.1; depth: 0.1; height: 2.3; PrincipledMaterial { baseColor: "#47524c"; metalness: 0.7; roughness: 0.4 } }
+ }
+ property real tx1: -7
+ property bool alive1: true
+ Group { id: target1; position: [tx1,22,2.8]; visible: alive1
+ Cylinder { radius: 0.86; height: 0.18; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#233d41"; metalness: 0.75; roughness: 0.35 } }
+ Cylinder { radius: 0.72; height: 0.19; position: [0,-0.025,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#dc6d38"; emissiveColor: [0.65,0.13,0.025]; metalness: 0.4; roughness: 0.5 } }
+ Cylinder { radius: 0.45; height: 0.2; position: [0,-0.055,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e7dcba"; metalness: 0.2; roughness: 0.7 } }
+ Cylinder { radius: 0.19; height: 0.21; position: [0,-0.07,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e35729"; emissiveColor: [1.4,0.15,0.02]; roughness: 0.4 } }
+ Box { position: [0,0,-1.4]; width: 0.1; depth: 0.1; height: 2.8; PrincipledMaterial { baseColor: "#47524c"; metalness: 0.7; roughness: 0.4 } }
+ }
+ property real tx2: 6
+ property bool alive2: true
+ Group { id: target2; position: [tx2,22,2.3]; visible: alive2
+ Cylinder { radius: 0.86; height: 0.18; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#233d41"; metalness: 0.75; roughness: 0.35 } }
+ Cylinder { radius: 0.72; height: 0.19; position: [0,-0.025,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#dc6d38"; emissiveColor: [0.65,0.13,0.025]; metalness: 0.4; roughness: 0.5 } }
+ Cylinder { radius: 0.45; height: 0.2; position: [0,-0.055,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e7dcba"; metalness: 0.2; roughness: 0.7 } }
+ Cylinder { radius: 0.19; height: 0.21; position: [0,-0.07,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e35729"; emissiveColor: [1.4,0.15,0.02]; roughness: 0.4 } }
+ Box { position: [0,0,-1.15]; width: 0.1; depth: 0.1; height: 2.3; PrincipledMaterial { baseColor: "#47524c"; metalness: 0.7; roughness: 0.4 } }
+ }
+ property real tx3: -10
+ property bool alive3: true
+ Group { id: target3; position: [tx3,36,3]; visible: alive3
+ Cylinder { radius: 0.86; height: 0.18; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#233d41"; metalness: 0.75; roughness: 0.35 } }
+ Cylinder { radius: 0.72; height: 0.19; position: [0,-0.025,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#dc6d38"; emissiveColor: [0.65,0.13,0.025]; metalness: 0.4; roughness: 0.5 } }
+ Cylinder { radius: 0.45; height: 0.2; position: [0,-0.055,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e7dcba"; metalness: 0.2; roughness: 0.7 } }
+ Cylinder { radius: 0.19; height: 0.21; position: [0,-0.07,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e35729"; emissiveColor: [1.4,0.15,0.02]; roughness: 0.4 } }
+ Box { position: [0,0,-1.5]; width: 0.1; depth: 0.1; height: 3; PrincipledMaterial { baseColor: "#47524c"; metalness: 0.7; roughness: 0.4 } }
+ }
+ property real tx4: 9
+ property bool alive4: true
+ Group { id: target4; position: [tx4,36,2.7]; visible: alive4
+ Cylinder { radius: 0.86; height: 0.18; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#233d41"; metalness: 0.75; roughness: 0.35 } }
+ Cylinder { radius: 0.72; height: 0.19; position: [0,-0.025,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#dc6d38"; emissiveColor: [0.65,0.13,0.025]; metalness: 0.4; roughness: 0.5 } }
+ Cylinder { radius: 0.45; height: 0.2; position: [0,-0.055,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e7dcba"; metalness: 0.2; roughness: 0.7 } }
+ Cylinder { radius: 0.19; height: 0.21; position: [0,-0.07,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e35729"; emissiveColor: [1.4,0.15,0.02]; roughness: 0.4 } }
+ Box { position: [0,0,-1.35]; width: 0.1; depth: 0.1; height: 2.7; PrincipledMaterial { baseColor: "#47524c"; metalness: 0.7; roughness: 0.4 } }
+ }
+ property real tx5: 1
+ property bool alive5: true
+ Group { id: target5; position: [tx5,36,3.5]; visible: alive5
+ Cylinder { radius: 0.86; height: 0.18; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#233d41"; metalness: 0.75; roughness: 0.35 } }
+ Cylinder { radius: 0.72; height: 0.19; position: [0,-0.025,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#dc6d38"; emissiveColor: [0.65,0.13,0.025]; metalness: 0.4; roughness: 0.5 } }
+ Cylinder { radius: 0.45; height: 0.2; position: [0,-0.055,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e7dcba"; metalness: 0.2; roughness: 0.7 } }
+ Cylinder { radius: 0.19; height: 0.21; position: [0,-0.07,0]; rotation: [0.707107,0,0,0.707107]; PrincipledMaterial { baseColor: "#e35729"; emissiveColor: [1.4,0.15,0.02]; roughness: 0.4 } }
+ Box { position: [0,0,-1.75]; width: 0.1; depth: 0.1; height: 3.5; PrincipledMaterial { baseColor: "#47524c"; metalness: 0.7; roughness: 0.4 } }
+ }
+}

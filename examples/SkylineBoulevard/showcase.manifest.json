@@ -1,0 +1,39 @@
+{
+  "schema_version": "SceneModuleManifest/1",
+  "scene_module_version": 1,
+  "name": "SkylineBoulevard",
+  "entry": "scene.mjs",
+  "execution_profiles": [
+    "trusted-local",
+    "agent-mcp"
+  ],
+  "resource_root": ".",
+  "scene_ir_version": 5,
+  "binding_ir_version": 2,
+  "compiler_profile": "SSDL/QML-Subset/0.3",
+  "compiler_profile_digest": "sha256:93b49f16260f6ed8d5ee260914c3abea8d6fb12b284306ea1b5b318c8589d397",
+  "scene_ir_digest": "sha256:f06eebc667b837bf3df817c87850aa3c59a14f7f3b9f2c7b78c69f357e3935a9",
+  "binding_ir_digest": "sha256:9818f191b752fef5eec41aa869bf41f45f7b0156e43c09b20b134d1becc86dad",
+  "module_digest": "sha256:fbf2224ac23fb0c04be40c8f4220e55afe4643ca436de7bd71c753ecc179270b",
+  "budgets": {
+    "native_objects": 2048,
+    "materials": 2048,
+    "textures": 32,
+    "prefabs": 64,
+    "instances": 2048,
+    "bindings": 256,
+    "handlers": 128,
+    "timers": 32,
+    "timelines": 256
+  },
+  "catalog_digest": "sha256:44255ef5912fc35ede765b5c2ecf840c846ffd1fd90098c22797db55d6f0dc31",
+  "runtime_abi_digest": "sha256:faf6c46f13c1d73198b6950df751e996b12d0f7f63834063052184359f20d74b",
+  "anchor": {
+    "lon": 114.06,
+    "lat": 22.54,
+    "height": 120
+  },
+  "source_digest": "sha256:d7a9e3ee4968cb365297d7bf17f63234c972a8926a5f1a6acaf49d10d1829b24",
+  "compiled_at": "2026-09-12T03:06:47.119Z",
+  "host_interfaces_digest": null
+}

@@ -1,0 +1,39 @@
+{
+  "schema_version": "SceneModuleManifest/1",
+  "scene_module_version": 1,
+  "name": "ShenzhenNorthStation",
+  "entry": "scene.mjs",
+  "execution_profiles": [
+    "trusted-local",
+    "agent-mcp"
+  ],
+  "resource_root": ".",
+  "scene_ir_version": 5,
+  "binding_ir_version": 2,
+  "compiler_profile": "SSDL/QML-Subset/0.3",
+  "compiler_profile_digest": "sha256:93b49f16260f6ed8d5ee260914c3abea8d6fb12b284306ea1b5b318c8589d397",
+  "scene_ir_digest": "sha256:12a1429088eb520966581b91a7641dfcc3c759613af31924f35b75896ae5f4c0",
+  "binding_ir_digest": "sha256:071227eb495d4329cb38e2f743eab38020f430bcd71030ee4f56254e2d73e78d",
+  "module_digest": "sha256:a4666c112bfc0d7996cca406903e5c8b529bcc55a86dd8ae33b7978f33ad3734",
+  "budgets": {
+    "native_objects": 2048,
+    "materials": 2048,
+    "textures": 32,
+    "prefabs": 64,
+    "instances": 2048,
+    "bindings": 256,
+    "handlers": 128,
+    "timers": 32,
+    "timelines": 256
+  },
+  "catalog_digest": "sha256:44255ef5912fc35ede765b5c2ecf840c846ffd1fd90098c22797db55d6f0dc31",
+  "runtime_abi_digest": "sha256:faf6c46f13c1d73198b6950df751e996b12d0f7f63834063052184359f20d74b",
+  "anchor": {
+    "lon": 114.0295,
+    "lat": 22.6103,
+    "height": 140
+  },
+  "source_digest": "sha256:f309eedc9321facaff372c48661103fcc3d5aecf8dfbc6103bc1df9a37698693",
+  "compiled_at": "2026-09-12T04:25:00.643Z",
+  "host_interfaces_digest": null
+}

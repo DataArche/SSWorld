@@ -1,0 +1,40 @@
+{
+  "schema_version": "SceneModuleManifest/1",
+  "scene_module_version": 1,
+  "name": "DuskRange_0912",
+  "entry": "scene.mjs",
+  "execution_profiles": [
+    "trusted-local",
+    "agent-mcp"
+  ],
+  "resource_root": ".",
+  "scene_ir_version": 5,
+  "binding_ir_version": 2,
+  "compiler_profile": "SSDL/QML-Subset/0.3",
+  "compiler_profile_digest": "sha256:203953737ae73de87fc3e0d2f858771c6679e4c9f2135096932b691f424c2d4b",
+  "scene_ir_digest": "sha256:5bb912335da0a617c1602cf08e073c229a7342f344b4f7c175c0e46f437193a2",
+  "binding_ir_digest": "sha256:290dd91c5c6cb8b1b8029540e2268d7085ac1cd176905da40a8eb75a8366cdfc",
+  "module_digest": "sha256:84562d394306bc0d30825555a9cc56a462b4d114c658a0c6771f668e613abf45",
+  "budgets": {
+    "native_objects": 4096,
+    "materials": 4096,
+    "textures": 32,
+    "prefabs": 1024,
+    "instances": 524288,
+    "bindings": 4096,
+    "handlers": 2048,
+    "timers": 256,
+    "timelines": 256,
+    "locators": 1024
+  },
+  "catalog_digest": "sha256:ea61986e2df0d7b367cd22d12a647342e58e14bc57e32fb89bc107e11dffed02",
+  "runtime_abi_digest": "sha256:ff59b2584848c98a08ded4f8a2936546ec037daed58f41788f327059949f150c",
+  "anchor": {
+    "lon": 114.0579,
+    "lat": 22.5431,
+    "height": 150
+  },
+  "source_digest": "sha256:c72b8f3cad3e9ff00f21e441d620ac2181eaa83a570d4d3622f25fae7465e0ee",
+  "compiled_at": "2026-09-12T08:57:52.097Z",
+  "host_interfaces_digest": "sha256:713629e100c714eebafda3bc0e1efbe5423cf5eef1bef2abf77621b58b9fce63"
+}

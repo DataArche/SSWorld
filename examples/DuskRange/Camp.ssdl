@@ -1,0 +1,212 @@
+Group {
+ id: camp
+ Model { id: grass; source: "assets/grass.glb"; position: [-14,-10,0] }
+ Prefab { id: grassPatch; source: grass }
+ Instances { prefab: grassPatch; positions: [[-12,-20,0],[13.7,-16.9,0],[-15.4,-13.8,0],[17.1,-10.7,0],[-18.8,-7.6,0],[20.5,-4.5,0],[-22.2,-1.4,0],[23.9,1.7,0],[-25.6,4.8,0],[27.3,7.9,0],[-13.3,11,0],[15,14.1,0],[-16.7,17.2,0],[18.4,20.3,0],[-20.1,23.4,0],[21.8,26.5,0],[-23.5,29.6,0],[25.2,32.7,0],[-26.9,35.8,0],[12.9,38.9,0],[-14.6,42,0],[16.3,45.1,0],[-18,48.2,0],[19.7,51.3,0],[-21.4,54.4,0],[23.1,57.5,0],[-24.8,60.6,0],[26.5,63.7,0],[-12.5,66.8,0],[14.2,-19.1,0],[-15.9,-16,0],[17.6,-12.9,0],[-19.3,-9.8,0],[21,-6.7,0],[-22.7,-3.6,0],[24.4,-0.5,0],[-26.1,2.6,0],[12.1,5.7,0],[-13.8,8.8,0],[15.5,11.9,0],[-17.2,15,0],[18.9,18.1,0],[-20.6,21.2,0],[22.3,24.3,0],[-24,27.4,0],[25.7,30.5,0],[-27.4,33.6,0],[13.4,36.7,0],[-15.1,39.8,0],[16.8,42.9,0],[-18.5,46,0],[20.2,49.1,0],[-21.9,52.2,0],[23.6,55.3,0],[-25.3,58.4,0],[27,61.5,0],[-13,64.6,0],[14.7,67.7,0],[-16.4,-18.2,0],[18.1,-15.1,0],[-19.8,-12,0],[21.5,-8.9,0],[-23.2,-5.8,0],[24.9,-2.7,0],[-26.6,0.4,0],[12.6,3.5,0],[-14.3,6.6,0],[16,9.7,0],[-17.7,12.8,0],[19.4,15.9,0],[-21.1,19,0],[22.8,22.1,0],[-24.5,25.2,0],[26.2,28.3,0],[-12.2,31.4,0],[13.9,34.5,0],[-15.6,37.6,0],[17.3,40.7,0],[-19,43.8,0],[20.7,46.9,0],[-22.4,50,0],[24.1,53.1,0],[-25.8,56.2,0],[27.5,59.3,0],[-13.5,62.4,0],[15.2,65.5,0],[-16.9,68.6,0],[18.6,-17.3,0],[-20.3,-14.2,0],[22,-11.1,0],[-23.7,-8,0],[25.4,-4.9,0],[-27.1,-1.8,0],[13.1,1.3,0],[-14.8,4.4,0],[16.5,7.5,0],[-18.2,10.6,0],[19.9,13.7,0],[-21.6,16.8,0],[23.3,19.9,0],[-25,23,0],[26.7,26.1,0],[-12.7,29.2,0],[14.4,32.3,0],[-16.1,35.4,0],[17.8,38.5,0],[-19.5,41.6,0],[21.2,44.7,0],[-22.9,47.8,0],[24.6,50.9,0],[-26.3,54,0],[12.3,57.1,0],[-14,60.2,0],[15.7,63.3,0],[-17.4,66.4,0],[19.1,-19.5,0],[-20.8,-16.4,0],[22.5,-13.3,0],[-24.2,-10.2,0],[25.9,-7.1,0],[-27.6,-4,0],[13.6,-0.9,0],[-15.3,2.2,0],[17,5.3,0],[-18.7,8.4,0],[20.4,11.5,0],[-22.1,14.6,0],[23.8,17.7,0],[-25.5,20.8,0],[27.2,23.9,0],[-13.2,27,0],[14.9,30.1,0],[-16.6,33.2,0],[18.3,36.3,0],[-20,39.4,0],[21.7,42.5,0],[-23.4,45.6,0],[25.1,48.7,0],[-26.8,51.8,0],[12.8,54.9,0],[-14.5,58,0],[16.2,61.1,0],[-17.9,64.2,0],[19.6,67.3,0],[-21.3,-18.6,0],[23,-15.5,0],[-24.7,-12.4,0],[26.4,-9.3,0],[-12.4,-6.2,0],[14.1,-3.1,0],[-15.8,0,0],[17.5,3.1,0],[-19.2,6.2,0],[20.9,9.3,0],[-22.6,12.4,0],[24.3,15.5,0],[-26,18.6,0],[12,21.7,0],[-13.7,24.8,0],[15.4,27.9,0],[-17.1,31,0],[18.8,34.1,0],[-20.5,37.2,0],[22.2,40.3,0],[-23.9,43.4,0],[25.6,46.5,0],[-27.3,49.6,0],[13.3,52.7,0],[-15,55.8,0],[16.7,58.9,0],[-18.4,62,0],[20.1,65.1,0],[-21.8,68.2,0],[23.5,-17.7,0],[-25.2,-14.6,0]] }
+ Instances { prefab: grassPatch; positions: [[26.9,-11.5,0],[-12.9,-8.4,0],[14.6,-5.3,0],[-16.3,-2.2,0],[18,0.9,0],[-19.7,4,0],[21.4,7.1,0],[-23.1,10.2,0],[24.8,13.3,0],[-26.5,16.4,0],[12.5,19.5,0],[-14.2,22.6,0],[15.9,25.7,0],[-17.6,28.8,0],[19.3,31.9,0],[-21,35,0],[22.7,38.1,0],[-24.4,41.2,0],[26.1,44.3,0],[-12.1,47.4,0],[13.8,50.5,0],[-15.5,53.6,0],[17.2,56.7,0],[-18.9,59.8,0],[20.6,62.9,0],[-22.3,66,0],[24,-19.9,0],[-25.7,-16.8,0],[27.4,-13.7,0],[-13.4,-10.6,0],[15.1,-7.5,0],[-16.8,-4.4,0],[18.5,-1.3,0],[-20.2,1.8,0],[21.9,4.9,0],[-23.6,8,0],[25.3,11.1,0],[-27,14.2,0],[13,17.3,0],[-14.7,20.4,0],[16.4,23.5,0],[-18.1,26.6,0],[19.8,29.7,0],[-21.5,32.8,0],[23.2,35.9,0],[-24.9,39,0],[26.6,42.1,0],[-12.6,45.2,0],[14.3,48.3,0],[-16,51.4,0],[17.7,54.5,0],[-19.4,57.6,0],[21.1,60.7,0],[-22.8,63.8,0],[24.5,66.9,0],[-26.2,-19,0],[12.2,-15.9,0],[-13.9,-12.8,0],[15.6,-9.7,0],[-17.3,-6.6,0],[19,-3.5,0],[-20.7,-0.4,0],[22.4,2.7,0],[-24.1,5.8,0],[25.8,8.9,0],[-27.5,12,0],[13.5,15.1,0],[-15.2,18.2,0],[16.9,21.3,0],[-18.6,24.4,0],[20.3,27.5,0],[-22,30.6,0],[23.7,33.7,0],[-25.4,36.8,0],[27.1,39.9,0],[-13.1,43,0],[14.8,46.1,0],[-16.5,49.2,0],[18.2,52.3,0],[-19.9,55.4,0],[21.6,58.5,0],[-23.3,61.6,0],[25,64.7,0],[-26.7,67.8,0],[12.7,-18.1,0],[-14.4,-15,0],[16.1,-11.9,0],[-17.8,-8.8,0],[19.5,-5.7,0],[-21.2,-2.6,0],[22.9,0.5,0],[-24.6,3.6,0],[26.3,6.7,0],[-12.3,9.8,0],[14,12.9,0],[-15.7,16,0],[17.4,19.1,0],[-19.1,22.2,0],[20.8,25.3,0],[-22.5,28.4,0],[24.2,31.5,0],[-25.9,34.6,0],[27.6,37.7,0],[-13.6,40.8,0],[15.3,43.9,0],[-17,47,0],[18.7,50.1,0],[-20.4,53.2,0],[22.1,56.3,0],[-23.8,59.4,0],[25.5,62.5,0],[-27.2,65.6,0],[13.2,68.7,0],[-14.9,-17.2,0],[16.6,-14.1,0],[-18.3,-11,0],[20,-7.9,0],[-21.7,-4.8,0],[23.4,-1.7,0],[-25.1,1.4,0],[26.8,4.5,0],[-12.8,7.6,0],[14.5,10.7,0],[-16.2,13.8,0],[17.9,16.9,0],[-19.6,20,0],[21.3,23.1,0],[-23,26.2,0],[24.7,29.3,0],[-26.4,32.4,0],[12.4,35.5,0],[-14.1,38.6,0],[15.8,41.7,0],[-17.5,44.8,0],[19.2,47.9,0],[-20.9,51,0],[22.6,54.1,0],[-24.3,57.2,0],[26,60.3,0],[-12,63.4,0],[13.7,66.5,0],[-15.4,-19.4,0],[17.1,-16.3,0],[-18.8,-13.2,0],[20.5,-10.1,0],[-22.2,-7,0],[23.9,-3.9,0],[-25.6,-0.8,0],[27.3,2.3,0],[-13.3,5.4,0],[15,8.5,0],[-16.7,11.6,0],[18.4,14.7,0],[-20.1,17.8,0],[21.8,20.9,0],[-23.5,24,0],[25.2,27.1,0],[-26.9,30.2,0],[12.9,33.3,0],[-14.6,36.4,0],[16.3,39.5,0],[-18,42.6,0],[19.7,45.7,0],[-21.4,48.8,0],[23.1,51.9,0],[-24.8,55,0],[26.5,58.1,0],[-12.5,61.2,0],[14.2,64.3,0],[-15.9,67.4,0],[17.6,-18.5,0],[-19.3,-15.4,0],[21,-12.3,0],[-22.7,-9.2,0],[24.4,-6.1,0]] }
+ Texture { id: soil; source: "assets/soil.png" }
+ Texture { id: wood; source: "assets/wood.png" }
+ Texture { id: metal; source: "assets/metal.png" }
+ Texture { id: concrete; source: "assets/concrete.png" }
+ Texture { id: groundNormal; source: "assets/normal.png" }
+ Texture { id: groundRough; source: "assets/rough.png" }
+ HeightField { id: ground; width: 150; depth: 180; columns: 1; rows: 1; heights: [0,0,0,0]; position: [0,30,-0.04]
+ PrincipledMaterial { baseColor: "#a59978"; baseColorMap: soil; normalMap: groundNormal; normalScale: 1.2; metallicRoughnessMap: groundRough; roughness: 0.95; uvScale: [24,28] } }
+ Model { id: pine; source: "assets/pine.glb"; position: [-24,20,0] }
+ Prefab { id: trees; source: pine }
+ Model { id: rock; source: "assets/rock.glb"; position: [22,5,0] }
+ Prefab { id: rocks; source: rock }
+Instances { prefab: trees; positions: [[-24.87,26.57,0],[-53.06,-1.29,0],[-30.23,46.73,0],[-35.96,-19.63,0],[12.07,96.03,0],[30.79,94.63,0],[-47.04,79.78,0],[25.2,-6.43,0],[25.15,38.71,0],[31.01,79.06,0],[-49.75,28.8,0],[12.44,61.1,0],[53.19,-21.55,0],[-50.26,50.39,0],[-45.75,81.57,0],[53.26,82.87,0],[-43.31,95.86,0],[-25.47,33.12,0],[33.19,11.98,0],[-30.32,5.58,0],[-51.2,90.24,0],[22.01,91.14,0],[-49.39,73.18,0],[48.07,-16.39,0],[26.71,40.99,0],[-42,89.61,0],[13.5,79.14,0],[28.03,43.91,0],[-46.7,43.14,0],[-36.36,1.15,0],[-56.57,17.02,0],[16.28,70.15,0],[-31.07,55.33,0],[-42,-19.62,0],[32.64,-7.19,0],[42.53,68.92,0],[40.75,-1.98,0],[32.77,96.4,0],[-12.47,64.33,0],[-33.35,73.22,0],[27.49,84.69,0],[-21.33,15.96,0],[-2.56,96.19,0],[-29.29,32.63,0],[31.64,-5.62,0],[33.54,20.38,0],[-44.97,74.74,0],[-36.56,-7.78,0],[-44.02,34.86,0],[26.37,22.1,0],[-26.47,98.28,0],[45.14,69.47,0],[-44.91,12.38,0],[-50.62,93.15,0],[-45.37,6.81,0],[-55.71,-18.71,0],[-37.57,81.04,0],[30.24,35.5,0],[-30.07,19.21,0],[27.6,30.15,0],[40.58,31.44,0],[-46.83,87.82,0],[24.83,42.19,0],[22.07,44.26,0],[40.9,8.88,0],[-41.76,-20.95,0],[-6.02,91.94,0],[-21.96,-1.41,0],[51.5,23.4,0],[42.05,-14.22,0],[50.03,54.77,0],[7.27,67.07,0],[-39.4,69.14,0],[-33.65,36.21,0],[36.11,88.4,0],[-54.14,28.87,0],[-26.48,69.56,0],[24.46,-8.88,0],[44.12,-28.35,0],[-53.32,72.95,0],[10.54,71.08,0],[20.12,83.23,0],[-38.84,10.53,0],[42.08,22.34,0],[13.93,49.15,0],[17.11,77.12,0],[24.88,-24.54,0],[42.74,26.38,0],[50.45,64.26,0],[-45.43,-15.36,0],[41.84,41.62,0],[40.57,24.25,0],[38.02,-15.88,0],[23.33,18.48,0],[-31.85,91.5,0],[-22.34,40.84,0],[42.43,73.95,0],[-20.3,-1.76,0],[-20.24,98,0],[27.46,68.11,0],[-51.3,67.46,0],[-38.5,32.2,0],[32.47,28.22,0],[-51.88,52.17,0],[2.2,98.43,0],[46.25,4.65,0],[-53.44,47.86,0],[53.02,-14.05,0],[34.41,-17.08,0],[46.56,78.94,0],[33.62,-13.77,0],[-50.86,55.75,0],[-55.64,38.02,0],[-25.65,-11.89,0],[-20.43,62.03,0],[-25.41,33.65,0],[-7.76,98.68,0],[-2.73,48.99,0],[53.34,80.98,0],[-27.94,56.09,0],[-52.72,-28.48,0],[56.32,13.99,0],[55.32,88.08,0],[-54.5,33.02,0],[53.27,-13.67,0],[52.76,93.39,0],[-23.74,39.3,0],[-49.63,41.2,0],[33.8,62.91,0],[-11.75,55.56,0],[-22.38,15.4,0],[44.03,32.18,0],[46.31,10.92,0],[49.01,76.34,0],[46.34,-24,0],[-51.35,25.85,0],[-20.88,71.27,0],[-42.39,42.2,0],[-21.06,-29.67,0],[-18.44,72.48,0],[-27.96,85.52,0],[-40.54,-12.18,0],[-32.77,25.35,0],[-33.95,30.44,0],[-24.78,33.7,0],[22.35,38.24,0],[37.11,-2.09,0],[-28.74,12.67,0],[48.37,8.36,0],[27.4,-15.68,0],[39.75,24.34,0],[-40.21,-17.78,0],[-49.81,42.28,0],[23.7,-25.71,0],[40.71,28.79,0]] }
+Instances { prefab: rocks; positions: [[17.82,32.1,0],[-10.29,74.35,0],[39.62,29.87,0],[-25.01,-8.64,0],[39.66,1.6,0],[32.76,12.57,0],[-11.09,69.84,0],[4.5,49.07,0],[-25.46,-14.74,0],[-33.64,18.49,0],[-21.29,-17.84,0],[19.47,-18.45,0],[-28.02,15.43,0],[-9.21,47.24,0],[-8.94,64.11,0],[25.13,36.1,0],[-17.21,30.57,0],[-38.37,54.99,0],[29.05,67.98,0],[40.65,25.48,0],[-30.58,7.64,0],[-40.94,31.74,0],[-18.66,1.35,0],[5.02,52.45,0],[9.56,52.78,0],[-44.7,40.18,0],[29.73,30.74,0],[31.05,5.31,0],[22.75,70.5,0],[-9.79,70.34,0],[19.88,58.81,0],[-32.53,9.27,0],[20.19,56.25,0],[-25.07,-4.73,0],[15.2,19.89,0],[-20.75,28.9,0],[-22.37,62.54,0],[23.74,7.65,0],[-16.24,39.04,0],[-34.09,46.39,0],[-38.56,28.35,0],[33.98,17.26,0]] }
+Box { id: part0; position: [-10,12,1]; width: 7; depth: 3; height: 2; PrincipledMaterial { baseColorMap: concrete; roughness: 0.92; uvScale: [0.3,0.3] }  }
+Box { id: part1; position: [10,18,1.6]; width: 4; depth: 6; height: 3.2; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part2; position: [8,15,1.6]; width: 0.15; depth: 0.15; height: 3.3; PrincipledMaterial { baseColor: "#b9c2b9"; metalness: 0.8; roughness: 0.4 }  }
+Box { id: part3; position: [8,21,1.6]; width: 0.15; depth: 0.15; height: 3.3; PrincipledMaterial { baseColor: "#b9c2b9"; metalness: 0.8; roughness: 0.4 }  }
+Box { id: part4; position: [12,15,1.6]; width: 0.15; depth: 0.15; height: 3.3; PrincipledMaterial { baseColor: "#b9c2b9"; metalness: 0.8; roughness: 0.4 }  }
+Box { id: part5; position: [12,21,1.6]; width: 0.15; depth: 0.15; height: 3.3; PrincipledMaterial { baseColor: "#b9c2b9"; metalness: 0.8; roughness: 0.4 }  }
+Box { id: part6; position: [7.96,15.2,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part7; position: [7.96,15.6,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part8; position: [7.96,16,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part9; position: [7.96,16.4,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part10; position: [7.96,16.8,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part11; position: [7.96,17.2,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part12; position: [7.96,17.6,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part13; position: [7.96,18,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part14; position: [7.96,18.4,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part15; position: [7.96,18.8,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part16; position: [7.96,19.2,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part17; position: [7.96,19.6,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part18; position: [7.96,20,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part19; position: [7.96,20.4,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part20; position: [7.96,20.8,1.6]; width: 0.09; depth: 0.08; height: 3.05; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part21; position: [-13,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part22; position: [-12.5,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part23; position: [-12,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part24; position: [-11.5,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part25; position: [-11,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part26; position: [-10.5,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part27; position: [-10,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part28; position: [-9.5,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part29; position: [-9,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part30; position: [-8.5,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part31; position: [-8,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part32; position: [-7.5,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part33; position: [-7,10.48,1.08]; width: 0.15; depth: 0.03; height: 1.8; PrincipledMaterial { baseColor: "#515844"; roughness: 0.9 }  }
+Box { id: part34; position: [-13,10.42,1.5]; width: 0.5; depth: 0.04; height: 0.2; PrincipledMaterial { baseColor: "#debb59"; roughness: 0.8 }  }
+Box { id: part35; position: [-11.75,10.42,1.5]; width: 0.5; depth: 0.04; height: 0.2; PrincipledMaterial { baseColor: "#debb59"; roughness: 0.8 }  }
+Box { id: part36; position: [-10.5,10.42,1.5]; width: 0.5; depth: 0.04; height: 0.2; PrincipledMaterial { baseColor: "#debb59"; roughness: 0.8 }  }
+Box { id: part37; position: [-9.25,10.42,1.5]; width: 0.5; depth: 0.04; height: 0.2; PrincipledMaterial { baseColor: "#debb59"; roughness: 0.8 }  }
+Box { id: part38; position: [-8,10.42,1.5]; width: 0.5; depth: 0.04; height: 0.2; PrincipledMaterial { baseColor: "#debb59"; roughness: 0.8 }  }
+Box { id: part39; position: [-6,0,0.65]; width: 2.3; depth: 1.7; height: 1.3; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part40; position: [-6.92,-0.87,0.65]; width: 0.11; depth: 0.08; height: 1.35; PrincipledMaterial { baseColor: "#323e3b"; metalness: 0.8; roughness: 0.48 }  }
+Box { id: part41; position: [-5.08,-0.87,0.65]; width: 0.11; depth: 0.08; height: 1.35; PrincipledMaterial { baseColor: "#323e3b"; metalness: 0.8; roughness: 0.48 }  }
+Box { id: part42; position: [-6,0,1.35]; width: 2.4; depth: 1.8; height: 0.12; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part43; position: [8,3,0.65]; width: 2.3; depth: 1.7; height: 1.3; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part44; position: [7.08,2.13,0.65]; width: 0.11; depth: 0.08; height: 1.35; PrincipledMaterial { baseColor: "#323e3b"; metalness: 0.8; roughness: 0.48 }  }
+Box { id: part45; position: [8.92,2.13,0.65]; width: 0.11; depth: 0.08; height: 1.35; PrincipledMaterial { baseColor: "#323e3b"; metalness: 0.8; roughness: 0.48 }  }
+Box { id: part46; position: [8,3,1.35]; width: 2.4; depth: 1.8; height: 0.12; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part47; position: [-13,25,0.65]; width: 2.3; depth: 1.7; height: 1.3; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part48; position: [-13.92,24.13,0.65]; width: 0.11; depth: 0.08; height: 1.35; PrincipledMaterial { baseColor: "#323e3b"; metalness: 0.8; roughness: 0.48 }  }
+Box { id: part49; position: [-12.08,24.13,0.65]; width: 0.11; depth: 0.08; height: 1.35; PrincipledMaterial { baseColor: "#323e3b"; metalness: 0.8; roughness: 0.48 }  }
+Box { id: part50; position: [-13,25,1.35]; width: 2.4; depth: 1.8; height: 0.12; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part51; position: [6,32,0.65]; width: 2.3; depth: 1.7; height: 1.3; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part52; position: [5.08,31.13,0.65]; width: 0.11; depth: 0.08; height: 1.35; PrincipledMaterial { baseColor: "#323e3b"; metalness: 0.8; roughness: 0.48 }  }
+Box { id: part53; position: [6.92,31.13,0.65]; width: 0.11; depth: 0.08; height: 1.35; PrincipledMaterial { baseColor: "#323e3b"; metalness: 0.8; roughness: 0.48 }  }
+Box { id: part54; position: [6,32,1.35]; width: 2.4; depth: 1.8; height: 0.12; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part55; position: [-18,-22,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part56; position: [-18,-18,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part57; position: [-18,-14,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part58; position: [-18,-10,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part59; position: [-18,-6,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part60; position: [-18,-2,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part61; position: [-18,2,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part62; position: [-18,6,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part63; position: [-18,10,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part64; position: [-18,14,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part65; position: [-18,18,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part66; position: [-18,22,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part67; position: [-18,26,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part68; position: [-18,30,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part69; position: [-18,34,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part70; position: [-18,38,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part71; position: [-18,42,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part72; position: [-18,46,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part73; position: [-18,50,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part74; position: [-18,14,0.65]; width: 0.07; depth: 72; height: 0.08; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part75; position: [-18,14,1.35]; width: 0.07; depth: 72; height: 0.08; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part76; position: [-18,14,2.05]; width: 0.07; depth: 72; height: 0.08; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part77; position: [18,-22,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part78; position: [18,-18,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part79; position: [18,-14,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part80; position: [18,-10,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part81; position: [18,-6,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part82; position: [18,-2,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part83; position: [18,2,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part84; position: [18,6,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part85; position: [18,10,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part86; position: [18,14,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part87; position: [18,18,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part88; position: [18,22,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part89; position: [18,26,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part90; position: [18,30,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part91; position: [18,34,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part92; position: [18,38,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part93; position: [18,42,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part94; position: [18,46,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part95; position: [18,50,1.25]; width: 0.16; depth: 0.16; height: 2.5; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part96; position: [18,14,0.65]; width: 0.07; depth: 72; height: 0.08; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part97; position: [18,14,1.35]; width: 0.07; depth: 72; height: 0.08; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part98; position: [18,14,2.05]; width: 0.07; depth: 72; height: 0.08; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part99; position: [-15,-8,2.7]; width: 0.12; depth: 0.12; height: 5.4; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part100; position: [-15,-8,5.3]; width: 1.2; depth: 0.6; height: 0.13; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part101; position: [-15,-8.03,5.2]; width: 0.94; depth: 0.48; height: 0.06; PrincipledMaterial { baseColor: "#ffcc72"; emissiveColor: [3,1.6,0.4]; roughness: 0.4 }  }
+PointLight { position: [-15,-8,4.9]; intensity: 3; attenuationRadius: 14; lightColor: "#ffc477" }
+Box { id: part102; position: [15,-6,2.7]; width: 0.12; depth: 0.12; height: 5.4; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part103; position: [15,-6,5.3]; width: 1.2; depth: 0.6; height: 0.13; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part104; position: [15,-6.03,5.2]; width: 0.94; depth: 0.48; height: 0.06; PrincipledMaterial { baseColor: "#ffcc72"; emissiveColor: [3,1.6,0.4]; roughness: 0.4 }  }
+PointLight { position: [15,-6,4.9]; intensity: 3; attenuationRadius: 14; lightColor: "#ffc477" }
+Box { id: part105; position: [-15,18,2.7]; width: 0.12; depth: 0.12; height: 5.4; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part106; position: [-15,18,5.3]; width: 1.2; depth: 0.6; height: 0.13; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part107; position: [-15,17.97,5.2]; width: 0.94; depth: 0.48; height: 0.06; PrincipledMaterial { baseColor: "#ffcc72"; emissiveColor: [3,1.6,0.4]; roughness: 0.4 }  }
+PointLight { position: [-15,18,4.9]; intensity: 3; attenuationRadius: 14; lightColor: "#ffc477" }
+Box { id: part108; position: [15,32,2.7]; width: 0.12; depth: 0.12; height: 5.4; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part109; position: [15,32,5.3]; width: 1.2; depth: 0.6; height: 0.13; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part110; position: [15,31.97,5.2]; width: 0.94; depth: 0.48; height: 0.06; PrincipledMaterial { baseColor: "#ffcc72"; emissiveColor: [3,1.6,0.4]; roughness: 0.4 }  }
+PointLight { position: [15,32,4.9]; intensity: 3; attenuationRadius: 14; lightColor: "#ffc477" }
+Cylinder { position: [-11,2,0.55]; radius: 0.42; height: 1.1; segments: 24; PrincipledMaterial { baseColorMap: metal; metalness: 0.7; roughness: 0.48 } }
+Cylinder { position: [-11,2,0.16]; radius: 0.44; height: 0.06; PrincipledMaterial { baseColor: "#b5a989"; metalness: 0.65; roughness: 0.5 } }
+Cylinder { position: [-11,2,0.91]; radius: 0.44; height: 0.06; PrincipledMaterial { baseColor: "#b5a989"; metalness: 0.65; roughness: 0.5 } }
+Cylinder { position: [12,8,0.55]; radius: 0.42; height: 1.1; segments: 24; PrincipledMaterial { baseColorMap: metal; metalness: 0.7; roughness: 0.48 } }
+Cylinder { position: [12,8,0.16]; radius: 0.44; height: 0.06; PrincipledMaterial { baseColor: "#b5a989"; metalness: 0.65; roughness: 0.5 } }
+Cylinder { position: [12,8,0.91]; radius: 0.44; height: 0.06; PrincipledMaterial { baseColor: "#b5a989"; metalness: 0.65; roughness: 0.5 } }
+Cylinder { position: [-12,32,0.55]; radius: 0.42; height: 1.1; segments: 24; PrincipledMaterial { baseColorMap: metal; metalness: 0.7; roughness: 0.48 } }
+Cylinder { position: [-12,32,0.16]; radius: 0.44; height: 0.06; PrincipledMaterial { baseColor: "#b5a989"; metalness: 0.65; roughness: 0.5 } }
+Cylinder { position: [-12,32,0.91]; radius: 0.44; height: 0.06; PrincipledMaterial { baseColor: "#b5a989"; metalness: 0.65; roughness: 0.5 } }
+Box { id: part111; position: [0,10,0.08]; width: 28; depth: 0.18; height: 0.16; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part112; position: [-14,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part113; position: [-12,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part114; position: [-10,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part115; position: [-8,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part116; position: [-6,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part117; position: [-4,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part118; position: [-2,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part119; position: [0,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part120; position: [2,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part121; position: [4,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part122; position: [6,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part123; position: [8,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part124; position: [10,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part125; position: [12,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part126; position: [14,10,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part127; position: [0,22,0.08]; width: 28; depth: 0.18; height: 0.16; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part128; position: [-14,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part129; position: [-12,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part130; position: [-10,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part131; position: [-8,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part132; position: [-6,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part133; position: [-4,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part134; position: [-2,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part135; position: [0,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part136; position: [2,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part137; position: [4,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part138; position: [6,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part139; position: [8,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part140; position: [10,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part141; position: [12,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part142; position: [14,22,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part143; position: [0,36,0.08]; width: 28; depth: 0.18; height: 0.16; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part144; position: [-14,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part145; position: [-12,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part146; position: [-10,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part147; position: [-8,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part148; position: [-6,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part149; position: [-4,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part150; position: [-2,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part151; position: [0,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part152; position: [2,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part153; position: [4,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part154; position: [6,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part155; position: [8,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part156; position: [10,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part157; position: [12,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part158; position: [14,36,0.04]; width: 0.12; depth: 1; height: 0.08; PrincipledMaterial { baseColorMap: wood; roughness: 0.87; uvScale: [0.35,0.35] }  }
+Box { id: part159; position: [0,48,1.7]; width: 35; depth: 1.5; height: 3.4; PrincipledMaterial { baseColorMap: concrete; roughness: 0.92; uvScale: [0.3,0.3] }  }
+Box { id: part160; position: [-16,44,4.3]; width: 0.3; depth: 0.3; height: 8.6; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part161; position: [16,44,4.3]; width: 0.3; depth: 0.3; height: 8.6; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Box { id: part162; position: [0,44,8.2]; width: 32; depth: 0.35; height: 0.3; PrincipledMaterial { baseColorMap: metal; metalness: 0.65; roughness: 0.47; uvScale: [0.3,0.3] }  }
+Sphere { radius: 0.09; position: [-14,44,8.08]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [-12,44,8.04]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [-10,44,8]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [-8,44,7.96]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [-6,44,7.92]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [-4,44,7.88]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [-2,44,7.84]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [0,44,7.8]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [2,44,7.84]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [4,44,7.88]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [6,44,7.92]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [8,44,7.96]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [10,44,8]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [12,44,8.04]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+Sphere { radius: 0.09; position: [14,44,8.08]; PrincipledMaterial { emissiveColor: [3,1.7,0.5]; baseColor: "#ffdb95" } }
+}
