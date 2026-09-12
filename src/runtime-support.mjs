@@ -3,7 +3,7 @@
 // native EnvironmentFacade (ssdl_environment_bindings.cpp), lirendersystem.cpp and the SSDL browser runtime.
 
 /** Bumped whenever the notes below change meaning, so catalog_digest moves with them. */
-export const NOTES_VERSION = 18;
+export const NOTES_VERSION = 19;
 
 // DirectionalLight with atmosphereSunLight: true adopts the engine's scene sun (LiSun), which only
 // exposes the LiLight base properties. The owned-light-only members fail at runtime with
@@ -132,7 +132,7 @@ const HEIGHTFIELD_GRID_POLICY = Object.freeze({
  * reports the Model's own handle -- never a leaf. Measured: 329 picks over a 563-node scene all
  * resolved to a declared node, and a real click on a car glb fired its nested TapHandler.
  */
-const MODEL_PICK_POLICY = "a whole glb is ONE pick target: a TapHandler/HoverHandler nested in the Model fires for a tap anywhere on it, but the objects inside the glb have no handles and cannot be addressed individually. For part-level interaction put an opacity: 0 proxy (still picked; visible: false leaves picking) over the part, or split the glb into one Model per part. Per-part appearance is limited to baseColorTexture + materialSlot (material_0..material_99, create-only)";
+const MODEL_PICK_POLICY = "a whole glb is ONE pick target: a TapHandler/HoverHandler nested in the Model fires for a tap anywhere on it, but the objects inside the glb have no handles and cannot be addressed individually. For part-level interaction put an opacity: 0 proxy (still picked; visible: false leaves picking) over the part, or split the glb into one Model per part. Per-part appearance is limited to baseColorTexture + materialSlot (material_0..material_99, create-only). There is also a page-JS escape hatch outside SSDL: the loader names every glTF node on its entity, LiEntity.travalHierarchy reaches them from index.html, and SceneGraphFacade.adoptEntity('external:<your name>', entity) publishes one as a real node that pick/setTransform/setVisible/reparent accept - but an adopted part TAKES OVER pick attribution, so a TapHandler nested on that Model stops firing over it, and a glTF node folded into GPU instancing has no entity to adopt (see the skill for the recipe and limits)";
 
 /** Member-level notes merged into ssworld_catalog output. */
 export function memberNotes(component, member, descriptor = {}) {

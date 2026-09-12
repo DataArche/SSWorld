@@ -1,7 +1,7 @@
 ---
 name: ssworld
 description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.13.0
+version: 1.14.0
 author: SSWorld
 license: MIT
 metadata:
@@ -191,11 +191,30 @@ Mouse movement, the wheel and gamepads have no components yet: listen in `index.
 
 **A `Model` is one pick target, and the objects inside the glb cannot be addressed at all.** The engine raycasts *tracked nodes*, and a whole glb is one tracked node: a tap anywhere on it reports the `Model`'s own handle, so a `TapHandler` nested in the Model fires (verified on real hardware — a click on a car glb took its nested handler from 0 to 1, and 329 picks across a 563-node scene resolved to a declared node every time, with no glb leaf ever reported). What you cannot do is tell a door from a wheel: there is no sub-node handle, no child of a `Model` in SSDL, and animation reaches only its transform and visibility.
 
-Three ways to get part-level interaction anyway:
-- **A transparent proxy.** `opacity: 0` geometry is still picked, so a `Box { opacity: 0 }` over the bonnet is a hot zone with a `TapHandler` of its own. `visible: false` is the opposite: it leaves picking entirely, which is how you switch a hot zone off.
-- **Split the glb** into one per interactive part in the DCC tool and mount several `Model` nodes under one `Group`. This is the only way each part can also move independently.
-- **Retexture one material slot** with `baseColorTexture` + `materialSlot: "material_0"` (`material_0`..`material_99`, both create-only, so it is scene setup and not a reaction to a tap).
+**The escape hatch: mint your own handle for a part of the glb.** The atomicity above is the SSDL surface, not the engine. The loader names every glTF node on the entity it creates, and from `index.html` / `logic.mjs` you can walk to it and hand it a handle of your own:
 
+```js
+const rt = window.SSWorld.host.scopes.get("ssworld-project").current.context.runtime.runtime;
+// 1. Find the Model's entity. Its objectName is `ssdl:<scope>:<node id>:<incarnation>`.
+let modelRoot = null;
+window.GlobalViewer.scene.rootEntity.travalHierarchy((e) => {
+  if (!modelRoot && e.objectName.includes(":carPlayer:")) modelRoot = e;
+});
+// 2. Its subtree is the glb, one entity per glTF node, under the original authored names.
+const parts = new Map();
+modelRoot.travalHierarchy((e) => { if (e.objectName && e.renderer) parts.set(e.objectName, e); });
+// -> Headlights, Bottom, Rear_bumper, FL_WHEEL, FR_WHEEL, RL_WHEEL, RR_WHEEL, Logos, Exhaust
+// 3. Publish one into the scene node table under a handle you choose. NOTE the argument shape:
+//    a BARE handle string, not the JSON request every other op on this facade takes.
+rt.sceneGraphFacade.adoptEntity("external:part/FL_WHEEL", parts.get("FL_WHEEL"));
+// -> { ok: true, adopted: true, kind: "external", node_handle: "external:part/FL_WHEEL", frame: "z_up" }
+```
+
+An adopted part is a first-class node: `pick` reports its handle, and `setTransform` / `setVisible` / `reparent` accept it (`target_kinds` is `geometry`, `locator`, `external`). `withdraw` gives it back. Verified on real hardware with `src/ssdl/tools/probe_model_entities.py`: before adopting, a pick grid over a car glb reported `external:ssdl-model:6` and nothing else; after adopting four named parts, `external:part/Rear_bumper` was reported directly and **the Model's own handle stopped appearing at all**.
+
+That last sentence is the cost, and it is a trap: **an adopted part takes over attribution, so a `TapHandler` nested on that `Model` silently stops firing over it** (the runtime fires only when the pick handle equals the target's handle). Adopt parts or keep the whole-model handler, not both on the same surface. Four more limits worth knowing before you build on this: SSDL has no component for adopted handles, so wire the click yourself in `index.html` (`pick` on your own listener, map handle to part, then `window.SSWorld.logical.write(...)` to push it into scene logic); a glTF node whose mesh is shared with other nodes is folded into GPU instancing and **no entity is created**, so it cannot be adopted; exporters routinely emit empty or duplicate names (`""`, `RootNode`, `Plane.013`), so check what your glb actually contains before keying logic off a name; and `childEntities()` is registered but not callable from JS — `travalHierarchy` is the only traversal that works.
+
+Three ways to get part-level interaction without leaving SSDL:
 ### Animation
 - Easing is `easing.type: "Easing.InOutSine"` — the enum must be fully qualified; `easing: "InOutSine"` is an `unknown_property`. (The equivalent member on `Behavior` is spelled `easing`.)
 - `Behavior` eases every change of its target property over `duration`; put it on a property that changes each frame and it lags by roughly speed × duration. **Use it for discrete jumps only; bind continuous motion directly.**
