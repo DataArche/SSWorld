@@ -1,6 +1,6 @@
 {
   "name": "ssworld-mcp",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "SSWorld MCP server: author, compile and preview SSDL 3D geo scenes on the SSEngine WebGPU runtime from any agent app.",
   "license": "Apache-2.0",
   "type": "module",

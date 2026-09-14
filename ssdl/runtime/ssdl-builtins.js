@@ -56,6 +56,8 @@
     "Model",
     "Texture",
     "PrincipledMaterial",
+    "UnlitMaterial",
+    "WaterMaterial",
     "Prefab",
     "Instances",
     "Repeater",
@@ -239,6 +241,24 @@
   function quaternionZ(degrees = 0) {
     const half = finite(degrees, "rotation_z") * Math.PI / 360;
     return { x: 0, y: 0, z: Math.sin(half), w: Math.cos(half) };
+  }
+
+  // Intrinsic Z-Y-X: roll about X, then pitch about Y, then yaw about Z, which is
+  // what "turn it to face there, then tip it" means to an author writing a city.
+  // Degrees, because every other rotation an SSDL author writes is in degrees.
+  function quaternionEulerDegrees(x, y, z, field) {
+    const hx = finite(x, `${field}.x`) * Math.PI / 360;
+    const hy = finite(y, `${field}.y`) * Math.PI / 360;
+    const hz = finite(z, `${field}.z`) * Math.PI / 360;
+    const [sx, cx] = [Math.sin(hx), Math.cos(hx)];
+    const [sy, cy] = [Math.sin(hy), Math.cos(hy)];
+    const [sz, cz] = [Math.sin(hz), Math.cos(hz)];
+    return {
+      x: sx * cy * cz - cx * sy * sz,
+      y: cx * sy * cz + sx * cy * sz,
+      z: cx * cy * sz - sx * sy * cz,
+      w: cx * cy * cz + sx * sy * sz,
+    };
   }
 
   function quaternion(value, field) {
@@ -3601,7 +3621,7 @@
     dispose() {
       if (this.disposed) return { ok: true, removed: false, idempotent: true };
       invariant(this.references.size === 0,
-        `Texture '${this.id}' is still referenced by a Model or PrincipledMaterial`);
+        `Texture '${this.id}' is still referenced by a Model or a material`);
       this.runtime.textures.delete(this.id);
       this.disposed = true;
       return { ok: true, removed: true, idempotent: false };
@@ -4737,40 +4757,40 @@
     }
   }
 
-  function materialUvScale(value) {
+  function materialUvScale(value, kind = "PrincipledMaterial") {
     if (value === undefined) return [1, 1];
     let u, v;
     if (Array.isArray(value)) {
-      invariant(value.length === 2, "PrincipledMaterial.uvScale must be [u, v] or { x, y }");
+      invariant(value.length === 2, `${kind}.uvScale must be [u, v] or { x, y }`);
       [u, v] = value;
     } else {
       invariant(value && typeof value === "object" && !Array.isArray(value)
         && Object.keys(value).length === 2 && Object.hasOwn(value, "x") && Object.hasOwn(value, "y"),
-      "PrincipledMaterial.uvScale must be [u, v] or { x, y }");
+      `${kind}.uvScale must be [u, v] or { x, y }`);
       ({ x: u, y: v } = value);
     }
-    finite(u, "PrincipledMaterial.uvScale.u");
-    finite(v, "PrincipledMaterial.uvScale.v");
-    invariant(u > 0 && v > 0, "PrincipledMaterial.uvScale components must be > 0");
+    finite(u, `${kind}.uvScale.u`);
+    finite(v, `${kind}.uvScale.v`);
+    invariant(u > 0 && v > 0, `${kind}.uvScale components must be > 0`);
     return [u, v];
   }
 
-  function emissiveColorComponents(value) {
+  function emissiveColorComponents(value, kind = "PrincipledMaterial") {
     let r, g, b;
     if (Array.isArray(value)) {
-      invariant(value.length === 3, "PrincipledMaterial.emissiveColor must be [r, g, b] or { x, y, z }");
+      invariant(value.length === 3, `${kind}.emissiveColor must be [r, g, b] or { x, y, z }`);
       [r, g, b] = value;
     } else {
       invariant(value && typeof value === "object"
         && ["x", "y", "z"].every((axis) => Object.hasOwn(value, axis)),
-      "PrincipledMaterial.emissiveColor must be [r, g, b] or { x, y, z }");
+      `${kind}.emissiveColor must be [r, g, b] or { x, y, z }`);
       ({ x: r, y: g, z: b } = value);
     }
     const components = [r, g, b];
     components.forEach((component, index) => {
-      finite(component, `PrincipledMaterial.emissiveColor[${index}]`);
+      finite(component, `${kind}.emissiveColor[${index}]`);
       invariant(component >= 0 && component <= MAX_EMISSIVE_COMPONENT,
-        `PrincipledMaterial.emissiveColor[${index}] must be in 0..${MAX_EMISSIVE_COMPONENT}`);
+        `${kind}.emissiveColor[${index}] must be in 0..${MAX_EMISSIVE_COMPONENT}`);
     });
     return components;
   }
@@ -4804,6 +4824,12 @@
       unavailableProperties,
       properties: new Set(capabilities.properties),
       textureSlots: new Set(capabilities.texture_slots),
+      // Additive: a runtime built before the unlit lane simply does not publish this, and only
+      // UnlitMaterial asks for it, so PrincipledMaterial keeps working against the older facade.
+      shadingModels: Array.isArray(capabilities.shading_models) ? capabilities.shading_models : [],
+      // Same rule for the water lane, which needs a second signal: the lane alone is not enough,
+      // because the whole point of v2 is the uniform block behind it.
+      waterParameters: typeof capabilities.water_parameters === "string" ? capabilities.water_parameters : null,
     };
   }
 
@@ -4820,6 +4846,23 @@
     assertMaterialMemberAvailable(capability.unavailableProperties, slot);
   }
 
+  // The block round trips through float32 uniform slots and, for the two colours, through QColor's
+  // 16-bit channels, so the comparison is relative and loose enough for both - but it does compare
+  // every field, because a whole-block write that quietly dropped one member on the native side
+  // would otherwise look exactly like a successful one.
+  function waterReceiptMatches(receipt, patch) {
+    const close = (seen, expected) => Number.isFinite(seen)
+      && Math.abs(seen - expected) <= 1e-3 * Math.max(1, Math.abs(expected));
+    for (const field of ["base_color", "deep_color", "uv_scale"]) {
+      const expected = patch[field];
+      const seen = receipt[field];
+      if (!Array.isArray(seen) || seen.length !== expected.length) return false;
+      if (!expected.every((value, index) => close(seen[index], value))) return false;
+    }
+    return ["depth_fade_distance", "opacity", "metallic", "roughness", "specular",
+      "wave_intensity", "flow_direction", "flow_speed"].every((field) => close(receipt[field], patch[field]));
+  }
+
   function uvScaleReadbackMatches(receipt, expected) {
     return Array.isArray(receipt?.uv_scale) && receipt.uv_scale.length === 2
       && receipt.uv_scale.every((value) => Number.isFinite(value) && value > 0)
@@ -4827,57 +4870,164 @@
         <= 1e-6 * Math.max(1, Math.abs(value), Math.abs(expected[index])));
   }
 
-  class PrincipledMaterial {
-    constructor(runtime, spec) {
-      invariant(spec && typeof spec === "object", "PrincipledMaterial needs a spec");
-      const materialCapability = requireMaterialFacadeV2(runtime, "PrincipledMaterial");
-      const unavailableMaterialMember = Object.keys(spec).find((name) =>
-        materialCapability.unavailableProperties.has(name));
-      invariant(!unavailableMaterialMember,
-        `PrincipledMaterial.${unavailableMaterialMember} is unavailable in MaterialFacade/v2`);
-      const allowed = new Set([
+  // Two material kinds share one implementation because they differ only in which members they
+  // accept and which native shading lane they sit on.  UnlitMaterial skips lighting, shadows and
+  // reflections entirely (LiMaterial::Unlit), so metalness/roughness/normal maps would be members
+  // that silently do nothing - they are refused rather than accepted and ignored.
+  const MATERIAL_KINDS = Object.freeze({
+    PrincipledMaterial: Object.freeze({
+      shadingModel: "principled",
+      members: Object.freeze([
         "id", "key", "target", "baseColor", "opacity", "metalness", "roughness",
         "baseColorMap", "metallicRoughnessMap", "normalMap", "emissiveMap", "normalScale", "uvScale",
         "emissiveColor",
-      ]);
+      ]),
+      ratios: Object.freeze(["metalness", "roughness"]),
+      textureSlots: Object.freeze(["baseColorMap", "metallicRoughnessMap", "normalMap", "emissiveMap"]),
+    }),
+    UnlitMaterial: Object.freeze({
+      shadingModel: "unlit",
+      members: Object.freeze([
+        "id", "key", "target", "baseColor", "opacity", "baseColorMap", "uvScale", "emissiveColor",
+      ]),
+      ratios: Object.freeze([]),
+      textureSlots: Object.freeze(["baseColorMap"]),
+    }),
+    // The water lane (LiMaterial::Water) reads one uniform block and one built-in normal map and
+    // skips LiMaterial's standard Material block entirely, so every member here is a field of that
+    // block: no managed texture slots, no emissive factor, and baseColor/opacity travel in the block
+    // rather than through the logical property bridge the other two kinds use.
+    WaterMaterial: Object.freeze({
+      shadingModel: "water",
+      members: Object.freeze([
+        "id", "key", "target", "baseColor", "deepColor", "depthFadeDistance", "opacity",
+        "metalness", "roughness", "specular", "waveIntensity", "flowDirection", "flowSpeed",
+        "uvScale",
+      ]),
+      ratios: Object.freeze([]),
+      textureSlots: Object.freeze([]),
+      waterParameters: true,
+    }),
+  });
+
+  // SSDL's defaults, not the engine's: LiMaterial's water block starts black, which under the lane's
+  // forced 0.7 translucency reads as an oil slick rather than water.  The engine default is left
+  // alone (QML and Python callers depend on it); this is the catalog-level starting point an author
+  // gets when they write `WaterMaterial {}`.  deepColor defaults to whatever baseColor ends up being,
+  // which reproduces the single-colour water the shader rendered before v2 gave the mix a real
+  // second endpoint.
+  const WATER_MEMBER_DEFAULTS = Object.freeze({
+    baseColor: "#2f6f8f",
+    depthFadeDistance: 150,
+    opacity: 0.7,
+    metalness: 0,
+    roughness: 0,
+    specular: 1,
+    waveIntensity: 0.103333,
+    flowDirection: 0,
+    flowSpeed: 1,
+  });
+
+  const WATER_MEMBER_RANGES = Object.freeze({
+    depthFadeDistance: Object.freeze({ minimum: 0.001, maximum: 1e9, text: "> 0" }),
+    opacity: Object.freeze({ minimum: 0, maximum: 1, text: "in 0..1" }),
+    metalness: Object.freeze({ minimum: 0, maximum: 1, text: "in 0..1" }),
+    roughness: Object.freeze({ minimum: 0, maximum: 1, text: "in 0..1" }),
+    specular: Object.freeze({ minimum: 0, maximum: 1, text: "in 0..1" }),
+    waveIntensity: Object.freeze({ minimum: 0, maximum: 4, text: "in 0..4" }),
+    flowSpeed: Object.freeze({ minimum: 0, maximum: 1e6, text: ">= 0" }),
+  });
+
+  // The author writes sRGB hex like everywhere else in SSDL; the uniform block holds linear light.
+  function waterLinearRgba(value) {
+    const { r_u16, g_u16, b_u16, a_u16 } = hexColor(value);
+    return [r_u16 / 65535, g_u16 / 65535, b_u16 / 65535, a_u16 / 65535];
+  }
+
+  function waterMemberValue(kind, member, value) {
+    if (member === "baseColor" || member === "deepColor") {
+      hexColor(value);
+      return value;
+    }
+    finite(value, `${kind}.${member}`);
+    // A compass bearing has no invalid value, it only has a representative: the native setter takes
+    // it modulo 360 too, so normalising here keeps the readback comparison honest.
+    if (member === "flowDirection") return ((value % 360) + 360) % 360;
+    const range = WATER_MEMBER_RANGES[member];
+    invariant(value >= range.minimum && value <= range.maximum,
+      `${kind}.${member} must be ${range.text}`);
+    return value;
+  }
+
+  class MaterialBase {
+    constructor(runtime, spec, kind) {
+      this.kind = kind;
+      const profile = MATERIAL_KINDS[kind];
+      invariant(profile, `unknown material kind '${kind}'`);
+      this.textureSlots = profile.textureSlots;
+      invariant(spec && typeof spec === "object", `${this.kind} needs a spec`);
+      const materialCapability = requireMaterialFacadeV2(runtime, `${this.kind}`);
+      // Kind first, facade second: a member this kind never had reads as "UnlitMaterial has no
+      // roughness", not as a native adapter that happens to be unavailable today.
+      const allowed = new Set(profile.members);
       const unknown = Object.keys(spec).find((name) => !allowed.has(name));
-      invariant(!unknown, `member_unsupported: PrincipledMaterial.${unknown}`);
+      invariant(!unknown, `member_unsupported: ${this.kind}.${unknown}`);
+      const unavailableMaterialMember = Object.keys(spec).find((name) =>
+        materialCapability.unavailableProperties.has(name));
+      invariant(!unavailableMaterialMember,
+        `${this.kind}.${unavailableMaterialMember} is unavailable in MaterialFacade/v2`);
       invariant(spec.target instanceof SceneObject && !spec.target.disposed,
-        "PrincipledMaterial.target must be a live scene object");
+        `${this.kind}.target must be a live scene object`);
       invariant(spec.target.materials.size === 0,
-        "PrincipledMaterial.target already has a PrincipledMaterial");
+        `${this.kind}.target already has a material`);
       const id = spec.id || spec.key || `${spec.target.spec.id}/material`;
-      invariant(typeof id === "string" && id.length > 0, "PrincipledMaterial.id or key is required");
-      invariant(!runtime.materials.has(id), `PrincipledMaterial '${id}' is already registered`);
+      invariant(typeof id === "string" && id.length > 0, `${this.kind}.id or key is required`);
+      invariant(!runtime.materials.has(id), `${this.kind} '${id}' is already registered`);
       invariant(!runtime.objects.has(id) && !runtime.groups.has(id),
-        `PrincipledMaterial id '${id}' is already in use by a scene node`);
-      const uvScale = materialUvScale(spec.uvScale);
+        `${this.kind} id '${id}' is already in use by a scene node`);
+      const uvScale = materialUvScale(spec.uvScale, kind);
+      // Materialised before the material is registered, so a bad member throws without leaving a
+      // half-built material behind, and so the whole block can go out in one write.
+      const waterValues = profile.waterParameters ? new Map() : null;
+      if (waterValues) {
+        for (const [member, fallback] of Object.entries(WATER_MEMBER_DEFAULTS)) {
+          waterValues.set(member, spec[member] === undefined
+            ? fallback : waterMemberValue(kind, member, spec[member]));
+        }
+        // deepColor tracks baseColor unless the author named one, which is what "single-colour
+        // water" means; the flag survives so a later baseColor write (an animation, say) does not
+        // silently open a gradient the author never asked for.
+        this.deepColorFollowsBaseColor = spec.deepColor === undefined;
+        waterValues.set("deepColor", this.deepColorFollowsBaseColor
+          ? waterValues.get("baseColor") : waterMemberValue(kind, "deepColor", spec.deepColor));
+      }
       if (spec.baseColor !== undefined) hexColor(spec.baseColor);
       if (spec.opacity !== undefined) {
-        finite(spec.opacity, "PrincipledMaterial.opacity");
-        invariant(spec.opacity >= 0 && spec.opacity <= 1, "PrincipledMaterial.opacity must be in 0..1");
+        finite(spec.opacity, `${this.kind}.opacity`);
+        invariant(spec.opacity >= 0 && spec.opacity <= 1, `${this.kind}.opacity must be in 0..1`);
       }
-      for (const name of ["metalness", "roughness"]) {
+      for (const name of profile.ratios) {
         if (spec[name] === undefined) continue;
-        finite(spec[name], `PrincipledMaterial.${name}`);
-        invariant(spec[name] >= 0 && spec[name] <= 1, `PrincipledMaterial.${name} must be in 0..1`);
+        finite(spec[name], `${this.kind}.${name}`);
+        invariant(spec[name] >= 0 && spec[name] <= 1, `${this.kind}.${name} must be in 0..1`);
       }
-      for (const slot of MANAGED_MATERIAL_TEXTURE_SLOTS) {
+      for (const slot of profile.textureSlots) {
         const texture = spec[slot];
         if (texture === undefined) continue;
         invariant(texture instanceof Texture && !texture.disposed && texture.runtime === runtime,
-          `PrincipledMaterial.${slot} must be a live Texture from the same runtime`);
+          `${this.kind}.${slot} must be a live Texture from the same runtime`);
       }
       this.runtime = runtime;
       this.id = id;
       this.target = spec.target;
-      this.values = new Map();
+      this.values = waterValues || new Map();
       this.uvScale = uvScale;
+      this.shadingModel = profile.shadingModel;
       // Slot state and its revision counter come from the same list that drives the allowlist,
       // initial writes, clear, snapshot and teardown: a hand-written pair per slot silently leaves
       // a new slot's revision undefined (NaN never equals itself, so every write reads as
       // "superseded" and the map is dropped without an error the author can see).
-      for (const slot of MANAGED_MATERIAL_TEXTURE_SLOTS) {
+      for (const slot of profile.textureSlots) {
         this[slot] = null;
         this[`${slot}Revision`] = 0;
       }
@@ -4885,18 +5035,28 @@
       runtime.materials.set(id, this);
       this.target.materials.add(this);
       try {
-        this.applyTextureTransform(uvScale, materialCapability);
-        if (spec.baseColor !== undefined) this.setBaseColor(spec.baseColor);
-        if (spec.opacity !== undefined) this.setOpacity(spec.opacity);
-        if (spec.metalness !== undefined) this.setMetalness(spec.metalness);
-        if (spec.roughness !== undefined) this.setRoughness(spec.roughness);
-        if (spec.normalScale !== undefined) this.setNormalScale(spec.normalScale);
-        if (spec.emissiveColor !== undefined) this.setEmissiveColor(spec.emissiveColor);
+        // Before any member write, so a material never renders one frame on the wrong lane.
+        if (profile.shadingModel !== "principled") {
+          this.applyShadingModel(profile.shadingModel, materialCapability);
+        }
+        if (profile.waterParameters) {
+          // One uniform block, one write.  uvScale rides inside it: the lane never samples a managed
+          // texture, so MaterialTextureTransform/v1 would land on a transform nothing reads.
+          this.applyWaterParameters(materialCapability);
+        } else {
+          this.applyTextureTransform(uvScale, materialCapability);
+          if (spec.baseColor !== undefined) this.setBaseColor(spec.baseColor);
+          if (spec.opacity !== undefined) this.setOpacity(spec.opacity);
+          if (spec.metalness !== undefined) this.setMetalness(spec.metalness);
+          if (spec.roughness !== undefined) this.setRoughness(spec.roughness);
+          if (spec.normalScale !== undefined) this.setNormalScale(spec.normalScale);
+          if (spec.emissiveColor !== undefined) this.setEmissiveColor(spec.emissiveColor);
+        }
       } catch (error) {
         this.dispose();
         throw error;
       }
-      const initialTextureSlots = MANAGED_MATERIAL_TEXTURE_SLOTS.filter((slot) => spec[slot] !== undefined);
+      const initialTextureSlots = profile.textureSlots.filter((slot) => spec[slot] !== undefined);
       if (initialTextureSlots.length === 0) {
         this.ready = Promise.resolve(this);
       } else {
@@ -4914,10 +5074,105 @@
       }
     }
 
+    // A member the kind does not carry is refused here rather than at the facade, so the author sees
+    // "UnlitMaterial has no roughness" instead of a native adapter error about a property that exists.
+    assertSupports(member) {
+      invariant(MATERIAL_KINDS[this.kind].members.includes(member),
+        `member_unsupported: ${this.kind}.${member}`);
+    }
+
+    applyShadingModel(model, capability = null) {
+      invariant(!this.disposed, `${this.kind} is disposed`);
+      const materialCapability = capability || requireMaterialFacadeV2(this.runtime, `${this.kind}`);
+      const materialFacade = materialCapability.facade;
+      invariant(Array.isArray(materialCapability.shadingModels)
+        && materialCapability.shadingModels.includes(model)
+        && typeof materialFacade.writeShadingModel === "function"
+        && typeof materialFacade.readShadingModel === "function",
+      `MaterialFacade/v2 does not publish the '${model}' shading lane`);
+      const receipt = nativeResult(materialFacade.writeShadingModel(this.target.handle, JSON.stringify({
+        schema_version: "MaterialShadingModel/v1",
+        model,
+      })), "MaterialFacade.writeShadingModel");
+      invariant(receipt.model === model,
+        "MaterialFacade.writeShadingModel returned an invalid shading model readback receipt");
+      this.shadingModel = model;
+      return this;
+    }
+
+    readShadingModel() {
+      invariant(!this.disposed, `${this.kind} is disposed`);
+      const materialCapability = requireMaterialFacadeV2(this.runtime, `${this.kind}`);
+      const materialFacade = materialCapability.facade;
+      if (typeof materialFacade.readShadingModel !== "function") return this.shadingModel;
+      const receipt = nativeResult(materialFacade.readShadingModel(this.target.handle),
+        "MaterialFacade.readShadingModel");
+      return receipt.model;
+    }
+
+    // The whole block, every time.  MaterialWaterParameters/v1 is closed and requires all eleven
+    // members, because the facade is forbidden from inventing a default the caller did not send -
+    // a default materialised on the far side of the wire is a value nobody can see or animate.
+    applyWaterParameters(capability = null) {
+      invariant(!this.disposed, `${this.kind} is disposed`);
+      const materialCapability = capability || requireMaterialFacadeV2(this.runtime, `${this.kind}`);
+      const materialFacade = materialCapability.facade;
+      invariant(materialCapability.waterParameters === "MaterialWaterParameters/v1"
+        && typeof materialFacade.writeWaterParameters === "function"
+        && typeof materialFacade.readWaterParameters === "function",
+      "MaterialFacade/v2 does not publish the MaterialWaterParameters/v1 block");
+      const patch = {
+        schema_version: "MaterialWaterParameters/v1",
+        base_color: waterLinearRgba(this.values.get("baseColor")),
+        deep_color: waterLinearRgba(this.values.get("deepColor")),
+        depth_fade_distance: this.values.get("depthFadeDistance"),
+        opacity: this.values.get("opacity"),
+        metallic: this.values.get("metalness"),
+        roughness: this.values.get("roughness"),
+        specular: this.values.get("specular"),
+        wave_intensity: this.values.get("waveIntensity"),
+        flow_direction: this.values.get("flowDirection"),
+        flow_speed: this.values.get("flowSpeed"),
+        uv_scale: [...this.uvScale],
+      };
+      const receipt = nativeResult(materialFacade.writeWaterParameters(this.target.handle,
+        JSON.stringify(patch)), "MaterialFacade.writeWaterParameters");
+      invariant(receipt.schema_version === "MaterialWaterParameters/v1"
+        && waterReceiptMatches(receipt, patch),
+      "MaterialFacade.writeWaterParameters returned an invalid water parameter readback receipt");
+      return this;
+    }
+
+    setWaterMember(member, value) {
+      invariant(!this.disposed, `${this.kind} is disposed`);
+      this.assertSupports(member);
+      this.values.set(member, waterMemberValue(this.kind, member, value));
+      if (member === "baseColor" && this.deepColorFollowsBaseColor) {
+        this.values.set("deepColor", this.values.get("baseColor"));
+      }
+      if (member === "deepColor") this.deepColorFollowsBaseColor = false;
+      return this.applyWaterParameters();
+    }
+
+    setDeepColor(value) { return this.setWaterMember("deepColor", value); }
+    setDepthFadeDistance(value) { return this.setWaterMember("depthFadeDistance", value); }
+    setSpecular(value) { return this.setWaterMember("specular", value); }
+    setWaveIntensity(value) { return this.setWaterMember("waveIntensity", value); }
+    setFlowDirection(value) { return this.setWaterMember("flowDirection", value); }
+    setFlowSpeed(value) { return this.setWaterMember("flowSpeed", value); }
+
+    readWaterParameters() {
+      invariant(!this.disposed, `${this.kind} is disposed`);
+      this.assertSupports("waveIntensity");
+      const materialCapability = requireMaterialFacadeV2(this.runtime, `${this.kind}`);
+      return nativeResult(materialCapability.facade.readWaterParameters(this.target.handle),
+        "MaterialFacade.readWaterParameters");
+    }
+
     applyTextureTransform(value, capability = null) {
-      invariant(!this.disposed, "PrincipledMaterial is disposed");
-      const uvScale = materialUvScale(value);
-      const materialCapability = capability || requireMaterialFacadeV2(this.runtime, "PrincipledMaterial.uvScale");
+      invariant(!this.disposed, `${this.kind} is disposed`);
+      const uvScale = materialUvScale(value, this.kind);
+      const materialCapability = capability || requireMaterialFacadeV2(this.runtime, `${this.kind}.uvScale`);
       assertMaterialMemberAvailable(materialCapability.unavailableProperties, "uvScale");
       const materialFacade = materialCapability.facade;
       const receipt = nativeResult(materialFacade.setTextureTransform(this.target.handle, JSON.stringify({
@@ -4933,21 +5188,26 @@
     }
 
     setProperty(name, property, value, validate) {
-      invariant(!this.disposed, "PrincipledMaterial is disposed");
+      invariant(!this.disposed, `${this.kind} is disposed`);
       validate(value);
       this.runtime.writeLogical(this.target, property, value);
       this.values.set(name, cloneLogical(this.runtime.slotKey(this.target, property).value));
       return this;
     }
 
+    // On the water lane these two are fields of the uniform block, not LiMaterial's colour and
+    // opacity - the base pass skips the standard Material block for Water entirely, so the logical
+    // property bridge would write somewhere nothing samples.
     setBaseColor(value) {
+      if (MATERIAL_KINDS[this.kind].waterParameters) return this.setWaterMember("baseColor", value);
       return this.setProperty("baseColor", "material.color", value, hexColor);
     }
 
     setOpacity(value) {
+      if (MATERIAL_KINDS[this.kind].waterParameters) return this.setWaterMember("opacity", value);
       return this.setProperty("opacity", "material.opacity", value, (candidate) => {
-        finite(candidate, "PrincipledMaterial.opacity");
-        invariant(candidate >= 0 && candidate <= 1, "PrincipledMaterial.opacity must be in 0..1");
+        finite(candidate, `${this.kind}.opacity`);
+        invariant(candidate >= 0 && candidate <= 1, `${this.kind}.opacity must be in 0..1`);
       });
     }
 
@@ -4956,9 +5216,9 @@
     // neon surface past the bloom threshold.  It travels on its own frozen shape because
     // PrincipledMaterialProperty/v1 is closed around a scalar value.
     setEmissiveColor(value) {
-      invariant(!this.disposed, "PrincipledMaterial is disposed");
-      const components = emissiveColorComponents(value);
-      const materialCapability = requireMaterialFacadeV2(this.runtime, "PrincipledMaterial.emissiveColor");
+      invariant(!this.disposed, `${this.kind} is disposed`);
+      const components = emissiveColorComponents(value, this.kind);
+      const materialCapability = requireMaterialFacadeV2(this.runtime, `${this.kind}.emissiveColor`);
       assertMaterialMemberAvailable(materialCapability.unavailableProperties, "emissiveColor");
       const materialFacade = materialCapability.facade;
       invariant(materialCapability.properties.has("emissiveColor")
@@ -4979,10 +5239,14 @@
     }
 
     setMaterialScalar(name, value, minimum, maximum) {
-      invariant(!this.disposed, "PrincipledMaterial is disposed");
-      finite(value, `PrincipledMaterial.${name}`);
-      invariant(value >= minimum && value <= maximum, `PrincipledMaterial.${name} must be in ${minimum}..${maximum}`);
-      const materialCapability = requireMaterialFacadeV2(this.runtime, `PrincipledMaterial.${name}`);
+      invariant(!this.disposed, `${this.kind} is disposed`);
+      this.assertSupports(name);
+      // metalness/roughness exist on the water lane too, but as fields of WaterParameters rather
+      // than LiMaterial::Metallic/Roughness, which Water never reads.
+      if (MATERIAL_KINDS[this.kind].waterParameters) return this.setWaterMember(name, value);
+      finite(value, `${this.kind}.${name}`);
+      invariant(value >= minimum && value <= maximum, `${this.kind}.${name} must be in ${minimum}..${maximum}`);
+      const materialCapability = requireMaterialFacadeV2(this.runtime, `${this.kind}.${name}`);
       assertMaterialMemberAvailable(materialCapability.unavailableProperties, name);
       const materialFacade = materialCapability.facade;
       const receipt = nativeResult(materialFacade.write(this.target.handle, JSON.stringify({
@@ -4999,7 +5263,7 @@
     setNormalScale(value) { return this.setMaterialScalar("normalScale", value, 0, 2); }
 
     hasManagedTextureReference(texture) {
-      return MANAGED_MATERIAL_TEXTURE_SLOTS.some((slot) => this[slot] === texture);
+      return this.textureSlots.some((slot) => this[slot] === texture);
     }
 
     releaseManagedTextureReference(texture) {
@@ -5007,21 +5271,22 @@
     }
 
     setManagedTexture(slot, texture) {
-      invariant(!this.disposed, "PrincipledMaterial is disposed");
+      invariant(!this.disposed, `${this.kind} is disposed`);
+      this.assertSupports(slot);
       invariant(texture instanceof Texture && !texture.disposed && texture.runtime === this.runtime,
-        `PrincipledMaterial.${slot} must be a live Texture from the same runtime`);
-      const materialCapability = requireMaterialFacadeV2(this.runtime, `PrincipledMaterial.${slot}`);
+        `${this.kind}.${slot} must be a live Texture from the same runtime`);
+      const materialCapability = requireMaterialFacadeV2(this.runtime, `${this.kind}.${slot}`);
       assertManagedMaterialTextureSlotAvailable(materialCapability, slot);
       const materialFacade = materialCapability.facade;
       const revisionKey = `${slot}Revision`;
       const revision = ++this[revisionKey];
       const update = (async () => {
         const bytes = await texture.load();
-        invariant(!this.disposed, "PrincipledMaterial is disposed");
+        invariant(!this.disposed, `${this.kind} is disposed`);
         invariant(!texture.disposed,
-          `PrincipledMaterial.${slot} must remain live until native upload completes`);
+          `${this.kind}.${slot} must remain live until native upload completes`);
         invariant(revision === this[revisionKey],
-          `PrincipledMaterial.${slot} update was superseded`);
+          `${this.kind}.${slot} update was superseded`);
         const receipt = nativeResult(materialFacade.writeTexture(
           this.target.handle,
           JSON.stringify({
@@ -5067,8 +5332,9 @@
     setEmissiveMap(texture) { return this.setManagedTexture("emissiveMap", texture); }
 
     clearManagedTexture(slot) {
-      invariant(!this.disposed, "PrincipledMaterial is disposed");
-      const materialCapability = requireMaterialFacadeV2(this.runtime, `PrincipledMaterial.${slot}`);
+      invariant(!this.disposed, `${this.kind} is disposed`);
+      this.assertSupports(slot);
+      const materialCapability = requireMaterialFacadeV2(this.runtime, `${this.kind}.${slot}`);
       assertManagedMaterialTextureSlotAvailable(materialCapability, slot);
       const revisionKey = `${slot}Revision`;
       ++this[revisionKey];
@@ -5104,34 +5370,66 @@
     }
 
     snapshot() {
-      const textureReceipt = MANAGED_MATERIAL_TEXTURE_SLOTS.some((slot) => this[slot])
-        ? nativeResult(requireMaterialFacadeV2(this.runtime, "PrincipledMaterial.texture").facade
+      const profile = MATERIAL_KINDS[this.kind];
+      if (profile.waterParameters) {
+        // No *Map fields at all, not even as null: the water lane has no managed texture slots, and
+        // a null slot in the receipt would read as "a slot that happens to be empty".
+        return {
+          id: this.id,
+          kind: this.kind,
+          shading_model: this.shadingModel,
+          target: this.target.spec.id,
+          baseColor: this.values.get("baseColor"),
+          deepColor: this.values.get("deepColor"),
+          depthFadeDistance: this.values.get("depthFadeDistance"),
+          opacity: this.values.get("opacity"),
+          metalness: this.values.get("metalness"),
+          roughness: this.values.get("roughness"),
+          specular: this.values.get("specular"),
+          waveIntensity: this.values.get("waveIntensity"),
+          flowDirection: this.values.get("flowDirection"),
+          flowSpeed: this.values.get("flowSpeed"),
+          uvScale: [...this.uvScale],
+        };
+      }
+      const textureReceipt = this.textureSlots.some((slot) => this[slot])
+        ? nativeResult(requireMaterialFacadeV2(this.runtime, `${this.kind}.texture`).facade
           .readTexture(this.target.handle),
           "MaterialFacade.readTexture")
         : null;
-      return {
+      const members = MATERIAL_KINDS[this.kind].members;
+      const snapshot = {
         id: this.id,
+        kind: this.kind,
+        shading_model: this.shadingModel,
         target: this.target.spec.id,
         baseColor: this.values.get("baseColor") ?? null,
         opacity: this.values.get("opacity") ?? null,
-        metalness: this.values.get("metalness") ?? null,
-        roughness: this.values.get("roughness") ?? null,
-        normalScale: this.values.get("normalScale") ?? null,
         uvScale: [...this.uvScale],
         baseColorMap: this.managedTextureSnapshot("baseColorMap", textureReceipt),
-        metallicRoughnessMap: this.managedTextureSnapshot("metallicRoughnessMap", textureReceipt),
-        normalMap: this.managedTextureSnapshot("normalMap", textureReceipt),
       };
+      // The lit-only members stay in the receipt for PrincipledMaterial (consumers read them by
+      // name), and are absent - not null - on a kind that never had them.
+      if (members.includes("metalness")) snapshot.metalness = this.values.get("metalness") ?? null;
+      if (members.includes("roughness")) snapshot.roughness = this.values.get("roughness") ?? null;
+      if (members.includes("normalScale")) snapshot.normalScale = this.values.get("normalScale") ?? null;
+      if (members.includes("metallicRoughnessMap")) {
+        snapshot.metallicRoughnessMap = this.managedTextureSnapshot("metallicRoughnessMap", textureReceipt);
+      }
+      if (members.includes("normalMap")) {
+        snapshot.normalMap = this.managedTextureSnapshot("normalMap", textureReceipt);
+      }
+      return snapshot;
     }
 
     dispose() {
       if (this.disposed) return { ok: true, removed: false, idempotent: true };
-      for (const slot of MANAGED_MATERIAL_TEXTURE_SLOTS) {
+      for (const slot of this.textureSlots) {
         const revisionKey = `${slot}Revision`;
         ++this[revisionKey];
         const texture = this[slot];
         if (!texture) continue;
-        const materialCapability = requireMaterialFacadeV2(this.runtime, `PrincipledMaterial.${slot}`);
+        const materialCapability = requireMaterialFacadeV2(this.runtime, `${this.kind}.${slot}`);
         assertManagedMaterialTextureSlotAvailable(materialCapability, slot);
         nativeResult(materialCapability.facade.clearTexture(this.target.handle, slot),
           "MaterialFacade.clearTexture");
@@ -5143,6 +5441,18 @@
       this.disposed = true;
       return { ok: true, removed: true, idempotent: false };
     }
+  }
+
+  class PrincipledMaterial extends MaterialBase {
+    constructor(runtime, spec) { super(runtime, spec, "PrincipledMaterial"); }
+  }
+
+  class UnlitMaterial extends MaterialBase {
+    constructor(runtime, spec) { super(runtime, spec, "UnlitMaterial"); }
+  }
+
+  class WaterMaterial extends MaterialBase {
+    constructor(runtime, spec) { super(runtime, spec, "WaterMaterial"); }
   }
 
   const REPEATER_FACTORIES = Object.freeze({
@@ -5289,6 +5599,35 @@
   // ---------------------------------------------------------------------------------------------
   const PREFAB_MAX_INSTANCES_PER_BATCH = 512;
   const PREFAB_MAX_INSTANCES_PER_PREFAB = 2048;
+  // Mirrors the native kPrefabMaxVariantScale envelope.  instantiate() itself only
+  // checks bounds, but a later batch update refuses anything above this -- so a
+  // scale accepted here is a scale that stays adjustable.
+  const PREFAB_MAX_INSTANCE_SCALE = 10;
+
+  function instanceEuler(value, field) {
+    if (Array.isArray(value)) {
+      invariant(value.length === 3, `${field} must be [rx, ry, rz] in degrees`);
+      return quaternionEulerDegrees(value[0], value[1], value[2], field);
+    }
+    invariant(value && typeof value === "object",
+      `${field} must be [rx, ry, rz] in degrees or { x, y, z }`);
+    return quaternionEulerDegrees(value.x, value.y, value.z, field);
+  }
+
+  function instanceScale(value, field) {
+    let candidate;
+    if (typeof value === "number") candidate = { x: value, y: value, z: value };
+    else if (Array.isArray(value)) {
+      invariant(value.length === 3, `${field} must be a number, [sx, sy, sz] or { x, y, z }`);
+      candidate = { x: value[0], y: value[1], z: value[2] };
+    } else candidate = value;
+    const scale = vector3(candidate, null, field);
+    for (const axis of ["x", "y", "z"]) {
+      invariant(scale[axis] > 0 && scale[axis] <= PREFAB_MAX_INSTANCE_SCALE,
+        `${field}.${axis} must be in (0, ${PREFAB_MAX_INSTANCE_SCALE}]`);
+    }
+    return scale;
+  }
 
   function requirePrefabFacadeV2(runtime, field) {
     const facade = runtime.prefabFacade;
@@ -5314,6 +5653,14 @@
   function requirePrefabModelSupport(capability) {
     invariant(capability.capabilities.model_ref === true,
       "PrefabFacade/v2 does not support model_ref; this engine cannot instance a Model");
+  }
+
+  // Engines that predate per-instance rotation reject a non-identity quaternion with
+  // a native "identity rotation only", which reads like an SSDL bug.  Fail here, where
+  // the message can name the member the author actually wrote.
+  function requirePrefabInstanceRotation(capability) {
+    invariant(capability.capabilities.instance_rotation === true,
+      "PrefabFacade/v2 does not support per-instance rotation; this engine only places upright instances");
   }
 
   class Prefab {
@@ -5408,7 +5755,8 @@
     constructor(runtime, spec) {
       invariant(spec && typeof spec === "object", "Instances needs a spec");
       const allowed = new Set(["id", "key", "prefab", "placement", "positions", "origin", "spacing",
-        "columns", "count", "seed"]);
+        "columns", "count", "seed", "rotations", "rotations_z", "rotation_z",
+        "scales", "scales_uniform", "scale"]);
       const unknown = Object.keys(spec).find((name) => !allowed.has(name));
       invariant(!unknown, `member_unsupported: Instances.${unknown}`);
       const id = spec.id || spec.key;
@@ -5424,7 +5772,8 @@
         'Instances.placement must be "explicit" or "grid"');
 
       let count;
-      let placementRequest;
+      let gridRequest = null;
+      let positions = null;
       if (placement === "explicit") {
         invariant(Array.isArray(spec.positions) && spec.positions.length > 0,
           "Instances.positions must be a non-empty list of [x, y, z] for explicit placement");
@@ -5435,15 +5784,13 @@
         // vector3/quaternion into { x, y, z }, so explicit positions arrive as [[x, y, z], ...] --
         // exactly what the invariant above promises.  Reading them as objects made every explicit batch
         // throw on page load while the compile receipt stayed green.
-        const transforms = spec.positions.map((position, index) => ({
-          position: meshPoint(position, `Instances.positions[${index}]`),
-        }));
-        count = transforms.length;
+        positions = spec.positions.map((position, index) =>
+          meshPoint(position, `Instances.positions[${index}]`));
+        count = positions.length;
         if (spec.count !== undefined) {
           invariant(spec.count === count,
             "Instances.count must match the number of positions in explicit placement");
         }
-        placementRequest = { kind: "explicit", transforms };
       } else {
         invariant(spec.positions === undefined, "Instances.positions belongs to explicit placement");
         invariant(Number.isInteger(spec.count) && spec.count > 0, "Instances.count must be a positive integer");
@@ -5460,7 +5807,7 @@
         finite(dx, "Instances.spacing.x");
         finite(dy, "Instances.spacing.y");
         invariant(dx > 0 && dy > 0, "Instances.spacing components must be > 0 metres");
-        placementRequest = { kind: "grid", origin, spacing: { x: dx, y: dy }, columns };
+        gridRequest = { kind: "grid", origin, spacing: { x: dx, y: dy }, columns };
       }
       invariant(count <= PREFAB_MAX_INSTANCES_PER_BATCH,
         `Instances is limited to ${PREFAB_MAX_INSTANCES_PER_BATCH} instances per batch`);
@@ -5469,6 +5816,73 @@
       const seed = spec.seed === undefined ? 0 : spec.seed;
       invariant(Number.isInteger(seed) && seed >= 0 && seed <= 4294967295,
         "Instances.seed must be an integer in 0..4294967295");
+
+      // Pose is per INSTANCE, not per placement mode: rotations/scales are indexed by
+      // instance and are therefore legal under grid placement too.  rotation_z / scale
+      // are the same value for the whole batch, spelled once.
+      const rotationSources = ["rotations", "rotations_z", "rotation_z"]
+        .filter((name) => spec[name] !== undefined);
+      invariant(rotationSources.length <= 1,
+        `Instances accepts only one of rotations / rotations_z / rotation_z, not ${rotationSources.join(" + ")}`);
+      const scaleSources = ["scales", "scales_uniform", "scale"].filter((name) => spec[name] !== undefined);
+      invariant(scaleSources.length <= 1,
+        `Instances accepts only one of scales / scales_uniform / scale, not ${scaleSources.join(" + ")}`);
+
+      let rotations = null;
+      if (spec.rotations !== undefined) {
+        invariant(Array.isArray(spec.rotations) && spec.rotations.length === count,
+          `Instances.rotations must hold exactly ${count} [rx, ry, rz] degree triples, one per instance`);
+        rotations = spec.rotations.map((value, index) => instanceEuler(value, `Instances.rotations[${index}]`));
+      } else if (spec.rotations_z !== undefined) {
+        invariant(Array.isArray(spec.rotations_z) && spec.rotations_z.length === count,
+          `Instances.rotations_z must hold exactly ${count} degree values, one per instance`);
+        rotations = spec.rotations_z.map((value, index) =>
+          quaternionZ(finite(value, `Instances.rotations_z[${index}]`)));
+      } else if (spec.rotation_z !== undefined) {
+        const shared = quaternionZ(finite(spec.rotation_z, "Instances.rotation_z"));
+        rotations = Array.from({ length: count }, () => shared);
+      }
+      // An all-identity list still renders on an old engine, so only a rotation that
+      // actually turns something is worth failing the whole batch over.
+      if (rotations && rotations.some((value) => Math.abs(value.w - 1) > 1e-12)) {
+        requirePrefabInstanceRotation(capability);
+      }
+
+      let scales = null;
+      if (spec.scales !== undefined) {
+        invariant(Array.isArray(spec.scales) && spec.scales.length === count,
+          `Instances.scales must hold exactly ${count} scale values, one per instance`);
+        scales = spec.scales.map((value, index) => instanceScale(value, `Instances.scales[${index}]`));
+      } else if (spec.scales_uniform !== undefined) {
+        invariant(Array.isArray(spec.scales_uniform) && spec.scales_uniform.length === count,
+          `Instances.scales_uniform must hold exactly ${count} numbers, one per instance`);
+        scales = spec.scales_uniform.map((value, index) =>
+          instanceScale(finite(value, `Instances.scales_uniform[${index}]`), `Instances.scales_uniform[${index}]`));
+      } else if (spec.scale !== undefined) {
+        const shared = instanceScale(spec.scale, "Instances.scale");
+        scales = Array.from({ length: count }, () => shared);
+      }
+
+      // The native grid request carries positions only -- it has nowhere to put a pose.
+      // So a posed grid is expanded here with the identical formula the native grid
+      // branch uses (row-major, integer division by columns); the batch still reports
+      // placement "grid", because that is what the author wrote.
+      if (gridRequest && (rotations || scales)) {
+        positions = Array.from({ length: count }, (_unused, index) => ({
+          x: gridRequest.origin.x + (index % gridRequest.columns) * gridRequest.spacing.x,
+          y: gridRequest.origin.y + Math.floor(index / gridRequest.columns) * gridRequest.spacing.y,
+          z: gridRequest.origin.z,
+        }));
+        gridRequest = null;
+      }
+      const placementRequest = gridRequest ?? {
+        kind: "explicit",
+        transforms: positions.map((position, index) => ({
+          position,
+          ...(rotations ? { rotation: rotations[index] } : {}),
+          ...(scales ? { scale: scales[index] } : {}),
+        })),
+      };
 
       const request = {
         count,
@@ -6957,12 +7371,17 @@
       if (property === "paused") return boolean(value => owner.setPaused(value));
       if (property === "loops") return scalar("scalar", 1e6, value => owner.setLoops(value));
     }
-    if (owner instanceof PrincipledMaterial) {
+    if (owner instanceof MaterialBase) {
+      // Gated by the kind's member list below, so a water-only member never resolves on a lit
+      // material and normalScale never resolves on water.
       const mapping = { baseColor: ["setBaseColor", "color"], opacity: ["setOpacity", "scalar"],
         metalness: ["setMetalness", "scalar"], roughness: ["setRoughness", "scalar"],
-        normalScale: ["setNormalScale", "scalar"] };
-      const entry = mapping[property];
-      invariant(entry, `member_unsupported: PrincipledMaterial.${property}`);
+        normalScale: ["setNormalScale", "scalar"],
+        deepColor: ["setDeepColor", "color"], specular: ["setSpecular", "scalar"],
+        waveIntensity: ["setWaveIntensity", "scalar"], flowDirection: ["setFlowDirection", "scalar"],
+        flowSpeed: ["setFlowSpeed", "scalar"], depthFadeDistance: ["setDepthFadeDistance", "scalar"] };
+      const entry = MATERIAL_KINDS[owner.kind].members.includes(property) ? mapping[property] : null;
+      invariant(entry, `member_unsupported: ${owner.kind}.${property}`);
       return { kind:"member", value_type:entry[1], unit:entry[1] === "scalar" ? "scalar" : null,
         divisor:entry[1] === "scalar" ? 1e6 : 1, length:1,
         read: () => owner.values.get(property),
@@ -7758,6 +8177,8 @@
     createTexture(spec) { return new Texture(this, spec); }
     createPropertyBag(spec) { return new LogicalPropertyBag(this, spec); }
     createPrincipledMaterial(spec) { return new PrincipledMaterial(this, spec); }
+    createUnlitMaterial(spec) { return new UnlitMaterial(this, spec); }
+    createWaterMaterial(spec) { return new WaterMaterial(this, spec); }
     createRepeater(spec) { return new Repeater(this, spec); }
     createAnimation(spec) { return new Animation(this, spec); }
     createPropertyAnimation(spec) { return new PropertyAnimation(this, spec); }

@@ -34,8 +34,28 @@ export const LABEL_POLICY = "Label needs a managed SDF font (assets/font/msyh.tt
 // M4: normalMap needs a tangent-space vertex stream. Only the generators below ship analytic
 // tangents today, so a normal map anywhere else is refused at compile time rather than rendering
 // a silently wrong surface (§7 silent-failure defence).
-export const TANGENT_CAPABLE_TYPES = new Set(["HeightField", "Lathe", "Tube", "Loft"]);
-export const TANGENT_POLICY = "normalMap requires a tangent-space geometry: only HeightField/Lathe/Tube/Loft carry analytic tangents, so this combination would render without tangent space and is refused at compile time";
+// Plane joined the list when the native generator started authoring a constant (+X) tangent frame
+// for its grid: it is the usual host for both a normal map and a water surface, and both fail
+// silently without one (the frame collapses to the geometric normal).
+export const TANGENT_CAPABLE_TYPES = new Set(["Plane", "HeightField", "Lathe", "Tube", "Loft"]);
+// All three kinds carry baseColor/opacity/uvScale; only the lit one carries the PBR members and
+// managed texture slots, and only the water one carries the WaterParameters block.
+export const MATERIAL_TYPES = new Set(["PrincipledMaterial", "UnlitMaterial", "WaterMaterial"]);
+export const TANGENT_POLICY = "a tangent-space geometry is required: only Plane/HeightField/Lathe/Tube/Loft carry analytic tangents, so this combination would render without tangent space and is refused at compile time";
+
+// WaterMaterial's members are the fields of one uniform block, and the runtime and the native facade
+// both range-check them.  Catching them here means the author learns at compile time rather than
+// watching the material creation throw at page load.
+export const WATER_MEMBER_RANGES = Object.freeze({
+  depthFadeDistance: Object.freeze({ minimum: 0.001, maximum: 1e9, text: "> 0 metres (default 150)" }),
+  opacity: Object.freeze({ minimum: 0, maximum: 1, text: "in 0..1 (default 0.7)" }),
+  metalness: Object.freeze({ minimum: 0, maximum: 1, text: "in 0..1 (default 0)" }),
+  roughness: Object.freeze({ minimum: 0, maximum: 1, text: "in 0..1 (default 0)" }),
+  specular: Object.freeze({ minimum: 0, maximum: 1, text: "in 0..1 (default 1, UE Specular)" }),
+  waveIntensity: Object.freeze({ minimum: 0, maximum: 4, text: "in 0..4 (default 0.103333; 0 is a flat mirror)" }),
+  flowSpeed: Object.freeze({ minimum: 0, maximum: 1e6, text: ">= 0 (default 1; 0 freezes the surface)" }),
+});
+export const WATER_POLICY = "WaterMaterial is the third shading lane: it always renders translucent and two-sided, its colour comes only from baseColor/deepColor (the standard material colour is not sampled on this lane), the shallow-to-deep fade reads the scene depth texture so there must be geometry UNDER the water for deepColor to appear at all, and the surface animates with the clock - two screenshots of the same water differ unless flowSpeed is 0";
 
 // SkyAtmosphere's scattering members are UE's "normalised direction + separate scale" pair, and the
 // engine defaults are strongly asymmetric (LiSkyAtmospherePrivate in liskyatmosphere.cpp):
@@ -169,7 +189,8 @@ export const CONVENTIONS = Object.freeze({
   field_of_view: FOV_POLICY,
   labels: LABEL_POLICY,
   procedural_geometry: "parametric generators (HeightField width/depth/columns/rows plus heights at the (columns+1)*(rows+1) grid corners - not columns*rows - row-major from -depth/2; Lathe profile [radius, 0, height] revolved around Z with segments and optional closed caps; Tube path + radius + segments with a parallel-transport frame; Loft same-count ccw rings stacked bottom to top with optional cap) are compile-time constants: the IR stores parameters, the runtime builds a MeshData/v1 mesh (ccw outward, at most 65535 vertices per node, compile error mesh_budget beyond that); generated vertices carry normalized UVs: u spans the HeightField width or each Lathe/Tube/Loft ring, v spans the HeightField depth or the profile/path/section order, and both axes run from 0 to 1; per-vertex functions and author JavaScript are not accepted; arbitrary meshes go through managed assets (Model)",
-  textures: "PrincipledMaterial supports baseColorMap, metallicRoughnessMap, normalMap and emissiveMap, each referring to a Texture; texture mapping requires UVs on the target geometry. Prepare a metallicRoughnessMap in linear space: G is roughness and B is metalness, and both channels multiply the material's roughness/metalness scalar values. normalMap is tangent-space and only the HeightField/Lathe/Tube/Loft generators carry analytic tangents, so a normal map on any other geometry is refused at compile time with material_requires_tangent; normalScale (0..2, default 1) scales its strength. Put Texture image resources at assets/*.png or assets/*.jpg, each no larger than 8 MiB. The runtime shares identical image content by content digest, so one image used by many objects or texture slots occupies one texture; reuse a path where it makes the scene easier to read. The compiler reports resolved image file bytes only and never estimates decoded memory; the runtime facade is authoritative for decoded texture accounting. uvScale is [u, v] and applies UV × uvScale; smaller values increase repeat density, while the exact rendered tiling direction still needs hardware verification. emissiveMap is sRGB colour data and, like baseColorMap, needs only UVs — never tangents — so it works on any primitive; the base pass multiplies it by emissiveColor ([r, g, b], 0..16, default 1 meaning the map as authored), and values above 1 are how a neon surface crosses the bloom threshold. emissiveColor without an emissiveMap is a flat self-lit colour",
+  textures: "PrincipledMaterial supports baseColorMap, metallicRoughnessMap, normalMap and emissiveMap, each referring to a Texture; texture mapping requires UVs on the target geometry. Prepare a metallicRoughnessMap in linear space: G is roughness and B is metalness, and both channels multiply the material's roughness/metalness scalar values. normalMap is tangent-space and only the Plane/HeightField/Lathe/Tube/Loft generators carry analytic tangents, so a normal map on any other geometry is refused at compile time with material_requires_tangent; normalScale (0..2, default 1) scales its strength. Put Texture image resources at assets/*.png or assets/*.jpg, each no larger than 8 MiB. The runtime shares identical image content by content digest, so one image used by many objects or texture slots occupies one texture; reuse a path where it makes the scene easier to read. The compiler reports resolved image file bytes only and never estimates decoded memory; the runtime facade is authoritative for decoded texture accounting. uvScale is [u, v] and applies UV × uvScale; smaller values increase repeat density, while the exact rendered tiling direction still needs hardware verification. emissiveMap is sRGB colour data and, like baseColorMap, needs only UVs — never tangents — so it works on any primitive; the base pass multiplies it by emissiveColor ([r, g, b], 0..16, default 1 meaning the map as authored), and values above 1 are how a neon surface crosses the bloom threshold. emissiveColor without an emissiveMap is a flat self-lit colour",
+  shading_lanes: "three material kinds, and the choice is about lighting, not about looks. PrincipledMaterial is the lit PBR lane: baseColor is relit by sun, sky and shadows, so an author-picked hex never renders as that hex. UnlitMaterial (baseColor, opacity, baseColorMap, uvScale, emissiveColor) writes its colour straight to the frame with no lighting, shadow or reflection term - the right lane for markers, legends, holograms, signage, flat-shaded blocking and anything whose colour is data rather than material. It is still tone mapped and post processed, so it is not a pixel-exact UI colour, and it carries no metalness/roughness/normalMap/normalScale/metallicRoughnessMap/emissiveMap (they are refused at compile time rather than accepted and ignored). baseColor alone cannot exceed 1, so cross the bloom threshold with emissiveColor ([r, g, b], 0..16) added on top; opacity below 1 keeps the unlit path through the translucent pass. WaterMaterial is the third lane, a prebuilt water surface rather than a general material: baseColor is the shallow colour, deepColor the colour reached after depthFadeDistance metres of water (default 150), and because that fade reads the scene depth texture there must be geometry UNDER the water surface or deepColor never appears. waveIntensity (0..4, default 0.103333, 0 = flat mirror) and flowDirection/flowSpeed drive a built-in scrolling normal map - there is no texture slot to fill and no normalMap member. It needs analytic tangents, so the host must be Plane/HeightField/Lathe/Tube/Loft; it is always translucent and two-sided whatever opacity says; and it animates with the clock, so freeze flowSpeed at 0 before comparing screenshots. A target carries one material of any one kind",
   animations: ANIMATION_POLICY,
   assets: ASSET_POLICY,
   logic: "declare scene state on the Scene root with `property real score: 0` (types real/bool/string/length/degrees/duration/radians); handlers assign with expressions (`score = score + 1`), bindings compare (`>= <= === !== < > && || ! ?:`); host JavaScript is reached only through `Iface.method(arg: expr)` actions declared in host_interfaces.json and implemented by logic.mjs; the page reads/writes declared properties through window.SSWorld.logical and tools through ssworld_logic_read / ssworld_logic_write (one transaction per call); a State is derived from its `when` expression and cannot be written, set a declared property it reads; every compile hot-reloads the page and restarts declared properties at their initial values",
@@ -409,16 +430,29 @@ export function checkRuntimeSupport(sceneIR) {
           message: `SkyAtmosphere '${node.id}': ${member} is the normalised scattering direction, not a colour - its engine default is ${SKY_SCATTERING_DEFAULTS[member]}, so an evenly weighted vector written here multiplies red against blue (or, with raw physical coefficients, divides the whole term by ~30) and the sky renders orange-brown. It is refused at compile time; ${SKY_TINT_POLICY}` });
       }
     }
-    if (node.type === "PrincipledMaterial" && props.has("normalMap")) {
+    // Two members need a tangent basis, for the same reason and with the same silent failure:
+    // normalMap becomes a no-op and water becomes a flat mirror, both of which render.
+    const tangentMember = node.type === "PrincipledMaterial" && props.has("normalMap") ? "normalMap"
+      : node.type === "WaterMaterial" ? "waveIntensity" : null;
+    if (tangentMember) {
       // The host geometry is the material's `target` reference when it has one: a material declared
       // beside the geometry lands under Scene in the IR, while an inline material is a real child.
       const host = types.get(props.has("target") ? props.get("target") : node.parent);
       if (!TANGENT_CAPABLE_TYPES.has(host)) {
-        problems.push({ code: "material_requires_tangent", node: node.id, type: node.type, property: "normalMap",
-          message: `PrincipledMaterial '${node.id}': ${TANGENT_POLICY} (host geometry '${host ?? "unknown"}')` });
+        problems.push({ code: "material_requires_tangent", node: node.id, type: node.type, property: tangentMember,
+          message: `${node.type} '${node.id}': ${TANGENT_POLICY} (host geometry '${host ?? "unknown"}')` });
       }
     }
-    if (node.type === "PrincipledMaterial" && props.has("emissiveColor")) {
+    if (node.type === "WaterMaterial") {
+      for (const [member, range] of Object.entries(WATER_MEMBER_RANGES)) {
+        if (!props.has(member)) continue;
+        const value = props.get(member);
+        if (Number.isFinite(value) && value >= range.minimum && value <= range.maximum) continue;
+        problems.push({ code: "value_out_of_range", node: node.id, type: node.type, property: member,
+          message: `WaterMaterial '${node.id}': ${member} must be ${range.text}` });
+      }
+    }
+    if (MATERIAL_TYPES.has(node.type) && props.has("emissiveColor")) {
       // The runtime and the native facade both cap emissive components at 0..16.  Catching it here means
       // the author learns at compile time instead of watching the material creation throw at page load.
       const value = props.get("emissiveColor");
@@ -429,7 +463,7 @@ export function checkRuntimeSupport(sceneIR) {
           || component < 0 || component > EMISSIVE_COMPONENT_MAX);
       if (bad) {
         problems.push({ code: "value_out_of_range", node: node.id, type: node.type, property: "emissiveColor",
-          message: `PrincipledMaterial '${node.id}': emissiveColor is [r, g, b] with each component in 0..${EMISSIVE_COMPONENT_MAX} (it multiplies emissiveMap; 1 is the map as authored and higher values push a surface past the bloom threshold)` });
+          message: `${node.type} '${node.id}': emissiveColor is [r, g, b] with each component in 0..${EMISSIVE_COMPONENT_MAX} (it multiplies emissiveMap; 1 is the map as authored and higher values push a surface past the bloom threshold)` });
       }
     }
     if (node.type === "VolumetricCloud") {

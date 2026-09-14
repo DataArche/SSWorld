@@ -47,3 +47,22 @@ test("explicit placement counts the positions it was given", async (t) => {
   assert.equal(result.usage.instances.used, 3);
   assert.equal(result.usage.native_objects.used, 2);
 });
+
+// Pose reaches the engine only if the compiler lets these six members through the catalog in the
+// first place; an unknown_property here is what an author would hit before ever seeing a page.
+const POSED = `Scene {
+  id: main
+  Cylinder { id: trunk; radius: 0.2; height: 5; position: [0, 0, 2.5] }
+  Prefab { id: pfTrunk; source: trunk }
+  Instances { id: rowA; prefab: pfTrunk; positions: [[0,0,0],[6,0,0],[12,0,0]]; rotations_z: [0,137,58]; scales_uniform: [1,1.3,0.85] }
+  Instances { id: rowB; prefab: pfTrunk; positions: [[0,10,0],[6,10,0]]; rotations: [[0,0,90],[12,0,45]]; scales: [[1,1,2],[2,1,1]] }
+  Instances { id: gridC; prefab: pfTrunk; placement: "grid"; count: 4; columns: 2; origin: [0,20,0]; spacing: [5,5]; rotation_z: 45; scale: [1.5,1.5,1.5] }
+}
+`;
+
+test("per-instance rotation and scale compile through the packaged catalog", async () => {
+  const result = await compileScene("posedRows", POSED);
+  assert.equal(result.ok, true, JSON.stringify(result.problems ?? result));
+  assert.equal(result.usage.instances.used, 9);
+  assert.equal(result.usage.prefabs.used, 1);
+});

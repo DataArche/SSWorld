@@ -645,6 +645,106 @@
       "adapter": "material",
       "implicit_target": true
     },
+    "UnlitMaterial": {
+      "members": {
+        "target": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "baseColor": {
+          "value_type": "color",
+          "note": "the colour the surface emits directly; lighting, shadows and reflections are skipped entirely. Tone mapping and post processing still run, so this is not a pixel-exact UI colour"
+        },
+        "baseColorMap": {
+          "value_type": "object_ref",
+          "update_class": "create_only",
+          "note": "sampled and multiplied by baseColor exactly as on PrincipledMaterial; needs UVs but never tangents, so any geometry can carry it"
+        },
+        "opacity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "below 1 the surface moves to the translucent pass, which keeps the unlit path"
+        },
+        "uvScale": {
+          "value_type": "vector2",
+          "update_class": "create_only",
+          "note": "multiplies the UV, so smaller values repeat the texture more densely; confirm the visual direction on real hardware"
+        },
+        "emissiveColor": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "added on top of baseColor, 0..16. baseColor alone cannot exceed 1, so this is how an unlit sign crosses the bloom threshold"
+        }
+      },
+      "factory": "createUnlitMaterial",
+      "adapter": "material",
+      "implicit_target": true
+    },
+    "WaterMaterial": {
+      "members": {
+        "target": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "baseColor": {
+          "value_type": "color",
+          "note": "the shallow-water colour, seen where the water is thin over whatever is under it. Defaults to #2f6f8f. The water lane ignores the standard material colour entirely, so this is the only colour input besides deepColor"
+        },
+        "deepColor": {
+          "value_type": "color",
+          "note": "the colour the water reaches at depthFadeDistance of depth. Defaults to baseColor, which renders as a single flat water colour. The fade reads the scene depth texture, so there must be geometry UNDER the water surface for any of this to be visible - deepColor over an empty scene never appears"
+        },
+        "depthFadeDistance": {
+          "value_type": "scalar",
+          "unit": "m",
+          "note": "metres of water depth over which baseColor reaches deepColor; > 0, default 150"
+        },
+        "opacity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "0..1, default 0.7. The water lane is always on the translucent pass and always two-sided, whatever this value is"
+        },
+        "metalness": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "0..1, default 0"
+        },
+        "roughness": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "0..1, default 0; a mirror-smooth surface is what makes water look wet"
+        },
+        "specular": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "UE Specular, 0..1, default 1 (0.5 is the usual 4% dielectric F0)"
+        },
+        "waveIntensity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "how far the scrolling normal map bends the surface normal, 0..4, default 0.103333. 0 is a perfectly flat mirror"
+        },
+        "flowDirection": {
+          "value_type": "scalar",
+          "unit": "deg",
+          "note": "the compass direction the normal map scrolls along, default 0, taken modulo 360"
+        },
+        "flowSpeed": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": ">= 0, default 1. The surface animates with the clock, so two screenshots of the same water differ; 0 freezes it, which is what a deterministic pixel comparison needs"
+        },
+        "uvScale": {
+          "value_type": "vector2",
+          "update_class": "create_only",
+          "note": "multiplies the normal-map UV on top of the lane's built-in tiling, so larger values make finer ripples; default [1, 1] is the historical look"
+        }
+      },
+      "factory": "createWaterMaterial",
+      "adapter": "material",
+      "implicit_target": true
+    },
     "NumberAnimation": {
       "members": {
         "target": {
@@ -2231,6 +2331,42 @@
           "value_type": "scalar",
           "unit": "scalar",
           "update_class": "create_only"
+        },
+        "rotations": {
+          "value_type": "vector3_list",
+          "unit": "deg",
+          "update_class": "create_only",
+          "note": "per-instance rotation as [rx, ry, rz] degrees, applied roll-X then pitch-Y then yaw-Z; exactly one entry per instance, and legal under grid placement too"
+        },
+        "rotations_z": {
+          "value_type": "scalar_list",
+          "unit": "deg",
+          "update_class": "create_only",
+          "note": "per-instance yaw in degrees about Z, one entry per instance; the common case for props standing on the ground"
+        },
+        "rotation_z": {
+          "value_type": "scalar",
+          "unit": "deg",
+          "update_class": "create_only",
+          "note": "one yaw in degrees about Z for the whole batch; mutually exclusive with rotations / rotations_z"
+        },
+        "scales": {
+          "value_type": "vector3_list",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "per-instance [sx, sy, sz], one entry per instance; each component must be in (0, 10]"
+        },
+        "scales_uniform": {
+          "value_type": "scalar_list",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "per-instance uniform scale, one entry per instance, each in (0, 10]"
+        },
+        "scale": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "one [sx, sy, sz] for the whole batch; mutually exclusive with scales / scales_uniform"
         }
       },
       "factory": "createInstances",
