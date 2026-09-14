@@ -16,7 +16,8 @@
 
 ## 和"又一个场景生成器"的区别
 
-- **是真引擎,不是预览。** 延迟渲染、大气天空、阴影、后处理、glTF 资产、GPU 实例化、地理锚定。
+- **是真引擎,不是预览。** 延迟渲染、大气天空、阴影、后处理、glTF 资产、GPU 实例化;
+  场景站在真地球上——地形、影像图层、3D Tiles、GeoJSON,按经纬度锚定。
   几十万个实例化对象的场景跑在 60 fps。
 - **Agent 能拿到画面本身。** `ssworld_capture_frame` 经引擎渲染,回传亮度分位数、曝光尾部、
   3×3 分区的颜色覆盖、主色列表、实际使用的相机位姿与请求位姿的偏差,以及一份把这一帧绑定到
@@ -82,7 +83,7 @@ npx -y ssworld-mcp install --client=hermes,dsh
 
 ## 工具
 
-十三个工具。下表是一句话版本;每个工具的完整行为(参数、分页、回执字段、诚实信号)见
+十四个工具。下表是一句话版本;每个工具的完整行为(参数、分页、回执字段、诚实信号)见
 [英文 README](README.md#tools)。
 
 | 工具 | 作用 |
@@ -98,6 +99,7 @@ npx -y ssworld-mcp install --client=hermes,dsh
 | `ssworld_preview` | 起本地预览服务器,返回页面地址、页面是否打开、`page.clients`(每个同步中的浏览器)和结构化的 `next` |
 | `ssworld_capture_frame` | 经引擎截图 + 统计量 + 相机偏差 + 回执 + 页面实时逻辑;`await` 可等某个状态成立再拍;`detail: "brief"` 供迭代循环 |
 | `ssworld_environment_read` | 问引擎它实际收到的环境:从原生太阳回读的方向、哪个 `DirectionalLight` 在驱动大气、各环境组件的实时原生值 |
+| `ssworld_geo_read` | 问引擎它对地理图层的实际持有:地形有没有真的加载、`anchor_above_terrain_m`(锚点下方地面与场景本地 z=0 的高差——开地形动的是地面不是场景)、影像层的真实叠放次序,以及每个 `Tileset` / `GeoJsonLayer` 的就绪状态、范围和要素数 |
 | `ssworld_logic_read` / `ssworld_logic_write` | 不截图就读页面的场景逻辑(含场景模块到底有没有挂载),或在一个事务里设置声明属性,把游戏摆到某个局面再截图 |
 | `ssworld_engine_status` | 引擎配对装好了没(`install: true` 触发下载) |
 
@@ -127,6 +129,39 @@ wasm "memory access out of bounds"。所以大约 4000 节点以上的场景能�
 - **程序化几何**有四个参数化生成器:`HeightField`(`columns`/`rows` 数格子,`heights` 数它们周围的
   `(columns+1)*(rows+1)` 个角点,行主序从 `-depth/2` 开始)、`Lathe`、`Tube`、`Loft`。
   任意网格走托管资产(`Model`)。
+- **地理图层**:`Globe` / `ImageryLayer` / `Tileset` / `GeoJsonLayer` 四个组件只能是 `Scene` 的直接子节点、
+  没有自己的变换——经纬度和场景本地 ENU 米是两个世界,SSDL 不假装它们是一个。影像叠放即声明顺序(至多 8 层),
+  `Tileset` 的 `offset/rotation/scale` 变换的是数据集自己的根(至多 4 个,本引擎没有 `maximumScreenSpaceError`,
+  LOD 旋钮是 `geometricErrorScale`),`GeoJsonLayer` 一层只画一种要素、样式创建时读一次(至多 8 层)。
+  **开地形动的是地面不是场景**:本地 `z: 0` 还钉在锚点的椭球高上,`ssworld_geo_read` 回读 `anchor_above_terrain_m`。
+  **本服务器不自带底图**——瓦片服务的条款和 key 不由我们替你接受,`"template": "geo"` 里的 `ImageryLayer` 是注释掉的。
+- **时间与天空**:`Environment` 是场景时钟,也是真实天文求解器。给它 `dateTime`(ISO-8601 **必须带时区偏移**,
+  不带会被拒——那等于悄悄用观看者自己的时区)和站点 `latitude`/`longitude`(两个都不写就跟随相机地面点),
+  太阳、月亮、星空就落在那一刻真实的位置上(Simon 1994 星历 + IAU 2006 ICRF→固连旋转)。`timeScale` 是
+  仿真秒/真实秒,`3600` 一秒走一小时,`0` 冻住。它**独占太阳方向**:同场景里再写
+  `DirectionalLight.sunAzimuth` 或 `SunSky` 会被判 `multiple_writer`,要钉太阳用 `Environment` 自己的
+  `sunAzimuthOverride` / `sunElevationOverride`;一个场景一个,且不能有父节点。星星按太阳仰角自行淡出
+  (0° 以上全灭、−12° 以下全亮),`starsIntensity` 是上限不是开关。`sunIntensity` 是**绝对量级**
+  (默认 4.65,即 UDS 的 `Sun.SunLightIntensity`),下游不做归一化,写 1.0 会让天空掉进色调映射的 toe 而发黑。
+  它还**接管天光**:天空的环境光那一半是引擎捕获的一张立方图——卷成 SH 当漫反射环境光,同一张又当水面和
+  金属里反出来的天空。声明了 `Environment` 就把这个捕获强制打开并一直跑,于是环境光和这些反射跟着时钟走,
+  而不是停在某一刻;`SkyLight.realTimeCapture: false` 写在旁边会被判 `sky_light_capture_owned`,不做静默忽略。
+  捕获按五帧一轮分片(天空面、云、两趟给反射 mip 做的 GGX 预卷积、漫反射 SH),
+  所以天空突变时环境光和天空反射会慢约五帧跟上。引擎里这个捕获**默认开**,
+  所以裸写一个 `SkyLight` 就已经跟着太阳走;`realTimeCapture: false` 是作者主动冻住环境光的写法,
+  而这正是 `Environment` 拿走的那一个。
+- **天气是 opt-in**:`cloudCoverage` 按 UDS 刻度(`0..3`,出厂 1.14),它同时加厚云层和高度雾
+  (`fogDensityClear` → `fogDensityCloudy`,UDS 的那条曲线);`windDirection`(0 = 北,顺时针)和 `windSpeed`
+  吹动云。三个都不写,云和雾就保持 `VolumetricCloud` / `ExponentialHeightFog` 上写的样子——值从 Unreal 搬过来时
+  要的正是这个。`fogGetsColorFromAtmosphere`(默认 `true`)让高度雾从大气取内散射颜色,于是日落发红、入夜转暗,
+  而不是一直保持白天那个蓝。云的**观感**则是 `VolumetricCloud` 其余成员,每一个都按 UE / Ultra Dynamic Sky
+  的输入命名(`hightFrequencyNoiseAmount` 就是 UE 的拼法),在 Unreal 调好的云可以逐值搬过来。
+- **体积云的单位是公里**:`VolumetricCloud` 的 `layerBottomAltitude` / `layerHeight` /
+  `tracingStartMaxDistance` / `tracingMaxDistance` / `shadowTracingDistance` 全部以**公里**计——这是 UE
+  给这个组件定的单位,和 SSDL 其余部分的米不一样。一层云是 `layerBottomAltitude: 1.8; layerHeight: 0.5`,
+  不是 1800/500。按米写不只是把云放错位置:采样数是定值(`min(96 x viewSampleCountScale, 768)`),
+  不随追踪距离增长,射线被拉长上千倍后云噪声沿射线混叠,天空会出现竖直白色拉丝。已在编译期拒绝
+  (`cloud_kilometres_expected`)。
 - **模型资产**:glb 和贴图放进 `<project>/assets/`,按项目相对路径引用。单个 glb 上限 32 MiB、
   单张贴图 8 MiB、每项目 64 个资产。Model 自带材质,只有它的位置/旋转/缩放/可见性可动画。
 - **场景逻辑**:在 `Scene` 根上声明属性,处理器赋值(一个处理器一个事务),绑定读取。

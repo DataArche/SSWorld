@@ -1,7 +1,7 @@
 ---
 name: ssworld
-description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.14.0
+description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, map basemap, terrain, 3D Tiles city or GeoJSON overlay, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world on a real globe. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
+version: 1.16.0
 author: SSWorld
 license: Apache-2.0
 metadata:
@@ -28,13 +28,13 @@ ssworld_capture_frame                           // screenshot, judge from the im
 
 Every tool returns `next: {action, reason}`. Follow it.
 
-## Tools (15; in Hermes the full name is `mcp__ssworld__<name>`)
+## Tools (16; in Hermes the full name is `mcp__ssworld__<name>`)
 
 ### Projects
 | Tool | What it does |
 |------|--------------|
 | `ssworld_project_list` | Existing projects and their paths on disk. Call it first when the user says "change that scene from before" |
-| `ssworld_project_create` | `{"name":"MyScene","longitude":114.06,"latitude":22.54,"height":150}`. The name must start with a letter and contain only letters, digits, `_` and `-`. Pass the coordinates (WGS84 degrees / metres) when the scene has a real location, otherwise the default anchor is used. Pass `"template":"empty"` to start from nothing |
+| `ssworld_project_create` | `{"name":"MyScene","longitude":114.06,"latitude":22.54,"height":150}`. The name must start with a letter and contain only letters, digits, `_` and `-`. Pass the coordinates (WGS84 degrees / metres) when the scene has a real location, otherwise the default anchor is used. Pass `"template":"empty"` to start from nothing, or `"template":"geo"` when the scene needs a basemap, terrain or 3D Tiles |
 | `ssworld_engine_status` | Whether the engine is installed; `{"install":true}` downloads it now (~54 MB). Use it when `ssworld_preview` reports `engine_not_installed` |
 
 ### Reading the contract
@@ -69,9 +69,10 @@ You may also edit the project's `.ssdl` files directly with the host's file tool
 |------|--------------|
 | `ssworld_logic_read` | Reads page logic **and whether the module loaded at all** without a screenshot: `runtime.state`, `runtime.errors` (already mapped to `scene.ssdl:line`), property values, States, `bindings.invalid`, `binding_errors`. When the scene module dies, a screenshot only shows you the default globe view — use this instead and save the image |
 | `ssworld_environment_read` | **Asks the engine what it actually received**, so you do not have to bisect with screenshots: the true direction of the adopted sun (read back from the native sun and converted to azimuth/elevation at the anchor, with the deviation from what the scene asked for), which light drives the atmosphere, and the current native values of every environment component (`SkyAtmosphere`, fog, cloud, `SkyLight`, post-process, your own lights). "Why is the sky orange" and "where is the sun really" are one call away |
+| `ssworld_geo_read` | **Asks the engine what it holds for the geographic layers**: whether the terrain provider actually loaded, `anchor_above_terrain_m` (how far the scene's local `z: 0` sits above the ground under the anchor — turning terrain on moves the ground, not the scene), the imagery layers in real draw order with their `native_index`, and each `Tileset` / `GeoJsonLayer`'s readiness, extent and feature count. "Why is there no basemap" and "where did my buildings go" are one call away |
 | `ssworld_logic_write` | Writes several declared properties in one transaction: `{"set":{"p":0.4,"pace":0.0025}}`. Use it to put a game into a particular state before a screenshot — **do not edit the initial values in the source for that**. If any value is rejected the whole batch rolls back (`logical_write_rejected`); States are derived and cannot be written, so write the properties they read |
 
-## The 45 built-in components at a glance
+## The 49 built-in components at a glance
 
 Pick a shape from this table, then read the exact properties with `ssworld_catalog`. **Never guess property names from QML or three.js experience.**
 
@@ -84,12 +85,14 @@ Pick a shape from this table, then read the exact properties with `ssworld_catal
 | **Assets** | `Model` `Texture` | glb ≤ 32 MiB, images ≤ 8 MiB, both under the project's `assets/`, at most 64 per project |
 | **Materials** | `PrincipledMaterial` | `target` points at geometry. `baseColorMap` / `metallicRoughnessMap` / `normalMap` / `emissiveMap` |
 | **Instancing** | `Prefab` `Instances` | A whole batch is one native object. The source may be geometry or a Model |
-| **Lights** | `DirectionalLight` `PointLight` `SpotLight` `RectLight` `SkyLight` | The sun is `DirectionalLight { atmosphereSunLight: true }` |
-| **Environment** | `SkyAtmosphere` `ExponentialHeightFog` `VolumetricCloud` `PostProcessVolume` | On environment components `rotation` is Euler degrees `[x,y,z]`, not a quaternion |
+| **Lights** | `DirectionalLight` `PointLight` `SpotLight` `RectLight` `SkyLight` | The sun is `DirectionalLight { atmosphereSunLight: true }`. `SkyLight` is the ambient half: the engine captures the sky into a cubemap, convolves it into the diffuse ambient and reuses it as the sky reflected in water and metal, and that capture only runs while `realTimeCapture` is on (engine default on, so it tracks the sun unless someone writes `realTimeCapture: false`) |
+| **Environment** | `SkyAtmosphere` `ExponentialHeightFog` `VolumetricCloud` `PostProcessVolume` | On environment components `rotation` is Euler degrees `[x,y,z]`, not a quaternion. **`VolumetricCloud` distances are KILOMETRES** (the UE unit): `layerBottomAltitude: 1.8; layerHeight: 0.5`, never 1800/500 — metre values are refused (`cloud_kilometres_expected`). The cloud LOOK is the rest of `VolumetricCloud`: every one of those members is named after its UE / Ultra Dynamic Sky input (`minimumErosion`, `hightFrequencyNoiseAmount` — the UE spelling — `extinctionScaleTop`, `noisePosition`, and `phaseG`/`phaseG2`/`phaseBlend`/`multiScattering*` from the UE `VolumetricAdvancedMaterialOutput` node), so a cloudscape tuned in Unreal transfers value by value; the defaults are the UDS factory look. For a single coverage knob use `Environment.cloudCoverage` |
+| **Time and sky** | `Environment` `SunSky` | `Environment` is the scene clock and the real astronomy solver: `dateTime` (ISO-8601 **with an offset**) + `latitude`/`longitude` put the sun, moon and stars where they really were. `timeScale` is simulated seconds per real second (`3600` = an hour a second, `0` = frozen). Scene-global: no parent, one per scene. It **owns the sun direction**, so it cannot coexist with `DirectionalLight { sunAzimuth }` or `SunSky` (`multiple_writer`) — pin the sun with `Environment.sunAzimuthOverride` / `sunElevationOverride` instead. `SunSky` is the UE spelling of one fixed instant (`month`/`day`/`solarTime`/`timeZone`) and freezes the clock. `fogGetsColorFromAtmosphere` (default `true`) makes the height fog take its colour from the atmosphere, so night is dark and sunset is red; set it `false` to keep whatever colour is authored on `ExponentialHeightFog`. `cloudCoverage` uses the UDS scale (`0..3`, factory `1.14`): it thickens the cloud deck AND the height fog with it (`fogDensityClear` -> `fogDensityCloudy`, the UDS curve); `windDirection` (0 = north, clockwise) and `windSpeed` drift the clouds. All of these are opt-in — omit them and the clouds and fog stay exactly as authored, which is what you want when those values came out of Unreal. It also **owns the sky light capture**: it forces `SkyLight`'s capture on and keeps it running, so the ambient light and the sky reflected in water and metal follow the clock too (`SkyLight.realTimeCapture: false` beside it is refused as `sky_light_capture_owned`), with about five frames of lag after a sudden sky change |
 | **Animation** | `NumberAnimation` `Vector3dAnimation` `RotationAnimation` `QuaternionAnimation` `ColorAnimation` | `duration` in milliseconds, `loops: Animation.Infinite`, `running` is bindable |
 | | `ParallelAnimation` `SequentialAnimation` `PauseAnimation` `Behavior` | A group animation costs one timeline for the whole group |
+| **Geography** | `Globe` `ImageryLayer` `Tileset` `GeoJsonLayer` | The only components in the **geographic** world (longitude/latitude on the ellipsoid). Direct children of `Scene`, no position/parent/rotation, no animations. See below |
 | **Logic and input** | `State` `Timer` `TapHandler` `HoverHandler` `KeyHandler` | |
-| **Unavailable** | `Label` `SunSky` | `Label` has no font, and using it fails the whole scene load (the compiler already reports `runtime_unsupported`); use `SkyAtmosphere` instead of `SunSky` |
+| **Unavailable** | `Label` | `Label` has no font, and using it fails the whole scene load (the compiler already reports `runtime_unsupported`) |
 
 ## Planning a scene: settle the shape before writing code
 
@@ -115,6 +118,62 @@ In one line: **use a glb rather than assembling primitives; instance rather than
 - **List values may span lines**: a newline after `sections: [`, one ring per line, comments inside the brackets — all compile (since 0.9.8). A property still ends at a newline or `;`, so spanning lines only works inside `[ ]`.
 - **`#rrggbb` is read as sRGB** (the value your colour picker gives you): the runtime converts sRGB to linear before handing it to the engine, so the screen shows the colour you picked and reading it back gives the same hex. Before 0.9.8 that step was missing and every flat colour came out roughly three times too bright. Native materials keep only 8 bits of **linear** light per channel, so very dark colours drift by a level or two (`#16260f` reads back as `#16260d`).
 - **Geometry `rotation` is a quaternion `[x,y,z,w]`** (w last; identity is `[0,0,0,1]`). θ degrees about Z is `[0, 0, sin(θ/2), cos(θ/2)]`. To make something turn, use `RotationAnimation`. Environment components use Euler degrees instead.
+
+
+### Geography: the globe under every scene
+
+Every SSDL scene already stands on a real Earth — the project anchor puts the local origin at a longitude
+and latitude — but until you say so, that Earth is a plain coloured sphere. Four components address it.
+
+```ssdl
+Scene {
+  id: shenzhen
+  Globe { id: earth; terrain: "https://tiles.example.com/terrain/"; lighting: false }
+  ImageryLayer { id: base; source: "https://tiles.example.com/sat/{z}/{x}/{y}.jpg"; webMercator: true; maximumLevel: 18 }
+  ImageryLayer { id: roads; kind: "wms"; source: "https://gis.example.com/wms?layers=roads"; alpha: 0.8 }
+  Tileset { id: city; source: "https://tiles.example.com/futian/tileset.json"; offset: [0, 0, -12] }
+  GeoJsonLayer { id: parks; source: "assets/parks.geojson"; geometry: "polygon"; fillColor: "#2e7d32"; opacity: 0.6 }
+  Box { id: tower; width: 40; depth: 40; height: 200; position: [0, 0, 100] }   // still local metres
+  CameraView { id: overview; longitude: 114.0579; latitude: 22.5526; height: 800; pitch: -30 }
+  Camera { id: cam; initialView: overview }
+}
+```
+
+**Two coordinate worlds, and they do not mix.** The four components above live in the geographic world
+(longitude/latitude on the ellipsoid); every other node lives in local metres around the anchor. So a
+geographic layer is always a **direct child of `Scene`**, has **no `position`, `parent` or `rotation`**,
+and **cannot be animated** (`geo_hierarchy_invalid` / `property_not_animatable` if you try). Ordinary
+bindings on their live members do work: `alpha`, `visible`, and a `Tileset`'s `offset`/`rotation`/`scale`.
+
+- **`Globe`** — at most one. `terrain: "default"` is the engine's own; any http(s) URL is a terrain-tile
+  directory. `lighting: false` is usually what you want once a basemap is on, or the sun tints the imagery.
+- **`ImageryLayer`** — `kind: "xyz"` (default; `source` must carry `{x}` `{y}` `{z}`), `"wms"`, `"arcgis"`
+  or `"single"` (one image over a required `rectangle: [west, south, east, north]` in degrees). **Draw
+  order is declaration order** — the first layer is the base map — and there is no `zIndex`. At most 8.
+- **`Tileset`** — 3D Tiles (or a Gaussian splat set with `splat: true`). `offset`/`rotation`/`scale` are a
+  transform of the *tileset's own root*, so `offset.z` is the height correction most datasets need. This
+  engine has **no `maximumScreenSpaceError`**: `geometricErrorScale` (0.2–12, default 1) is the LOD dial
+  and lower loads finer tiles. At most 4 (each holds ~512 MiB of tile cache).
+- **`GeoJsonLayer`** — one layer draws **one** kind of feature: `geometry: "polygon" | "line" | "point"`.
+  The document is either a managed `assets/*.geojson` (`source`, ≤ 8 MiB, its geometry checked against
+  `geometry` at compile time) or a remote `url` the **page** fetches — so a cross-origin server without
+  `Access-Control-Allow-Origin` reports `geojson_fetch_failed` instead of leaving a silently empty layer.
+  Every style member is create-only; only `visible` can be bound. At most 8. Polygons are filled: with
+  `extrudeHeightField` they become solid blocks, without it a flat plane (the native default draws only
+  the outlines, and SSDL never leaves it there).
+
+**Terrain moves the ground, not your scene.** Local `z: 0` stays at the anchor's ellipsoid height, so a
+scene built flat can end up buried in a hillside or floating over a valley the moment terrain loads. Call
+`ssworld_geo_read` and read `anchor_above_terrain_m`; if it is not near zero, fix the **anchor height** in
+`showcase.manifest.json` rather than moving every node.
+
+**No basemap ships with this server.** A tile service carries terms of use and often a key, and neither is
+ours to accept for you. Ask the user for the URL, or start from `"template":"geo"`, which lays out the
+node with a placeholder to fill in.
+
+**Frame it geographically.** A `CameraView` with `longitude`/`latitude`/`height` is in the same world as
+the layers, so it aims at a tileset or a rectangle directly; `position`/`lookAt` are local metres and are
+for framing the objects you built.
 
 ### Camera
 ```ssdl
@@ -286,13 +345,20 @@ For an animated scene capture two moments (different `settle_ms`), and recapture
 - **Accepting an interactive scene requires a real browser.** The desktop preview panel's `drive_preview` reports `clicked`/`pressed`, but the page's own `click`/`keydown` listeners never fire once (synthetic input is not delivered), so using it to accept mouse/keyboard gameplay gives false negatives. The panel is for looking at the picture. To assert the interaction path, drive a real Chrome over CDP with `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` and read the state back from `logic.properties`.
 - **Editing a file under `assets/` hot-reloads as is** — the page keys its asset cache on content digests.
 - **Nesting is limited to 16 levels** (`scene_depth_exceeded`) and a scene mounts at most **64 `Model` nodes** (`model_budget`) and 64 MiB of distinct images in total (`texture_budget`) — all three are the engine's own ceilings and all three are compile errors now. For many copies of one glb, use it as a `Prefab` source instead of mounting a Model per placement.
+- **A basemap that never appears is usually the URL, not the scene.** `ssworld_geo_read` says whether the terrain loaded and where each layer sits in the stack; imagery failures show up as `runtime.errors` of kind `geo_error` in `ssworld_capture_frame`. An `xyz` `source` without `{x}` `{y}` `{z}` is a compile error, not a blank map.
 - **Do not compare budget numbers across categories**: native objects, material shells and distinct images are counted separately, the compiler only reports usage, and the real texture gate is at runtime. A generator script's own node estimate runs 2–10% off; trust the compile receipt.
 
 ## What is genuinely missing — do not work around it
 
 There is no particle system, no audio, no creating or destroying nodes at runtime (use an object pool: build them up front and reuse with `visible` and position), no colliders or physics (write the distance tests yourself), and logic properties have neither arrays nor string concatenation (eight targets means eight boolean properties, and HUD text is assembled on the page side).
 
-`GeoAnchor` **does not exist** in SSDL 0.3 and writing it is an `unknown_type`; geographic placement comes from the anchor coordinates given to `ssworld_project_create`.
+`GeoAnchor` **does not exist** in SSDL 0.3 and writing it is an `unknown_type`; a scene has exactly **one**
+anchor, given to `ssworld_project_create`, and every local node is placed in metres around it. The
+geographic components address the globe itself, not a second local origin.
+
+Not available on the geographic layers either: 3D Tiles feature styling, per-feature picking, flattening
+and clipping; GeoJSON icons and ground projection; and the tile services that need a key or a coordinate
+shift (Tianditu, AMap/gcj02, Baidu/bd09, SuperMap, Mapbox).
 
 Never delete or overwrite an existing project of the user's; `ssworld_project_create` errors on a duplicate name.
 

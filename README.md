@@ -17,8 +17,8 @@ wrote; the 42 KB of Python that generates it is in [`examples/SkylineBoulevard`]
 ## Why this is not another scene generator
 
 - **A real engine, not a preview.** Deferred rendering, atmospheric sky, shadows, post-processing,
-  glTF assets, GPU instancing, geographic anchoring. Scenes run at 60 fps with hundreds of thousands
-  of instanced objects.
+  glTF assets, GPU instancing. Scenes stand on a real globe: terrain, imagery layers, 3D Tiles and
+  GeoJSON, anchored by longitude and latitude. 60 fps with hundreds of thousands of instanced objects.
 - **The agent gets the frame back.** `ssworld_capture_frame` renders through the engine and returns
   luma percentiles, exposure tails, colour coverage per 3×3 region, top colours, the camera pose it
   actually used and the deviation from the one requested — plus a receipt binding the frame to the
@@ -89,7 +89,7 @@ Manual registration for any other client:
 ## Tools
 
 <details>
-<summary>Thirteen tools — click to expand the full table</summary>
+<summary>Fourteen tools — click to expand the full table</summary>
 
 | tool | purpose |
 |------|---------|
@@ -104,6 +104,7 @@ Manual registration for any other client:
 | `ssworld_preview` | starts the local preview server, returns `http://127.0.0.1:8880/projects/<name>/index.html`, whether the page is open, `page.clients` (every browser syncing the page: id, visibility, canvas, user agent) and a structured `next` (`open_webgpu_viewer` / `capture_frame` / `bring_page_to_front`) |
 | `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`, the scene's `requested` camera and a `deviation` with reasons (clip planes are engine-managed); `receipt` binding the frame to source/IR digests, the page generation (`in_sync`, `staleness`) and the answering page (`client`, `clients_connected`); `framing` describing the offscreen render at the requested size (horizontal fov kept, vertical follows the aspect); `logic` with the page's live declared properties / `State.when` / host call errors / `bindings.invalid`; `await: {state | property, …}` to shoot only once a game state holds; `client` to pick one of several open pages; `reference_match` always `not_evaluated`; `detail: "brief"` for iteration loops (verdict, runtime errors, luma, 3×3 regions, path, `in_sync`, `logic` only); PNG returned as image content and saved to `captures/` |
 | `ssworld_environment_read` | ask the engine what it actually received for the environment: the adopted sun's direction read back from the native sun and converted to azimuth/elevation at the anchor (with the deviation from the scene's request), which `DirectionalLight` drives the atmosphere, and every environment component's live native values. The probe lives in the project's `index.html`, which is project-owned, so a page created before 0.9.8 answers `page_probe_unavailable` and the error names the handler to paste in |
+| `ssworld_geo_read` | ask the engine what it holds for the geographic layers: whether the terrain provider loaded, `anchor_above_terrain_m` (how far the scene's local `z: 0` sits above the ground under the anchor, because terrain moves the ground and not the scene), the imagery stack in real draw order with each layer's `native_index`, and every `Tileset` / `GeoJsonLayer`'s readiness, extent and feature count. Same project-owned probe as the environment read, so an older `index.html` answers `page_probe_unavailable` |
 | `ssworld_logic_read` / `ssworld_logic_write` | read the open page's scene logic (and whether the scene module actually mounted: `runtime.state` plus errors mapped to `scene.ssdl:line`) without a screenshot, or set declared properties in one transaction (`{set: {p: 0.4, pace: 0.0025}}`) to put a game into a situation before capturing; a refused value rolls the whole set back and names the failing binding |
 | `ssworld_engine_status` | engine pair installed? (`install: true` to download) |
 
@@ -153,7 +154,7 @@ images however small each file is).
 ## Authoring reference
 
 <details>
-<summary>Colour space, what the compiler refuses, procedural geometry, model assets, scene logic, runtime evidence</summary>
+<summary>Colour space, what the compiler refuses, procedural geometry, geographic layers, time and sky, model assets, scene logic, runtime evidence</summary>
 
 ### Colours are authored as sRGB
 
@@ -172,12 +173,23 @@ Several failures that used to surface only as a dead page are now compile errors
   and `skyLuminanceFactor` are normalised direction vectors, not colours (their magnitude lives in the neighbouring
   `*Scale`). Writing a "neutral-looking" vector raises red and turns the whole sky orange-brown. Tint through the sun's
   `lightColor` instead; the error text carries each member's real engine default.
+- `cloud_kilometres_expected` — `VolumetricCloud`'s `layerBottomAltitude`, `layerHeight`, `tracingStartMaxDistance`,
+  `tracingMaxDistance` and `shadowTracingDistance` are in **kilometres**, the unit UE uses for this component, while
+  the rest of SSDL is in metres. Metre values do not merely misplace the deck: the ray-march sample count is fixed
+  (`min(96 x viewSampleCountScale, 768)`) and does not grow with the tracing distance, so a ray stretched a
+  thousandfold aliases the cloud noise into vertical white streaks across the sky. A deck is
+  `layerBottomAltitude: 1.8; layerHeight: 0.5`.
 - `mesh_degenerate` — a radius of 0 in a `Lathe` profile, exactly repeated adjacent points, a `Tube` path that doubles
   back or repeats a point, two identical adjacent `Loft` rings. These produced
   `GeometryFacade.createMesh: triangle is degenerate` and took the *entire* scene module down without naming a node.
   (A vertical first `Tube` segment is fine: the parallel-transport frame switches reference axis at `|tangent.z| >= 0.9`.)
 - `runtime_unsupported` — `Label` (no font), `sunAzimuth`/`sunElevation` without `atmosphereSunLight: true`, and the
   members a light may not write in the mode it is in.
+- `multiple_writer` / `environment_duplicate` — an `Environment` owns the sun direction, so a `DirectionalLight`
+  that also pins `sunAzimuth`/`sunElevation`, or a `SunSky` beside it, is refused rather than left to a
+  last-writer-of-the-frame race; and the scene-global `Environment` slot takes exactly one claimant.
+- `sky_light_capture_owned` — `SkyLight.realTimeCapture: false` beside an `Environment`. The `Environment` owns the sky
+  light capture and keeps it running, so the `false` would be a no-op; it is refused with the reason instead.
 - `material_requires_tangent` — a `normalMap` on geometry without tangents (only `HeightField`/`Lathe`/`Tube`/`Loft` have them).
 - `value_out_of_range` — `emissiveColor` outside its `[r, g, b]` 0..16 range.
 
@@ -192,6 +204,84 @@ Four parametric generators compile to constant parameters and are tessellated by
 `Lathe { profile: [[radius, 0, height] …]; segments; closed }`, `Tube { path; radius; segments; closed }`,
 `Loft { sections: [[ring] …]; cap }`. `ssworld_compile` reports their cost as `usage.mesh`. There are no per-vertex
 functions: arbitrary meshes are managed assets (`Model`).
+
+### Geographic layers
+
+Every scene already stands on the globe at its manifest anchor; four components let it reach the globe
+itself, all of them direct children of `Scene` with no transform of their own (geographic longitude/latitude
+and the scene's local ENU metres are two different worlds, and SSDL does not pretend otherwise):
+
+```
+Globe { id: earth; terrain: "default"; lighting: false }
+ImageryLayer { id: base; source: "https://<your tile service>/{z}/{x}/{y}.png"; webMercator: true }
+Tileset { id: city; source: "https://<host>/tileset.json"; offset: [0, 0, -12] }
+GeoJsonLayer { id: parks; source: "assets/parks.geojson"; geometry: "polygon"; fillColor: "#2e7d32" }
+```
+
+- **`Globe`** — terrain, ground colour, opacity and lighting; at most one, and the last scene to write it
+  hands the globe back as it found it on unload.
+- **`ImageryLayer`** — `kind: "xyz" | "wms" | "arcgis" | "single"`. Draw order is declaration order, the first
+  layer being the base map; `visible` and `alpha` can be bound and animated by scene logic. At most 8.
+- **`Tileset`** — 3D Tiles, or a Gaussian splat set with `splat: true`. `offset`/`rotation`/`scale` transform
+  the tileset's own root (`offset.z` is the height correction most datasets need). This engine has no
+  `maximumScreenSpaceError`; `geometricErrorScale` (0.2–12) is the LOD dial. At most 4.
+- **`GeoJsonLayer`** — one layer draws one kind of feature (`geometry: "polygon" | "line" | "point"`). The
+  document is a managed `assets/*.geojson` whose geometry is checked against `geometry` at compile time, or a
+  remote `url` the page fetches — a cross-origin server without `Access-Control-Allow-Origin` reports
+  `geojson_fetch_failed` instead of leaving a silently empty layer. Polygons are filled: with
+  `extrudeHeightField` they become solid blocks, without it a flat plane. At most 8.
+
+Terrain moves the ground, not the scene: local `z: 0` stays at the anchor's ellipsoid height, so a scene built
+flat can end up buried in a hillside the moment terrain loads. `ssworld_geo_read` answers with
+`anchor_above_terrain_m`, the imagery stack in real draw order and each layer's readiness. **No basemap ships
+with this server** — a tile service carries terms and often a key, and neither is ours to accept for you;
+`"template": "geo"` lays out the scene with the `ImageryLayer` line commented out, waiting for a URL.
+
+### Time, sky and weather
+
+`Environment` is the scene clock and the astronomy solver. Give it an instant and a site and the sun, the moon and the
+star field go where they really were — Simon 1994 ephemerides, an IAU 2006 ICRF-to-fixed rotation, station azimuth and
+elevation, the same solve a planetarium does:
+
+```
+Environment {
+  id: clock
+  dateTime: "2026-09-12T18:30:00+08:00"   // ISO-8601 WITH an offset
+  timeScale: 60                            // simulated seconds per real second; 0 freezes the sky
+  latitude: 22.6433; longitude: 113.938    // omit both to follow the camera's ground point
+  cloudCoverage: 1.8; windDirection: 240; windSpeed: 9
+}
+```
+
+- **It owns the sun.** While an `Environment` is declared, `DirectionalLight.sunAzimuth`/`sunElevation` and `SunSky`
+  are refused as `multiple_writer`. To pin the sun without giving up the clock, use `sunAzimuthOverride` /
+  `sunElevationOverride` on the `Environment` itself. One per scene, no parent.
+- **`dateTime` needs an explicit offset.** A naive instant would silently mean the *viewer's* timezone, so it is refused.
+- **Stars fade on their own** — fully out above 0° of sun elevation, fully in below −12° — so `starsIntensity` is a
+  ceiling, not a switch. `starsRealRotation` puts the constellations where they belong.
+- **`sunIntensity` is an absolute level** (default `4.65`, the Ultra Dynamic Sky `Sun.SunLightIntensity`). Nothing
+  downstream renormalises it: at `1.0` the sky falls into the tonemapper's toe and reads as near black while the clouds
+  still look lit. Leave it alone unless you are matching an Unreal project value by value.
+- **Weather is opt-in.** `cloudCoverage` follows the UDS scale (`0..3`, factory `1.14`) and thickens the cloud deck *and*
+  the height fog with it (`fogDensityClear` → `fogDensityCloudy`, the UDS curve); `windDirection` (0 = north, clockwise)
+  and `windSpeed` drift the deck. Omit them and the clouds and fog stay exactly as authored on `VolumetricCloud` /
+  `ExponentialHeightFog` — which is what you want when those values came out of Unreal.
+- **It drives the sky light too.** The ambient half of the sky is a cubemap the engine captures, convolves into an SH
+  set for the diffuse ambient, and reuses as the sky reflected in water and metal. A declared `Environment` forces that
+  capture on and keeps it running, so the ambient and those reflections follow the clock instead of holding one instant;
+  `SkyLight.realTimeCapture: false` is refused beside it (`sky_light_capture_owned`) rather than silently ignored. The capture
+  is sliced over five frames (sky faces, clouds, two passes of GGX pre-convolution for the reflection mips, then the
+  diffuse SH), so ambient and sky reflections trail a sudden sky change by about that much. The capture
+  defaults to **on** in the engine, so a plain `SkyLight` already tracks a moving sun; `realTimeCapture: false` is how an
+  author freezes the ambient on purpose, and that is the write the `Environment` takes away.
+- **`fogGetsColorFromAtmosphere`** (default `true`) makes the height fog take its inscattering colour from the
+  atmosphere, so it reddens at sunset and goes dark after it instead of holding the authored daytime blue.
+- **The cloud *look*** is the rest of `VolumetricCloud`, and every member there is named after its UE / Ultra Dynamic Sky
+  input — `minimumErosion`, `hightFrequencyNoiseAmount` (the UE spelling), `extinctionScaleTop`, `noisePosition`, and
+  `phaseG`/`phaseG2`/`phaseBlend`/`multiScattering*` from the UE `VolumetricAdvancedMaterialOutput` node — so a
+  cloudscape tuned in Unreal transfers value by value. The defaults are the UDS factory look.
+- **`SunSky`** is the UE 4.27 spelling of one fixed instant (`month`/`day`/`solarTime`/`timeZone`; UE's `SunSky` carries
+  no year). It lowers onto the same solver and pins the clock, so reach for `Environment` whenever time should run.
 
 ### Model assets
 

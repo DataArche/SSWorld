@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 import { SSDL_ROOT } from "./paths.mjs";
 import { resolveBudgets, MAX_SCENE_DEPTH, MAX_MODEL_INSTANCES, MAX_TEXTURE_BYTES_TOTAL } from "./budgets.mjs";
 import { ensureAssetCapablePage } from "./page.mjs";
-import { ASSET_LIMITS, ASSET_MEDIA, ASSETS_DIR, checkRuntimeSupport, TIMELINE_LIMIT, timelineNodes } from "./runtime-support.mjs";
+import { ASSET_LIMITS, ASSET_MEDIA, ASSETS_DIR, checkRuntimeSupport, GEO_LAYER_BUDGETS, TIMELINE_LIMIT, timelineNodes } from "./runtime-support.mjs";
 
 let compilerPromise = null;
 function loadCompiler() {
@@ -87,9 +87,65 @@ export function assetUsage(refs, sceneIR) {
     count: refs.length, limit: ASSET_LIMITS.count,
     bytes: refs.reduce((sum, item) => sum + item.asset.size_bytes, 0),
     files: refs.map((item) => ({ path: item.path, kind: item.asset.kind, size_bytes: item.asset.size_bytes, referenced: referenced.has(item.asset.asset_id) })),
-    limits: { model_bytes: ASSET_LIMITS.model, texture_bytes: ASSET_LIMITS.texture },
-    note: `assets are discovered under ${ASSETS_DIR}/ (glb, png, jpg) and referenced by project-relative path`,
+    limits: { model_bytes: ASSET_LIMITS.model, texture_bytes: ASSET_LIMITS.texture, geojson_bytes: ASSET_LIMITS.geojson },
+    note: `assets are discovered under ${ASSETS_DIR}/ (glb, png, jpg, geojson) and referenced by project-relative path`,
   };
+}
+
+// GeoJSON geometry families, by the SSDL `geometry` member that draws them. A layer whose document
+// holds none of its own kind renders nothing at all and reports no error, so the mismatch is caught
+// here -- the compiler cannot do it, because only this layer has a filesystem.
+const GEOJSON_FAMILIES = Object.freeze({
+  polygon: ["Polygon", "MultiPolygon"],
+  line: ["LineString", "MultiLineString"],
+  point: ["Point", "MultiPoint"],
+});
+
+function geometryTypes(node, out = new Set(), depth = 0) {
+  if (!node || typeof node !== "object" || depth > 8) return out;
+  if (node.type === "FeatureCollection") for (const feature of node.features || []) geometryTypes(feature, out, depth + 1);
+  else if (node.type === "Feature") geometryTypes(node.geometry, out, depth + 1);
+  else if (node.type === "GeometryCollection") for (const geometry of node.geometries || []) geometryTypes(geometry, out, depth + 1);
+  else if (typeof node.type === "string") out.add(node.type);
+  return out;
+}
+
+function featureCount(document) {
+  if (document?.type === "FeatureCollection") return Array.isArray(document.features) ? document.features.length : 0;
+  return document?.type ? 1 : 0;
+}
+
+/** Parse and type-check every managed GeoJSON document the compiled scene references. */
+export async function checkGeoJsonAssets(directory, sceneIR) {
+  const problems = [];
+  const layers = [];
+  for (const node of sceneIR?.nodes || []) {
+    if (node.type !== "GeoJsonLayer") continue;
+    const properties = new Map((node.properties || []).map((item) => [item.property, item.value]));
+    const asset = properties.get("source");
+    const geometry = properties.get("geometry");
+    if (!asset || typeof asset !== "object" || typeof asset.asset_id !== "string") {
+      layers.push({ node: node.id, geometry, source: properties.get("url") ?? null, kind: "url" });
+      continue;
+    }
+    let document;
+    try { document = JSON.parse(await readFile(path.join(directory, asset.asset_id), "utf8")); }
+    catch (error) {
+      problems.push({ code: "geojson_invalid", node: node.id, file: asset.asset_id,
+        message: `GeoJsonLayer '${node.id}': ${asset.asset_id} is not valid JSON (${error.message}); the engine would build an empty layer and report nothing` });
+      continue;
+    }
+    const found = [...geometryTypes(document)];
+    const wanted = GEOJSON_FAMILIES[geometry] || [];
+    if (!found.some((type) => wanted.includes(type))) {
+      problems.push({ code: "geojson_geometry_mismatch", node: node.id, file: asset.asset_id,
+        message: `GeoJsonLayer '${node.id}': geometry: "${geometry}" draws ${wanted.join(" / ")}, but ${asset.asset_id} holds ${found.length ? found.join(" / ") : "no geometry at all"}; the layer would render nothing. Change geometry, or point at a document of that kind` });
+      continue;
+    }
+    layers.push({ node: node.id, geometry, source: asset.asset_id, kind: "asset",
+      feature_count: featureCount(document), geometry_types: found.sort() });
+  }
+  return { problems, layers };
 }
 
 export class CompileError extends Error {
@@ -297,6 +353,13 @@ export function budgetUsage(result, budgets = {}) {
       .reduce((sum, node) => sum + instanceRowCount(node), 0),
     timelines: timelineNodes(result.scene_ir).length,
   };
+  // Reported alongside the manifest dimensions, but the ceiling itself is the compiler's (geo_budget):
+  // each layer carries its own tile cache, so these are memory walls rather than manifest choices.
+  const geo = Object.fromEntries(Object.entries(GEO_LAYER_BUDGETS).map(([type, limit]) => {
+    const count = nodes.filter((node) => node.type === type).length;
+    return [type === "Globe" ? "globe" : type === "ImageryLayer" ? "imagery_layers" : type === "Tileset" ? "tilesets" : "geojson_layers",
+      { used: count, limit, ratio: Number((count / limit).toFixed(3)) }];
+  }));
   const resolvedBudgets = resolveBudgets(budgets);
   const out = {};
   for (const [key, value] of Object.entries(used)) {
@@ -309,6 +372,7 @@ export function budgetUsage(result, budgets = {}) {
   const types = {};
   for (const node of nodes) types[node.type] = (types[node.type] || 0) + 1;
   out.node_types = types;
+  if (Object.values(geo).some((entry) => entry.used > 0)) out.geo = geo;
   return out;
 }
 
@@ -339,6 +403,12 @@ export async function compileProject(directory, { name, budgets } = {}) {
   if (unsupported.length) {
     const first = unsupported[0];
     throw new CompileError(`${first.code}: ${first.message}`, { code: first.code, node: first.node, property: first.property, problems: unsupported });
+  }
+  const geojson = await checkGeoJsonAssets(directory, result.scene_ir);
+  if (geojson.problems.length) {
+    const first = geojson.problems[0];
+    throw new CompileError(`${first.file}:1:1: ${first.code}: ${first.message}`,
+      { code: first.code, file: first.file, line: 1, column: 1, node: first.node, problems: geojson.problems });
   }
   const usage = budgetUsage(result, effectiveBudgets);
   const budgetProblems = [...structuralProblems(result, usage), ...enforcedBudgetProblems(usage)];
@@ -376,7 +446,8 @@ export async function compileProject(directory, { name, budgets } = {}) {
     catalog_digest: hybrid.catalog_digest, compiler_profile: hybrid.compiler_profile,
     source_digest: project.source_digest, source_files: project.files.map((file) => file.path),
     node_count: Array.isArray(result.scene_ir?.nodes) ? result.scene_ir.nodes.length : undefined,
-    usage: { ...usage, mesh: meshUsage(result.scene_ir, MESH_GENERATORS, MESH_MAX_VERTICES), assets },
+    usage: { ...usage, mesh: meshUsage(result.scene_ir, MESH_GENERATORS, MESH_MAX_VERTICES), assets,
+      ...(geojson.layers.length ? { geojson: geojson.layers } : {}) },
     logic: logicSummary(result.scene_ir),
   };
 }

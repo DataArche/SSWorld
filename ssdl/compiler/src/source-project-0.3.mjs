@@ -143,7 +143,8 @@ export function expandSourceProject(project, catalog) {
   }
   if (project.asset_refs.length > 64) fail("source_budget");
   const ASSET_KEYS = "asset_id,content_digest,dependencies,kind,media_type,size_bytes";
-  const MEDIA = { model: ["model/gltf-binary"], texture: ["image/png", "image/jpeg"] };
+  const MEDIA = { model: ["model/gltf-binary"], texture: ["image/png", "image/jpeg"],
+    geojson: ["application/geo+json", "application/json"] };
   const seenAssets = new Set();
   for (const raw of project.asset_refs) {
     const asset = raw?.asset;

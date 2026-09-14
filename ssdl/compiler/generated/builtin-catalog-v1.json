@@ -416,6 +416,143 @@
         }
       }
     },
+    "Environment": {
+      "adapter": "direct",
+      "factory": "createEnvironment",
+      "members": {
+        "cloudCoverage": {
+          "note": "UDS CloudCoverage, 0..3 (1.14 is the Ultra Dynamic Sky factory setting). Drives the cloud layer, and with it the height fog density. Omit to leave the clouds exactly as authored on VolumetricCloud -- useful when the values came from UE",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "dateTime": {
+          "note": "ISO-8601 with an explicit offset, e.g. \"2026-09-12T18:30:00+08:00\" (a naive instant is refused: it would mean the viewer's own timezone). This is the scene clock, and the sun, moon and stars are solved from it",
+          "value_type": "string"
+        },
+        "fogDensityClear": {
+          "note": "UDS HeightFog.FogDensityClear: the height fog density at cloudCoverage <= 1.1. Only applied when cloudCoverage is authored",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "fogDensityCloudy": {
+          "note": "UDS HeightFog.FogDensityCloudy: the height fog density at cloudCoverage >= 3. Only applied when cloudCoverage is authored",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "fogDensityDistribution": {
+          "note": "UDS HeightFog.FogDensityDistribution: the exponent between the clear and cloudy densities. Only applied when cloudCoverage is authored",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "fogGetsColorFromAtmosphere": {
+          "note": "true (default): the height fog takes its inscattering colour from the atmosphere, so it reddens at sunset and goes dark after it; false keeps the colour authored on ExponentialHeightFog",
+          "value_type": "boolean"
+        },
+        "fogHeightFalloffClear": {
+          "note": "UDS HeightFog.ClearHeightFogFalloff. Only applied when cloudCoverage is authored",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "fogHeightFalloffCloudy": {
+          "note": "UDS HeightFog.CloudyHeightFogFalloff. Only applied when cloudCoverage is authored",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "latitude": {
+          "note": "site latitude for the astronomy solve; omit to follow the camera's ground point",
+          "unit": "deg",
+          "value_type": "scalar"
+        },
+        "longitude": {
+          "note": "site longitude for the astronomy solve; omit to follow the camera's ground point",
+          "unit": "deg",
+          "value_type": "scalar"
+        },
+        "moonColor": {
+          "value_type": "color"
+        },
+        "moonDiskScale": {
+          "note": "multiplies the moon's 0.52 deg angular diameter",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "moonEnabled": {
+          "value_type": "boolean"
+        },
+        "moonIntensity": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "moonPhaseOverride": {
+          "note": "0..1 synodic phase (0 new, 0.5 full); omit to use the real phase for dateTime",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "northOffset": {
+          "note": "rotation of the scene's north away from true north, added to every solved azimuth",
+          "unit": "deg",
+          "value_type": "scalar"
+        },
+        "scaleFogDensity": {
+          "note": "UDS HeightFog.ScaleFogDensity: multiplies the solved density. Only applied when cloudCoverage is authored",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "starsIntensity": {
+          "note": "0 turns the stars off; daylight fades them out on its own below 12 deg sun elevation",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "starsRealRotation": {
+          "note": "rotate the star field by the real ICRF-to-fixed matrix so constellations sit where they belong",
+          "value_type": "boolean"
+        },
+        "sunAzimuthOverride": {
+          "note": "pins the sun instead of solving it from dateTime; 0 = north, clockwise",
+          "unit": "deg",
+          "value_type": "scalar"
+        },
+        "sunColor": {
+          "value_type": "color"
+        },
+        "sunDiskScale": {
+          "note": "multiplies the sun's 0.5357 deg angular diameter",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "sunElevationOverride": {
+          "note": "pins the sun instead of solving it from dateTime; degrees above the horizon",
+          "unit": "deg",
+          "value_type": "scalar"
+        },
+        "sunIntensity": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "sunTemperature": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "timeScale": {
+          "note": "simulated seconds per real second; 0 stops the clock, 3600 makes one real second an hour. Negative is refused",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "useSunTemperature": {
+          "value_type": "boolean"
+        },
+        "windDirection": {
+          "note": "direction the clouds drift toward, 0 = north, clockwise; omit to leave VolumetricCloud.noiseVelocity alone",
+          "unit": "deg",
+          "value_type": "scalar"
+        },
+        "windSpeed": {
+          "note": "cloud drift speed in metres per second; omit to leave VolumetricCloud.noiseVelocity alone",
+          "unit": "scalar",
+          "value_type": "scalar"
+        }
+      }
+    },
     "ExponentialHeightFog": {
       "adapter": "direct",
       "factory": "createExponentialHeightFog",
@@ -522,6 +659,92 @@
         "height",
         "cap"
       ]
+    },
+    "GeoJsonLayer": {
+      "adapter": "direct",
+      "factory": "createGeoJsonLayer",
+      "members": {
+        "altitude": {
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "altitudeMode": {
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "depthTest": {
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "extrudeHeightField": {
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "fillColor": {
+          "update_class": "create_only",
+          "value_type": "color"
+        },
+        "geometry": {
+          "required": true,
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "lineColor": {
+          "update_class": "create_only",
+          "value_type": "color"
+        },
+        "lineWidth": {
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "opacity": {
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "source": {
+          "asset_kind": "geojson",
+          "update_class": "create_only",
+          "value_type": "asset_ref"
+        },
+        "url": {
+          "format": "url",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "visible": {
+          "value_type": "boolean"
+        }
+      }
+    },
+    "Globe": {
+      "adapter": "direct",
+      "factory": "createGlobe",
+      "members": {
+        "baseColor": {
+          "value_type": "color"
+        },
+        "lighting": {
+          "value_type": "boolean"
+        },
+        "opacity": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "terrain": {
+          "format": "url",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "terrainSkirts": {
+          "value_type": "boolean"
+        },
+        "visible": {
+          "value_type": "boolean"
+        }
+      }
     },
     "Group": {
       "adapter": "group",
@@ -645,6 +868,82 @@
       "signals": [
         "onHoveredChanged"
       ]
+    },
+    "ImageryLayer": {
+      "adapter": "direct",
+      "factory": "createImageryLayer",
+      "members": {
+        "alpha": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "brightness": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "contrast": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "gamma": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "hasAlpha": {
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "hue": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "kind": {
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "maximumLevel": {
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "minimumLevel": {
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "rectangle": {
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar_list"
+        },
+        "saturation": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "source": {
+          "format": "url",
+          "required": true,
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "tileHeight": {
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "tileWidth": {
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "webMercator": {
+          "update_class": "create_only",
+          "value_type": "boolean"
+        }
+      }
     },
     "Instances": {
       "adapter": "direct",
@@ -1998,6 +2297,65 @@
         }
       }
     },
+    "SunSky": {
+      "adapter": "direct",
+      "factory": "createSunSky",
+      "members": {
+        "day": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "dstEndDay": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "dstEndMonth": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "dstStartDay": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "dstStartMonth": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "dstSwitchHour": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "latitude": {
+          "unit": "deg",
+          "value_type": "scalar"
+        },
+        "longitude": {
+          "unit": "deg",
+          "value_type": "scalar"
+        },
+        "month": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "northOffset": {
+          "unit": "deg",
+          "value_type": "scalar"
+        },
+        "solarTime": {
+          "note": "local clock hour, 0..24 (17.5 is 17:30)",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "timeZone": {
+          "note": "UTC offset in hours, -12..14",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "useDaylightSavingTime": {
+          "value_type": "boolean"
+        }
+      }
+    },
     "TapHandler": {
       "adapter": "interaction",
       "factory": "createTapHandler",
@@ -2024,6 +2382,48 @@
           "required": true,
           "update_class": "create_only",
           "value_type": "asset_ref"
+        }
+      }
+    },
+    "Tileset": {
+      "adapter": "direct",
+      "factory": "createTileset",
+      "members": {
+        "geometricErrorScale": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "maximumMemory": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "offset": {
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "rotation": {
+          "unit": "deg",
+          "value_type": "vector3"
+        },
+        "scale": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "skipLevelOfDetail": {
+          "value_type": "boolean"
+        },
+        "source": {
+          "format": "url",
+          "required": true,
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "splat": {
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "visible": {
+          "value_type": "boolean"
         }
       }
     },
@@ -2187,6 +2587,71 @@
       "adapter": "direct",
       "factory": "createVolumetricCloud",
       "members": {
+        "albedo": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UDS VolumetricCloudColor x BaseColorsScale",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "albedoReflection": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. albedo used while rendering reflection captures",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "cloudSpeed": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UDS CloudSpeed: multiplies the clock when panning the weather map and the noise",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "detailNoiseMipDistance": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. distance in centimetres over which the detail noise drops a mip",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "emissiveColorBottom": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. cloud emissive colour at the layer bottom (linear)",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "emissiveColorTop": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. cloud emissive colour at the layer top (linear)",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "erosionHeightBias": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value.",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "erosionHeightThreshold": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value.",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "erosionStrength": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value.",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "extinctionCurve": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value.",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "extinctionScaleBottom": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UDS ExtinctionScaleBottom",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "extinctionScaleTop": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UDS ExtinctionScaleTop",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "hightFrequencyNoiseAmount": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UDS HightFrequencyNoiseAmount (the UE spelling is kept on purpose)",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
         "layerBottomAltitude": {
           "unit": "scalar",
           "value_type": "scalar"
@@ -2194,6 +2659,65 @@
         "layerHeight": {
           "unit": "scalar",
           "value_type": "scalar"
+        },
+        "minimumErosion": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UDS MinimumErosion",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "multiScatteringContribution": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UE VolumetricAdvancedMaterialOutput.MultiScatteringContribution",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "multiScatteringEccentricity": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UE VolumetricAdvancedMaterialOutput.MultiScatteringEccentricity",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "multiScatteringOcclusion": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UE VolumetricAdvancedMaterialOutput.MultiScatteringOcclusion",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "nearFadeDistance": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. centimetres over which the clouds fade in near the camera",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "noisePosition": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UDS CloudsPosition: offset of the noise field in centimetres",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "noiseTiling": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. tiling of the base noise in centimetres",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "noiseVelocity": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. cloud noise drift in centimetres per second; Environment.windDirection / windSpeed write this",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "phaseBlend": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UE VolumetricAdvancedMaterialOutput.PhaseBlend",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "phaseG": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UE VolumetricAdvancedMaterialOutput.PhaseG",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "phaseG2": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UE VolumetricAdvancedMaterialOutput.PhaseG2",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "proceduralWeatherMap": {
+          "note": "false (default) samples the Ultra Dynamic Sky weather texture, which is what matches a look tuned in UE; true generates the weather map procedurally instead, turning weatherMapCoverage / weatherMapCloudType / weatherMapPrecipitation into real knobs at the cost of no longer matching UE",
+          "value_type": "boolean"
         },
         "reflectionSampleCountScale": {
           "unit": "scalar",
@@ -2211,10 +2735,31 @@
           "unit": "scalar",
           "value_type": "scalar"
         },
+        "shiftCurve": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UDS ShiftCurve: exponent of the cloud height gradient",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
         "skyLightCloudBottomOcclusion": {
-          "value_type": "boolean"
+          "unit": "scalar",
+          "value_type": "scalar"
         },
         "stopTracingTransmittanceThreshold": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "swirlAmount": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. the swirl term of the coverage threshold; Environment.cloudCoverage writes this",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "swirlBias": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. the bias term of the coverage threshold; Environment.cloudCoverage writes this",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "swirlScale": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UDS OvercastSwirl",
           "unit": "scalar",
           "value_type": "scalar"
         },
@@ -2230,6 +2775,51 @@
           "value_type": "boolean"
         },
         "viewSampleCountScale": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "weatherMapCloudType": {
+          "note": "procedural weather map only: 0 stratus .. 1 cumulonimbus",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "weatherMapCoverage": {
+          "note": "procedural weather map only: coverage on the UDS 0..3 scale. Environment.cloudCoverage writes this when proceduralWeatherMap is on",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "weatherMapMipLevel": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value.",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "weatherMapOffset": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. weather map offset in centimetres (z unused)",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "weatherMapPrecipitation": {
+          "note": "procedural weather map only: 0..1",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "weatherMapSeed": {
+          "note": "procedural weather map only: changes the cloud shapes",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "weatherMapTileSize": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. weather map tile size in centimetres",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "weatherMapVelocity": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. weather map drift in centimetres per second (z unused)",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "zDisturbance": {
+          "note": "Cloud material parameter, named after its UE / Ultra Dynamic Sky input so a look tuned in UE can be written here value by value. UDS ZDisturbance: vertical disturbance of the height gradient",
           "unit": "scalar",
           "value_type": "scalar"
         }
@@ -2270,7 +2860,6 @@
   "unavailable_components": {
     "Animation": "abstract component",
     "LightComponent": "abstract component",
-    "PropertyAnimation": "use a typed animation component",
-    "SunSky": "environment.sun_position.ue_4_27 solver is not implemented"
+    "PropertyAnimation": "use a typed animation component"
   }
 }

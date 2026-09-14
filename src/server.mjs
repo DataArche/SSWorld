@@ -90,14 +90,14 @@ const TOOLS = [
   },
   {
     name: "ssworld_project_create",
-    description: "Create a new runnable SSDL project and compile it. template 'starter' (default) is a tappable rotating box; 'empty' is just Scene + local-frame CameraView/Camera for scenes you write from scratch. Never overwrites an existing project.",
+    description: "Create a new runnable SSDL project and compile it. template 'starter' (default) is a tappable rotating box; 'empty' is just Scene + local-frame CameraView/Camera for scenes you write from scratch; 'geo' starts on the globe (Globe + a geographic CameraView + a commented ImageryLayer/Tileset/GeoJsonLayer to fill in) for a scene that carries a basemap, terrain or 3D Tiles. Never overwrites an existing project.",
     inputSchema: { type: "object", required: ["name"], properties: {
       name: { type: "string", pattern: "^[A-Za-z][A-Za-z0-9_-]{0,63}$", description: "Project name; letters, digits, '_' and '-'." },
       title: { type: "string", description: "Page title shown in the preview; defaults to the name." },
       longitude: { type: "number", description: "Anchor longitude in degrees (WGS84). Default: Shenzhen civic centre." },
       latitude: { type: "number", description: "Anchor latitude in degrees." },
       height: { type: "number", description: "Anchor height in metres above the ellipsoid. Default 150." },
-      template: { type: "string", enum: ["starter", "empty"], description: "Starting scene.ssdl; default starter." },
+      template: { type: "string", enum: ["starter", "empty", "geo"], description: "Starting scene.ssdl; default starter." },
     }, additionalProperties: false },
     annotations: { title: "Create project", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     run: async ({ name, title, longitude, latitude, height, template }) => ({ ...(await createProject(name, { title, template, anchor: {
@@ -423,6 +423,47 @@ const TOOLS = [
             ? `the engine sun is ${deviation.azimuth_error_deg} deg of azimuth and ${deviation.elevation_error_deg} deg of elevation away from what the scene asked for; something else is writing the sun (another DirectionalLight, or an engine without the direction lock)`
           : "values are read back from the native components; compare them with the scene source before changing anything",
         next: next("judge_environment", "compare engine_values with what the source wrote; sky colour comes from the sun (lightColor/sunElevation), not from the scattering vectors") };
+    },
+  },
+  {
+    name: "ssworld_geo_read",
+    description: "Ask the ENGINE what it holds for the geographic layers, instead of bisecting a basemap with screenshots: whether the terrain provider actually loaded, how far the scene's local z = 0 sits above the terrain under the project anchor (turning terrain on moves the GROUND, not the scene, so a flat scene can end up buried or floating), the imagery layers in real draw order with their native stack index, and each Tileset / GeoJsonLayer's readiness, extent and feature count. Answers \"why is there no basemap\" / \"where did my buildings go\" in one call. Requires the preview page to be open; a page whose index.html predates this probe answers page_probe_unavailable and names the handler to paste in.",
+    inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" },
+      client: { type: "string", description: "Page client id; default: most recent visible page." },
+      timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, description: "Default 10000." } }, additionalProperties: false },
+    annotations: { title: "Read engine geography", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    run: async ({ project, client, timeout_ms }) => {
+      const directory = projectDir(project);
+      const page = await requirePage(project, client);
+      const reply = await pageCommand(project, "geo_read", {}, { timeoutMs: timeout_ms || 10000, client: page.client?.id });
+      if (!reply.ok) throw commandFailure(reply, "retry_geo_read");
+      const result = reply.result;
+      if (!result.ok) {
+        // index.html is project-owned, so an older page simply does not know the command.
+        if (/unknown command geo_read/.test(result.error || "")) {
+          throw Object.assign(new Error("this project's index.html predates the geography probe"), { code: "page_probe_unavailable",
+            extra: { fix: "add one line to the runCommand switch in index.html (ssworld_source_patch works on it): `if (command.kind === \"geo_read\") return { id: command.id, ok: true, geo: currentBridge.runtime.geoRead(), status: pageStatus() };`",
+              next: next("patch_page", "the page is project-owned and is not rewritten automatically") } });
+        }
+        throw Object.assign(new Error(result.error), { code: result.code || "geo_read_failed",
+          extra: { runtime: moduleRuntime(directory, result.status), next: next("wait_or_reload", result.error, { blocking: true }) } });
+      }
+      const geo = result.geo;
+      const runtime = moduleRuntime(directory, result.status);
+      // The number no screenshot shows: with terrain on, local z = 0 no longer sits on the ground.
+      const drift = geo.globe?.anchor_above_terrain_m ?? null;
+      const unready = [...(geo.tilesets || []), ...(geo.geojson || [])].filter((item) => item.ready === false);
+      return { ok: true, project, client: reply.page?.client ?? null, loaded: runtime.loaded, runtime,
+        anchor: geo.anchor, globe: geo.globe, imagery: geo.imagery, tilesets: geo.tilesets, geojson: geo.geojson,
+        errors: geo.errors,
+        verdict: !runtime.loaded ? `the scene module is not mounted (state '${runtime.state}'), so these are the engine defaults, not your scene`
+          : geo.errors?.length ? `${geo.errors.length} geographic layer(s) failed to load: ${geo.errors.map((item) => `${item.id} (${item.code})`).join(", ")}`
+          : unready.length ? `${unready.map((item) => item.id).join(", ")} have not finished loading yet; call again in a few seconds`
+          : drift !== null && Math.abs(drift) > 5 ? `terrain is on and the scene's local z = 0 sits ${drift} m ${drift > 0 ? "above" : "below"} the ground under the anchor; correct the anchor height in showcase.manifest.json rather than moving every node`
+          : geo.globe || geo.imagery?.length || geo.tilesets?.length || geo.geojson?.length
+            ? "read back from the engine; imagery draws in the order listed (native_index 0 is the base map)"
+            : "this scene declares no geographic layers, so the globe is the engine's plain default sphere",
+        next: next("judge_geography", "compare the read-back values with the scene source, then ssworld_capture_frame to see the result") };
     },
   },
   {

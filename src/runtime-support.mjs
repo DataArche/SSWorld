@@ -3,7 +3,7 @@
 // native EnvironmentFacade (ssdl_environment_bindings.cpp), lirendersystem.cpp and the SSDL browser runtime.
 
 /** Bumped whenever the notes below change meaning, so catalog_digest moves with them. */
-export const NOTES_VERSION = 19;
+export const NOTES_VERSION = 26;
 
 // DirectionalLight with atmosphereSunLight: true adopts the engine's scene sun (LiSun), which only
 // exposes the LiLight base properties. The owned-light-only members fail at runtime with
@@ -16,9 +16,7 @@ const SUN_WRITABLE_ON_ADOPTED = ["intensity", "lightColor", "castShadows", "temp
   "indirectLightingIntensity", "volumetricScatteringIntensity", "visible"];
 
 /** What to use instead of a component the runtime does not implement (merged into unavailable_components). */
-export const UNAVAILABLE_ALTERNATIVES = Object.freeze({
-  SunSky: "use SkyAtmosphere + DirectionalLight { atmosphereSunLight: true; sunAzimuth: <deg, 0 = north clockwise>; sunElevation: <deg above horizon> } for a sun that drives the sky",
-});
+export const UNAVAILABLE_ALTERNATIVES = Object.freeze({});
 
 // LiRenderSystem recomputes both clip planes every frame from the camera's height above the
 // ellipsoid: far = horizon distance * 1.01, near = max(0.5 m, far * 2e-5). CameraView.nearPlane /
@@ -57,6 +55,35 @@ export const SKY_SCATTERING_DEFAULTS = Object.freeze({
 });
 export const SKY_TINT_POLICY = "colour the sky through the sun, not the scattering vectors: DirectionalLight { atmosphereSunLight: true; lightColor: \"#ffd9a8\"; intensity } tints the whole atmosphere, sunElevation decides how warm the horizon gets (low sun = long optical path = warm), SkyAtmosphere.groundAlbedo tints the ground bounce, ExponentialHeightFog carries haze, and PostProcessVolume temperature/autoExposureBias grade the final image";
 
+// VolumetricCloud's distances are KILOMETRES, exactly as in UE: the UE docs say "kilometers above the
+// ground" / "(kilometers)" for these members, and the engine agrees -- skyatmospherecommondata.cpp
+// defines CmToSkyUnit = 0.00001f ("Centimeters to Kilometers") and skyatmosphererendercommon.cpp:1107
+// multiplies each of them by KilometersToCentimeters. The catalog can only say "scalar", because the
+// frozen compiler profile has no km divisor (compiler.mjs:340 rejects an unknown unit outright), so the
+// unit lives in these notes and in a compile-time guard.
+//
+// Writing metres does not merely misplace the layer, it SHREDS the sky. Sample count does not follow the
+// tracing distance (skyatmosphererendercommon.cpp:1110-1116): SampleCountMax = clamp(96 * viewSampleCountScale,
+// 2, 768) and the distance ramp is a fixed 4 km CVar. So the metre author walks into a two-step trap --
+// layerBottomAltitude: 1500 puts the deck at 1500 km, the default 60 km trace cannot reach it, nothing
+// renders, and the fix they reach for is to enlarge tracingMaxDistance (in metres again). The ray then
+// runs tens of thousands of kilometres on the same ~288 samples, each step is hundreds of kilometres, and
+// the cloud density noise aliases along the ray into the vertical white streaks users keep reporting.
+//
+// Engine defaults are LiVolumetricCloud's (livolumetriccloud_p.h); UE's are the UE mirror constructor in
+// volumetriccloudcomponent.cpp:5-19. They differ on purpose: this engine ships a low thin deck.
+// The ceilings below are where the value stops being physically meaningful, not where testing stopped.
+// `positive: true` means zero is refused too -- a deck of zero thickness, or a ray that marches zero
+// kilometres, is not a scene the author meant to write.
+export const CLOUD_KM_MEMBERS = Object.freeze({
+  layerBottomAltitude: { max: 20, positive: false, engine: 1.8, ue: 5, what: "altitude of the cloud deck's base above the ground" },
+  layerHeight: { max: 30, positive: true, engine: 0.507, ue: 10, what: "thickness of the deck, measured up from layerBottomAltitude" },
+  tracingStartMaxDistance: { max: 2000, positive: true, engine: 80, ue: 350, what: "how far away the deck may be and still be traced at all" },
+  tracingMaxDistance: { max: 500, positive: true, engine: 60, ue: 50, what: "how far a ray keeps marching once it is inside the deck" },
+  shadowTracingDistance: { max: 100, positive: true, engine: 0.5, ue: 0.5, what: "ray-marched cloud shadow distance" },
+});
+export const CLOUD_UNIT_POLICY = "VolumetricCloud distances are KILOMETRES (the UE unit for this component), not the metres the rest of SSDL uses: a cloud deck is layerBottomAltitude: 1.8; layerHeight: 0.5, never 1800/500. Metre-scale values are refused at compile time (cloud_kilometres_expected) because they do not simply misplace the deck - the sample count is fixed, so a ray stretched a thousandfold aliases the cloud noise into vertical white streaks across the sky";
+
 // FLinearColor::MakeFromColorTemperature (UnrealMath/Math/Color.cpp) normalises the Planckian colour to
 // luminance Y = 1, NOT to a maximum component of 1, and the light colour is multiplied by it. So a warm
 // temperature both tints and brightens red: measured 3000K -> (1.77, 0.85, 0.27), 4000K -> (1.41, 0.92,
@@ -72,6 +99,41 @@ export const LIGHT_TEMPERATURE_POLICY = "useTemperature: true multiplies lightCo
 // times too bright -- #808080 arrived as linear 0.5, which looks like sRGB 188.
 export const COLOR_POLICY = "#rrggbb (or #rrggbbaa) is sRGB, the value a colour picker shows: the runtime applies the sRGB->linear transfer on the way into the engine, so the rendered surface is the colour you picked and a colour read back is the same hex you wrote. Alpha is linear. The native material keeps 8 bits per channel of LINEAR light, so two very dark colours can land on the same value (#16260f comes back as #16260d); use emissiveColor (a multiplier, not a colour) for anything that must stay exact";
 
+// Two coordinate worlds. Every ordinary SSDL node lives in local metres around the project anchor;
+// Globe / ImageryLayer / Tileset / GeoJsonLayer live on the ellipsoid in longitude/latitude. Nothing
+// bridges them: a geographic layer has no position, no parent and no rotation, and the compiler refuses
+// one anywhere but directly under Scene.
+export const GEO_WORLD_POLICY = "Globe / ImageryLayer / Tileset / GeoJsonLayer live in the GEOGRAPHIC world (longitude/latitude on the ellipsoid), not in the anchor's local metres, so they are declared directly under Scene with no position, parent or rotation, and no animation can target them (ordinary bindings on their live members do work). Local nodes and geographic layers share one picture because the project anchor puts the local origin on the globe; to look at both, aim a CameraView with longitude/latitude/height rather than position/lookAt.";
+
+// Turning terrain on moves the GROUND, not the anchor: local z = 0 stays at the anchor's ellipsoid
+// height, so a scene built flat can end up buried in a hillside or floating over a valley. geo_read
+// reports the exact difference, which is the only way to see it without a screenshot.
+export const GEO_TERRAIN_POLICY = "Globe { terrain: \"https://...\" } changes where the ground is but NOT where local z = 0 is: the scene stays at the anchor's ellipsoid height. Call ssworld_geo_read and read anchor_above_terrain_m - a positive value means the whole scene floats that many metres over the terrain, a negative one means it is buried - then correct the project anchor height (showcase.manifest.json) rather than moving every node.";
+
+export const GEO_IMAGERY_POLICY = "imagery draws in DECLARATION order (the first ImageryLayer is the base map, later ones stack on top); there is no zIndex, so reordering means reordering the nodes. An xyz layer's source must carry {x} {y} {z}; kind: \"wms\" / \"arcgis\" take the service URL and ignore the tiling members. With a basemap on, Globe { lighting: false } is usually what you want: the sun otherwise tints the imagery. This server ships no third-party tile service - the URL, its terms and its key are the author's.";
+
+export const GEO_TILESET_POLICY = "Tileset offset/rotation/scale is a LOCAL transform of the tileset's own root, not a placement in the scene's metres: offset.z is the height correction most datasets need. This engine has no maximumScreenSpaceError; geometricErrorScale (0.2..12, default 1) is the LOD dial and lower means finer. maximumMemory is MiB of tile cache (engine default 512). A tileset that never loads is reported as tileset_not_ready in ssworld_geo_read and leaves the rest of the scene running.";
+
+export const GEO_GEOJSON_POLICY = "GeoJsonLayer draws ONE kind of feature: geometry: \"polygon\" / \"line\" / \"point\", chosen at compile time. Every style member is create_only (the native layer reads them once, before it builds), so only visible can be bound. The document comes either from a managed assets/*.geojson file (source) or from a remote URL (url) that the PAGE fetches - a cross-origin server without Access-Control-Allow-Origin fails as geojson_fetch_failed instead of leaving a silently empty layer. altitudeMode on_terrain drapes over terrain, absolute uses altitude metres above the ellipsoid.";
+
+// LiEnvironment (src/components/lienvironment.h) solves the real sun/moon geometry from its clock
+// with CelestialGeometry: Simon1994 ephemerides, an IAU2006 ICRF->fixed matrix, station azimuth and
+// elevation. Every scene already carries one in Baked mode; declaring Environment adopts it and
+// switches it to Dynamic, and that is what makes the clock, the moon and the stars live.
+export const ENVIRONMENT_POLICY = "Environment is the scene clock and the astronomy solver: give it dateTime (ISO-8601 WITH an offset) and a site (latitude/longitude, or omit both to follow the camera's ground point) and it puts the sun, the moon and the star field where they really were at that instant. timeScale is simulated seconds per real second, so timeScale: 3600 runs an hour a second and timeScale: 0 freezes the sky. It is scene-global: no parent, one per scene. It OWNS the sun direction while it is declared, so it cannot coexist with DirectionalLight { sunAzimuth } or SunSky (multiple_writer); to pin the sun without giving up the clock use sunAzimuthOverride / sunElevationOverride on Environment itself. Stars fade out on their own as the sun rises (fully out above 0 deg elevation, fully in below -12 deg), so starsIntensity is a ceiling, not a switch. fogGetsColorFromAtmosphere (default true) makes the height fog take its inscattering colour from the atmosphere, so the fog reddens at sunset and goes dark after it instead of staying the daytime blue authored on ExponentialHeightFog; set it false to keep the authored colour at every hour. cloudCoverage follows the Ultra Dynamic Sky scale (0..3, 1.14 is the factory setting): it thickens the volumetric cloud layer and, with it, the height fog density (fogDensityClear -> fogDensityCloudy, the same curve UDS uses). windDirection (0 = north, clockwise) and windSpeed drift the clouds. All three are opt-in: leave them out and the clouds and the fog stay exactly as authored on VolumetricCloud / ExponentialHeightFog, which is what you want when those values came out of Unreal. sunIntensity defaults to 4.65, the Ultra Dynamic Sky Sun.SunLightIntensity, and it is an ABSOLUTE level: nothing downstream renormalises it, so halving it halves the frame. Leave it alone unless you are matching an Unreal project value by value -- at 1.0 the sky falls into the tonemapper's toe and reads as near black while the clouds still look lit. It also drives the sky light: the ambient capture is forced on and kept running for as long as the Environment is declared, so the ambient light and the sky reflected in water and metal follow the clock instead of holding one instant (SkyLight.realTimeCapture: false is refused while it is declared, sky_light_capture_owned). It also carries the two UDS curves: the sun fades out between 0 and -8.6 deg of elevation, and while fogGetsColorFromAtmosphere is true a closing sky dims the direct sun as well (coverage 1.2 -> 2.3 scales it 1.0 -> 0.1), which is what makes an overcast scene flat rather than merely cloudy.";
+
+export const CLOUD_MATERIAL_POLICY = "VolumetricCloud carries two kinds of members. The sampling ones (layerBottomAltitude, layerHeight, tracing*, *SampleCountScale) shape the ray march. The rest are the cloud MATERIAL, and each one is named after its UE / Ultra Dynamic Sky input -- MinimumErosion, HightFrequencyNoiseAmount (the UE spelling), ZDisturbance, ExtinctionScaleTop/Bottom, CloudsPosition as noisePosition, and PhaseG / PhaseG2 / PhaseBlend / MultiScattering* from the UE VolumetricAdvancedMaterialOutput node -- so a cloud look tuned in Unreal can be transferred value by value. The defaults are the Ultra Dynamic Sky factory look. For a coverage knob rather than raw values use Environment.cloudCoverage, which writes swirlAmount and swirlBias; write those two directly when you are matching Unreal exactly.";
+
+// LiSkyLight feeds two different things: the diffuse ambient (a 3-band SH set recomputed on the GPU
+// from a captured sky cubemap) and, since the capture cubemap is now published as the sky reflection
+// map, the sky seen in water and metal. Both are only as fresh as the capture, and the capture only
+// runs while realTimeCapture is on - which is why a scene with a moving sun but a frozen sky light
+// reads as "the sun moved and nothing else did". The engine default is now on, so that reading is
+// something an author has to ask for with realTimeCapture: false rather than something they inherit.
+export const SKY_LIGHT_POLICY = "SkyLight is the ambient half of the sky: the engine captures the sky into a cubemap, convolves it into a 3-band SH set for the diffuse ambient, and uses the same cubemap as the sky reflection seen in water and metal. That capture only runs while realTimeCapture is on; with it off the ambient and the reflections hold whatever they were captured with while the sun keeps moving. Declaring Environment turns the capture on and keeps it on - the sky light is part of what the clock drives - so realTimeCapture: false is refused there (sky_light_capture_owned), while realTimeCapture: true stays writable and is simply redundant; drop the Environment if you really want a frozen ambient. It defaults to ON in the engine, so a plain SkyLight already tracks a moving sun without anyone writing the member; realTimeCapture: false is how an author deliberately freezes the ambient, which is exactly the write an Environment refuses. The capture is time-sliced over five frames (sky faces, clouds, two passes of GGX pre-convolution for the reflection mips, then the diffuse SH), so ambient and sky reflections trail a sudden sky change by about five frames; any change the scene makes through Environment restarts the slice so the cubemap is never half old and half new.";
+
+export const SUN_SKY_POLICY = "SunSky is the UE 4.27 spelling of one fixed instant: month/day/solarTime in the project's calendar year (UE SunSky carries no Year) plus timeZone, northOffset and the optional daylight-saving window. It lowers onto the same solver Environment uses and pins the clock (timeScale 0), so use Environment instead when you want time to run. Its directionalLight / skyLight / skyAtmosphere groups configure those scene slots directly; directionalLight.rotation is refused because SunSky owns the sun direction.";
+
 export const TIMELINE_LIMIT = 256;
 export const TIMELINE_TYPES = new Set(["NumberAnimation", "Vector3dAnimation", "ColorAnimation", "RotationAnimation", "QuaternionAnimation", "ParallelAnimation", "SequentialAnimation"]);
 const TIMELINE_CONTAINERS = new Set(["ParallelAnimation", "SequentialAnimation", "Behavior"]);
@@ -84,14 +146,18 @@ export const ASSET_MEDIA = Object.freeze({
   ".png": { kind: "texture", media_type: "image/png" },
   ".jpg": { kind: "texture", media_type: "image/jpeg" },
   ".jpeg": { kind: "texture", media_type: "image/jpeg" },
+  // Only .geojson is discovered as vector data. A bare .json under assets/ is far more often a data
+  // file the page reads than a feature collection, and misclassifying it would make every project with
+  // one fail its geojson content check.
+  ".geojson": { kind: "geojson", media_type: "application/geo+json" },
 });
 // Runtime caps (ssdl-builtins managedAssetRef): a Model glb up to 32 MiB, a Texture image up to 8 MiB;
 // the source project schema takes at most 64 asset references.
 // Matches MAX_EMISSIVE_COMPONENT in the runtime and kMaterialMaxEmissiveComponent in the native facade.
 export const EMISSIVE_COMPONENT_MAX = 16;
-export const ASSET_LIMITS = Object.freeze({ model: 32 * 1024 * 1024, texture: 8 * 1024 * 1024, count: 64 });
+export const ASSET_LIMITS = Object.freeze({ model: 32 * 1024 * 1024, texture: 8 * 1024 * 1024, geojson: 8 * 1024 * 1024, count: 64 });
 export const BINDING_POLICY = "bindings and handler assignments apply as one transaction per event/frame: if ANY bound value is refused by its target (out of range such as a negative width, wrong type, a native refusal) the whole batch rolls back, that binding turns invalid and the affected values stop changing with no exception; ssworld_capture_frame / ssworld_logic_read report it as runtime.errors kind binding_error (mapped to scene.ssdl:line) and logic.bindings.invalid; write piecewise motion with clamp/lerp/min/max over a progress property instead of branchy ?: chains, and keep every branch inside the target's valid range";
-export const ASSET_POLICY = `put glb models and png/jpg textures under the project's ${ASSETS_DIR}/ directory and reference them by project-relative path (Model { source: "${ASSETS_DIR}/name.glb" }); each glb is at most ${ASSET_LIMITS.model / 1048576} MiB, each texture ${ASSET_LIMITS.texture / 1048576} MiB, at most ${ASSET_LIMITS.count} assets per project (asset_budget beyond); a Model needs no material of its own, and only its position/rotation/scale/visible can animate`;
+export const ASSET_POLICY = `put glb models, png/jpg textures and .geojson feature collections under the project's ${ASSETS_DIR}/ directory and reference them by project-relative path (Model { source: "${ASSETS_DIR}/name.glb" }, GeoJsonLayer { source: "${ASSETS_DIR}/parks.geojson" }); each glb is at most ${ASSET_LIMITS.model / 1048576} MiB, each texture and each geojson ${ASSET_LIMITS.texture / 1048576} MiB, at most ${ASSET_LIMITS.count} assets per project (asset_budget beyond); a Model needs no material of its own, and only its position/rotation/scale/visible can animate`;
 
 export const CONVENTIONS = Object.freeze({
   coordinate_system: "right-handed, Z-up; x east, y north, z up, metres; local origin is the project anchor",
@@ -114,6 +180,8 @@ export const CONVENTIONS = Object.freeze({
   ids: "every node in a component file needs a unique explicit id; anonymous siblings collide inside custom components",
   editing: "ssworld_source_patch edits one span by exact match; ssworld_source_batch applies several patches / node property sets atomically (optionally compiling and rolling back); ssworld_source_write replaces a file; writing the .ssdl files in the project directory with any other tool also works because ssworld_compile always rebuilds from disk, but such writes are not protected by the digest lock",
   colors: COLOR_POLICY,
+  geography: GEO_WORLD_POLICY,
+  terrain: GEO_TERRAIN_POLICY,
   units_tag: "a descriptor's `unit` is the compiler's wire tag ('scalar' means untagged), not always the physical unit; the member note names the physical unit where they differ",
 });
 
@@ -158,11 +226,34 @@ function memberNote(component, member, descriptor = {}) {
     return { runtime_writable: "refused at compile time (sky_scattering_refused)",
       note: `engine default ${SKY_SCATTERING_DEFAULTS[member]}; this is a normalised direction whose magnitude lives in the matching *Scale member, so an evenly weighted vector here destroys the blue sky and renders it orange-brown. ${SKY_TINT_POLICY}` };
   }
+  if (component === "SkyLight" && member === "realTimeCapture") {
+    return { runtime_writable: "yes; false is refused while an Environment is declared (sky_light_capture_owned)",
+      note: `engine default on; while on, the sky is re-captured every five frames and drives both the diffuse ambient and the sky reflected in water and metal, so writing true is redundant on a current engine and only false changes anything. ${SKY_LIGHT_POLICY}` };
+  }
   if (/Light$/.test(component) && (member === "useTemperature" || member === "temperature")) {
     return { note: LIGHT_TEMPERATURE_POLICY };
   }
   if (member === "intensity" && /Light$/.test(component)) {
     return { note: "dimensionless multiplier on the light's radiance; engine default 1.0; not lux/candela (see intensityUnits where present)" };
+  }
+  if (component === "VolumetricCloud") {
+    const km = CLOUD_KM_MEMBERS[member];
+    if (km) {
+      return { note: `KILOMETRES - ${km.what}; engine default ${km.engine} km (UE default ${km.ue} km), accepted ${km.positive ? "> 0" : ">= 0"} up to ${km.max}. ${CLOUD_UNIT_POLICY}` };
+    }
+    if (member === "skyLightCloudBottomOcclusion") {
+      return { note: "0..1, how much the deck occludes sky light at its base (the engine computes visibility = 1 - this); engine default 0, UE default 0.5. A scalar, not a switch: 1 is full occlusion" };
+    }
+    if (member.endsWith("SampleCountScale")) {
+      return { note: `multiplier on the ray-march sample count; engine default ${{ viewSampleCountScale: 3, reflectionSampleCountScale: 7.5, shadowViewSampleCountScale: 0.5, shadowReflectionSampleCountScale: 0.75 }[member]}. The count is clamped to 768 and does NOT grow with tracingMaxDistance, so lowering this is the fastest way to make the clouds streaky` };
+    }
+    if (member === "stopTracingTransmittanceThreshold") {
+      return { note: "0..1; the march stops once mean transmittance falls below it. Engine default 0.005; raising it trades cloud depth for speed" };
+    }
+    if (member === "usePerSampleAtmosphericLightTransmittance") {
+      return { note: "per-sample atmospheric transmittance instead of one value per ray; engine default false. Costs fill rate, matters most for a low sun" };
+    }
+    return null;
   }
   if (component === "HeightField" && ["columns", "rows", "heights"].includes(member)) {
     return { note: HEIGHTFIELD_GRID_POLICY[member] };
@@ -182,6 +273,7 @@ function memberNote(component, member, descriptor = {}) {
     };
     return notes[member] ? { note: notes[member] } : null;
   }
+  if (GEO_MEMBER_NOTES[component]?.[member]) return { note: GEO_MEMBER_NOTES[component][member] };
   if (member === "rotation") {
     return descriptor.value_type === "quaternion"
       ? { note: `quaternion ${CONVENTIONS.quaternion_order.split(";")[0]}` }
@@ -190,12 +282,59 @@ function memberNote(component, member, descriptor = {}) {
   return null;
 }
 
+/** Per-scene ceilings mirrored from compiler/src/geo-0.3.mjs; a contract test keeps the two in step. */
+export const GEO_LAYER_BUDGETS = Object.freeze({ Globe: 1, ImageryLayer: 8, Tileset: 4, GeoJsonLayer: 8 });
+
+const GEO_MEMBER_NOTES = Object.freeze({
+  Globe: {
+    terrain: "\"default\" (the engine's own terrain) or an http(s) terrain-tile directory URL; create_only. Turning it on does not move local z = 0 - read anchor_above_terrain_m from ssworld_geo_read",
+    lighting: "the sun shades the globe surface; turn it off when an ImageryLayer supplies the basemap, or the imagery is tinted by the time of day",
+    opacity: "0..1 over the whole globe surface, imagery included",
+  },
+  ImageryLayer: {
+    kind: "xyz (a {z}/{x}/{y} tile template, the default) / wms / arcgis / single (one image over a rectangle); create_only",
+    source: "for kind xyz a tile template containing {x} {y} {z}; for wms/arcgis the service URL; for single the image URL. This server ships no tile service: the URL, its terms of use and any key are the author's",
+    rectangle: "[west, south, east, north] in DEGREES (not the anchor's metres); defaults to the whole globe and is required for kind: \"single\"",
+    minimumLevel: "whole tile level 0..30; only for kind: \"xyz\"",
+    maximumLevel: "whole tile level 0..30, default 18; only for kind: \"xyz\"",
+    alpha: "0..1; bindable, so a declared property can cross-fade two basemaps",
+    hue: "additive hue shift, engine default 0 (the other four adjustments are multipliers with default 1)",
+  },
+  Tileset: {
+    source: "URL of the tileset.json root; create_only",
+    offset: "metres in the TILESET's own root frame (z is the usual height correction), not a position in the scene",
+    rotation: "Euler degrees [x, y, z] of the tileset's own root frame; not a quaternion",
+    scale: "uniform scale of the tileset root, > 0",
+    geometricErrorScale: "0.2..12, default 1; this engine has no maximumScreenSpaceError, so this is the LOD dial and lower loads finer tiles",
+    maximumMemory: "tile cache in MiB, engine default 512",
+    splat: "true loads a 3D Gaussian splat tileset instead of 3D Tiles; create_only",
+  },
+  GeoJsonLayer: {
+    source: "a managed assets/*.geojson file; mutually exclusive with url",
+    url: "a remote GeoJSON document the PAGE fetches (the engine never fetches it), so a cross-origin server must send Access-Control-Allow-Origin; mutually exclusive with source",
+    geometry: "polygon / line / point - one layer draws one kind of feature; create_only",
+    extrudeHeightField: "name of a feature property to raise polygons by; polygon only - with it the polygons become solid blocks (native entityType SINGLEBUILDING), without it a flat filled plane (PLANE); the native default LINE, which draws outlines and no fill, is never used",
+    opacity: "0..1; fill alpha for polygons, line alpha for lines",
+    altitude: "metres, combined with altitudeMode",
+    altitudeMode: "absolute (metres above the ellipsoid) / on_terrain (draped, the default) / relative_to_terrain",
+    depthTest: "false lets a draped layer show through geometry in front of it",
+  },
+});
+
 /** Component-level notes merged into ssworld_catalog output. */
 export function componentNotes(name) {
   if (name === "DirectionalLight") return { runtime_note: "atmosphereSunLight: true adopts the engine sun (drives the sky); only intensity/lightColor/castShadows/temperature/indirect/volumetric and sunAzimuth/sunElevation are writable on it. Leave it false for an owned light with full members." };
   if (name === "CameraView") return { runtime_note: `${CONVENTIONS.camera}. ${FOV_POLICY}. ${CLIP_PLANE_POLICY}` };
   if (name === "SkyAtmosphere") return { runtime_note: `the engine ships Earth defaults; the four scattering vectors and skyLuminanceFactor are refused at compile time because an evenly weighted value there turns the sky orange-brown (${SKY_TINT_POLICY}). The scalar members (multiScatteringFactor, the *Scale magnitudes, mieAnisotropy, the exponential distributions, heightFogContribution, aerial perspective) stay writable` };
+  if (name === "VolumetricCloud") return { runtime_note: `${CLOUD_UNIT_POLICY}. Declare a SkyAtmosphere alongside it: with one, the cloud layer takes the atmosphere's planet centre and radius; without one it falls back to a hardcoded centre at (0, 0, -6378.137 km), which assumes a Z-up world with the ground at z = 0 (skyatmosphererendercommon.cpp:1090-1098). ${CLOUD_MATERIAL_POLICY}` };
+  if (name === "SkyLight") return { runtime_note: SKY_LIGHT_POLICY };
+  if (name === "Environment") return { runtime_note: ENVIRONMENT_POLICY };
+  if (name === "SunSky") return { runtime_note: SUN_SKY_POLICY };
   if (name === "Label") return { runtime_note: LABEL_POLICY, runtime_supported: false };
+  if (name === "Globe") return { runtime_note: `${GEO_WORLD_POLICY} ${GEO_TERRAIN_POLICY} At most one Globe per scene (globe_duplicate); without one the engine's own defaults are in force and the sphere carries no imagery.` };
+  if (name === "ImageryLayer") return { runtime_note: `${GEO_WORLD_POLICY} ${GEO_IMAGERY_POLICY} At most ${GEO_LAYER_BUDGETS.ImageryLayer} per scene (geo_budget).` };
+  if (name === "Tileset") return { runtime_note: `${GEO_WORLD_POLICY} ${GEO_TILESET_POLICY} At most ${GEO_LAYER_BUDGETS.Tileset} per scene (geo_budget).` };
+  if (name === "GeoJsonLayer") return { runtime_note: `${GEO_WORLD_POLICY} ${GEO_GEOJSON_POLICY} At most ${GEO_LAYER_BUDGETS.GeoJsonLayer} per scene (geo_budget), each document at most ${ASSET_LIMITS.geojson / 1048576} MiB.` };
   if (name === "Model") return { runtime_note: `${ASSET_POLICY}; Model animates position/rotation/scale/visible only (animations, Behaviors and Bindings). ${MODEL_PICK_POLICY}` };
   if (name === "Texture") return { runtime_note: `Texture.source is a png/jpg under ${ASSETS_DIR}/ (at most ${ASSET_LIMITS.texture / 1048576} MiB), referenced by project-relative path; pair it with Model.baseColorTexture + materialSlot` };
   if (name === "Behavior") return { runtime_note: `Behavior eases every change of its target property over duration, so on a property that changes every frame the presented value lags the logical one by about speed x duration (57 m/s x 0.12 s = 7 m); use it for discrete jumps (hits, state changes) and bind continuous motion directly. ${BINDING_POLICY}` };
@@ -218,6 +357,36 @@ export function checkRuntimeSupport(sceneIR) {
     const extra = timelines[TIMELINE_LIMIT];
     problems.push({ code: "animation_budget", node: extra.id, type: extra.type, property: null,
       message: `${extra.type} '${extra.id}' is native timeline ${timelines.length > TIMELINE_LIMIT + 1 ? `${TIMELINE_LIMIT + 1}..${timelines.length}` : TIMELINE_LIMIT + 1} of at most ${TIMELINE_LIMIT} (the page would fail at mount with AnimationFacade.createTimeline: max_active_timelines reached); ${ANIMATION_POLICY}` });
+  }
+  // Environment solves the sun every frame; DirectionalLight.sunAzimuth and SunSky pin it. With both
+  // in one scene the last writer of the frame wins and the author sees a sun that ignores half the
+  // source, so the pair is refused here rather than at page load.
+  const environments = (sceneIR?.nodes || []).filter((node) => node.type === "Environment");
+  if (environments.length > 1) {
+    const extra = environments[1];
+    problems.push({ code: "environment_duplicate", node: extra.id, type: extra.type, property: null,
+      message: `Environment '${extra.id}': Environment is a scene-global slot and '${environments[0].id}' already claims it (the native facade reports environment_slot_conflict); keep one` });
+  }
+  if (environments.length) {
+    // Environment drives the sky light the same way it drives the sun: it forces the capture on and
+    // keeps it running, so realTimeCapture: false there asks for something it will not get. Only the
+    // false is refused - realTimeCapture: true stays writable because it is what an engine build that
+    // predates the Environment-owns-the-capture change still needs to hear.
+    for (const node of (sceneIR?.nodes || []).filter((item) => item.type === "SkyLight")) {
+      if (!(node.properties || []).some((item) => item.property === "realTimeCapture" && item.value === false)) continue;
+      problems.push({ code: "sky_light_capture_owned", node: node.id, type: node.type, property: "realTimeCapture",
+        message: `SkyLight '${node.id}': Environment '${environments[0].id}' owns the sky light capture and keeps it running, so realTimeCapture: false is ignored there - the ambient and the sky reflected in water and metal follow the clock either way, and a scene that reads as "the sun moved and nothing else did" is this member, not the clock. Remove it, or drop the Environment if you really want a frozen ambient` });
+    }
+    for (const node of sceneIR?.nodes || []) {
+      const props = new Map((node.properties || []).map((item) => [item.property, item.value]));
+      const member = node.type === "DirectionalLight"
+        ? ["sunAzimuth", "sunElevation"].find((name) => props.has(name))
+        : (node.type === "SunSky" ? "solarTime" : undefined);
+      if (!member) continue;
+      problems.push({ code: "multiple_writer", node: node.id, type: node.type,
+        property: node.type === "SunSky" ? null : member,
+        message: `${node.type} '${node.id}': Environment '${environments[0].id}' owns the sun direction, so ${node.type === "SunSky" ? "SunSky cannot also solve it" : `${node.type}.${member} cannot also set it`}; use Environment.sunAzimuthOverride / sunElevationOverride to pin the sun, or drop the Environment` });
+    }
   }
   for (const node of sceneIR?.nodes || []) {
     const props = new Map((node.properties || []).map((item) => [item.property, item.value]));
@@ -261,6 +430,28 @@ export function checkRuntimeSupport(sceneIR) {
       if (bad) {
         problems.push({ code: "value_out_of_range", node: node.id, type: node.type, property: "emissiveColor",
           message: `PrincipledMaterial '${node.id}': emissiveColor is [r, g, b] with each component in 0..${EMISSIVE_COMPONENT_MAX} (it multiplies emissiveMap; 1 is the map as authored and higher values push a surface past the bloom threshold)` });
+      }
+    }
+    if (node.type === "VolumetricCloud") {
+      for (const [member, km] of Object.entries(CLOUD_KM_MEMBERS)) {
+        if (!props.has(member)) continue;
+        const value = props.get(member);
+        if (!Number.isFinite(value)) continue;
+        if (value > km.max) {
+          // The metre mistake is the whole reason this check exists, so say it in the first clause.
+          problems.push({ code: "cloud_kilometres_expected", node: node.id, type: node.type, property: member,
+            message: `VolumetricCloud '${node.id}': ${member} is in KILOMETRES and ${value} is ${(value / km.engine).toFixed(0)}x the engine default of ${km.engine} km - you have almost certainly written metres. ${km.what}; write ${(value / 1000)} for ${value} metres, or take the engine default ${km.engine} km (UE default ${km.ue} km). ${CLOUD_UNIT_POLICY}` });
+        } else if (value < 0 || (km.positive && value === 0)) {
+          problems.push({ code: "value_out_of_range", node: node.id, type: node.type, property: member,
+            message: `VolumetricCloud '${node.id}': ${member} is ${km.what} in kilometres and must be ${km.positive ? "> 0" : ">= 0"} (engine default ${km.engine} km)` });
+        }
+      }
+      if (props.has("skyLightCloudBottomOcclusion")) {
+        const value = props.get("skyLightCloudBottomOcclusion");
+        if (!Number.isFinite(value) || value < 0 || value > 1) {
+          problems.push({ code: "value_out_of_range", node: node.id, type: node.type, property: "skyLightCloudBottomOcclusion",
+            message: `VolumetricCloud '${node.id}': skyLightCloudBottomOcclusion is a 0..1 scalar, not a switch - the engine renders sky-light visibility as 1 - this value (engine default 0, UE default 0.5)` });
+        }
       }
     }
     if (node.type === "DirectionalLight" && props.get("atmosphereSunLight") !== true) {

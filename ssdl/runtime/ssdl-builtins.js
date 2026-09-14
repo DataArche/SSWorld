@@ -85,6 +85,7 @@
     "CameraView",
     "LightComponent",
     "SunSky",
+    "Environment",
     "DirectionalLight",
     "PointLight",
     "SpotLight",
@@ -94,6 +95,10 @@
     "VolumetricCloud",
     "ExponentialHeightFog",
     "PostProcessVolume",
+    "Globe",
+    "ImageryLayer",
+    "Tileset",
+    "GeoJsonLayer",
     "TapHandler",
     "HoverHandler",
     "KeyHandler",
@@ -3870,6 +3875,23 @@
   }
 
   const ENVIRONMENT_MEMBERS = Object.freeze({
+    // Scene-global clock + astronomy solver (LiEnvironment).  Only the P0 native surface is
+    // exposed: cloud / fog / weather / night-glow fields exist on the component but nothing
+    // consumes them yet, and a knob that writes nothing is worse than a missing one.
+    Environment: Object.freeze([
+      "dateTime", "timeScale", "latitude", "longitude", "northOffset",
+      "sunIntensity", "sunColor", "sunTemperature", "useSunTemperature", "sunDiskScale",
+      "sunAzimuthOverride", "sunElevationOverride",
+      "moonEnabled", "moonIntensity", "moonColor", "moonDiskScale", "moonPhaseOverride",
+      "starsIntensity", "starsRealRotation",
+      "fogGetsColorFromAtmosphere",
+      // Clouds and the fog density that follows them (2026-09-13).  Names follow UE / UDS so a look
+      // tuned in Unreal can be written here value by value; omitting them leaves the cloud and the
+      // fog exactly as authored on VolumetricCloud / ExponentialHeightFog.
+      "cloudCoverage", "windDirection", "windSpeed",
+      "fogDensityClear", "fogDensityCloudy", "fogDensityDistribution", "scaleFogDensity",
+      "fogHeightFalloffClear", "fogHeightFalloffCloudy",
+    ]),
     DirectionalLight: Object.freeze([
       "position", "rotation", "scale", "visible", "intensity", "lightColor", "castShadows", "useTemperature", "temperature",
       "indirectLightingIntensity", "volumetricScatteringIntensity", "mobility", "lightSourceAngle",
@@ -3910,6 +3932,18 @@
       "usePerSampleAtmosphericLightTransmittance", "skyLightCloudBottomOcclusion", "viewSampleCountScale",
       "reflectionSampleCountScale", "shadowViewSampleCountScale", "shadowReflectionSampleCountScale",
       "shadowTracingDistance", "stopTracingTransmittanceThreshold",
+      // Cloud material parameters (2026-09-13).  Each one is named after its UE /
+      // Ultra Dynamic Sky input, so a cloud look tuned in Unreal transfers value by value.
+      "detailNoiseMipDistance", "shiftCurve", "zDisturbance", "erosionHeightBias",
+      "erosionStrength", "erosionHeightThreshold", "minimumErosion", "hightFrequencyNoiseAmount",
+      "extinctionCurve", "extinctionScaleTop", "extinctionScaleBottom", "nearFadeDistance",
+      "phaseG", "phaseG2", "phaseBlend", "multiScatteringContribution", "multiScatteringOcclusion",
+      "multiScatteringEccentricity", "cloudSpeed", "weatherMapTileSize", "weatherMapMipLevel",
+      "swirlScale", "swirlAmount", "swirlBias",
+      "emissiveColorBottom", "emissiveColorTop", "albedo", "albedoReflection", "noiseVelocity",
+      "noisePosition", "noiseTiling", "weatherMapVelocity", "weatherMapOffset",
+      "proceduralWeatherMap", "weatherMapCoverage", "weatherMapCloudType",
+      "weatherMapPrecipitation", "weatherMapSeed",
     ]),
     ExponentialHeightFog: Object.freeze([
       "fogDensity", "fogHeightFalloff", "secondFogData", "fogInscatteringColor", "fogMaxOpacity",
@@ -3921,23 +3955,75 @@
   const ENVIRONMENT_COLOR_MEMBERS = new Set([
     "lightColor", "lowerHemisphereColor", "groundAlbedo", "fogInscatteringColor",
     "directionalInscatteringColor", "inscatteringTextureTint", "cloudScatteredLuminanceScale",
+    "sunColor", "moonColor",
   ]);
   const ENVIRONMENT_BOOLEAN_MEMBERS = new Set([
     "visible", "castShadows", "useTemperature", "atmosphereSunLight", "realTimeCapture",
-    "lowerHemisphereIsBlack", "usePerSampleAtmosphericLightTransmittance", "skyLightCloudBottomOcclusion",
+    "lowerHemisphereIsBlack", "usePerSampleAtmosphericLightTransmittance",
+    "useSunTemperature", "moonEnabled", "starsRealRotation", "fogGetsColorFromAtmosphere",
+    "proceduralWeatherMap",
+    // skyLightCloudBottomOcclusion is NOT here: it is a 0..1 scalar in UE and in LiVolumetricCloud, and
+    // the renderer takes visibility = 1 - it. Classifying it as a switch collapsed it to two stops.
   ]);
   const ENVIRONMENT_VECTOR_MEMBERS = new Map([
     ["position", "m"], ["rotation", "deg"], ["scale", "scalar"],
     ["rayleighScattering", "scalar"], ["mieScattering", "scalar"], ["mieAbsorption", "scalar"],
     ["otherAbsorption", "scalar"], ["skyLuminanceFactor", "scalar"],
+    ["emissiveColorBottom", "scalar"], ["emissiveColorTop", "scalar"], ["albedo", "scalar"], ["albedoReflection", "scalar"], ["noiseVelocity", "scalar"],
+    ["noisePosition", "scalar"], ["noiseTiling", "scalar"], ["weatherMapVelocity", "scalar"], ["weatherMapOffset", "scalar"],
   ]);
   const ENVIRONMENT_ENUM_MEMBERS = new Set(["mobility", "intensityUnits"]);
+  // Author-facing ranges the native side also enforces; checking here keeps the failure on the
+  // authored line instead of surfacing as an opaque ue_value_invalid from the facade.
+  const ENVIRONMENT_RANGES = Object.freeze({
+    timeScale: [0, 1e9],
+    latitude: [-90, 90],
+    longitude: [-180, 360],
+    northOffset: [-360, 360],
+    sunAzimuthOverride: [-360, 360],
+    sunElevationOverride: [-90, 90],
+    moonPhaseOverride: [0, 1],
+    starsIntensity: [0, 1e6],
+    // UDS CloudCoverage runs 0..3 (1.14 is the factory setting); above 3 the layer is
+    // already solid, and the native mapping clamps there anyway.
+    cloudCoverage: [0, 3],
+    windDirection: [-360, 360],
+    windSpeed: [0, 1e4],
+    fogDensityClear: [0, 10],
+    fogDensityCloudy: [0, 10],
+    fogDensityDistribution: [0, 64],
+    scaleFogDensity: [0, 100],
+    fogHeightFalloffClear: [0, 10],
+    fogHeightFalloffCloudy: [0, 10],
+  });
+  // A date, a time and an explicit offset.  A naive instant would silently mean
+  // "the browser's timezone", which is not reproducible across viewers.
+  const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/;
+  // Free-form strings rather than a closed enum: dateTime is an ISO-8601 instant.
+  const ENVIRONMENT_STRING_MEMBERS = new Set(["dateTime"]);
   // Author-facing sun orientation for the atmosphere sun light, in local ENU degrees at the runtime anchor.
   // These are not UE 4.27 members; the runtime converts them to the ECEF direction the native sun consumes.
   const SUN_DIRECTION_MEMBERS = new Set(["sunAzimuth", "sunElevation"]);
   // The engine sun is page-global. Hot reload mounts the new generation before the
   // old one is disposed, so only the last writer may release the native direction lock.
   let sunDirectionOwner = null;
+
+  // Environment solves the sun from its clock every frame; DirectionalLight.sunAzimuth and
+  // SunSky both pin it.  Two writers means the last frame wins silently, so refuse the pair
+  // at author time.  Same error code the SunSky/rotation conflict already uses.
+  function assertSunDirectionWriter(runtime, claimant) {
+    const environment = [...runtime.environmentComponents.values()]
+      .find((item) => item.type === "Environment" && !item.disposed);
+    const pinned = [...runtime.environmentComponents.values()].find((item) => item.type === "DirectionalLight"
+      && !item.disposed && (item.authorValues?.sunAzimuth !== undefined || item.authorValues?.sunElevation !== undefined));
+    const sunSky = [...runtime.sunSkies.values()].find((item) => !item.disposed);
+    if (claimant === "Environment") {
+      invariant(!pinned, "multiple_writer: Environment owns sun direction, so DirectionalLight.sunAzimuth/sunElevation cannot also set it");
+      invariant(!sunSky, "multiple_writer: Environment owns sun direction, so SunSky cannot also set it");
+    } else {
+      invariant(!environment, `multiple_writer: Environment owns sun direction, so ${claimant} cannot also set it`);
+    }
+  }
 
   function sunDirectionFromAnchor(anchor, azimuthDeg, elevationDeg) {
     const rad = Math.PI / 180;
@@ -3973,7 +4059,7 @@
         length: 3, divisor: 1e6,
       };
     }
-    if (ENVIRONMENT_ENUM_MEMBERS.has(property)) {
+    if (ENVIRONMENT_ENUM_MEMBERS.has(property) || ENVIRONMENT_STRING_MEMBERS.has(property)) {
       return { kind: "member", value_type: "string", unit: null, length: 1, divisor: 1 };
     }
     return { kind: "member", value_type: "scalar", unit: "scalar", length: 1, divisor: 1e6 };
@@ -4038,6 +4124,15 @@
         }
       } else if (name === "mobility") {
         invariant(spec[name] === "Movable", "ue_enum_value_unsupported: only Mobility.Movable is supported");
+        properties[name] = spec[name];
+      } else if (name === "dateTime") {
+        invariant(typeof spec[name] === "string" && ISO_INSTANT.test(spec[name]),
+          "Environment.dateTime must be ISO-8601 with a date, a time and an offset, e.g. \"2026-09-12T18:30:00+08:00\"");
+        properties[name] = spec[name];
+      } else if (ENVIRONMENT_RANGES[name]) {
+        const [minimum, maximum] = ENVIRONMENT_RANGES[name];
+        invariant(Number.isFinite(spec[name]) && spec[name] >= minimum && spec[name] <= maximum,
+          `ue_value_invalid: ${type}.${name} must be in ${minimum}..${maximum}`);
         properties[name] = spec[name];
       } else if (name === "intensityUnits") {
         invariant(["Unitless", "Candelas", "Lumens"].includes(spec[name]),
@@ -4208,6 +4303,7 @@
       const oriented = sunAzimuth !== undefined || sunElevation !== undefined;
       invariant(!oriented || rest.atmosphereSunLight === true,
         "DirectionalLight.sunAzimuth/sunElevation require atmosphereSunLight: true");
+      if (oriented) assertSunDirectionWriter(runtime, "DirectionalLight.sunAzimuth/sunElevation");
       super(runtime, "DirectionalLight", rest);
       this.sunAzimuth = 0;
       this.sunElevation = 90;
@@ -4303,6 +4399,12 @@
       return super.dispose();
     }
   }
+  class Environment extends EnvironmentComponent {
+    constructor(runtime, spec) {
+      assertSunDirectionWriter(runtime, "Environment");
+      super(runtime, "Environment", spec);
+    }
+  }
   class PointLight extends EnvironmentComponent {
     constructor(runtime, spec) { super(runtime, "PointLight", spec); }
   }
@@ -4331,6 +4433,7 @@
       const id = spec?.id || spec?.key;
       invariant(typeof id === "string" && id.length > 0, "SunSky.id or key is required");
       invariant(!runtime.sunSkies.has(id), `SunSky id '${id}' is already registered`);
+      assertSunDirectionWriter(runtime, "SunSky");
       runtime.assertReferenceIdAvailable(id);
       const capabilities = nativeResult(runtime.environmentFacade.capabilities(), "EnvironmentFacade.capabilities");
       invariant(hasCapability(capabilities, SUN_SKY_CAPABILITY),
@@ -5422,6 +5525,727 @@
     }
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // Geographic layers: Globe / ImageryLayer / Tileset / GeoJsonLayer.
+  //
+  // These four live in the GEOGRAPHIC world -- floating-point longitude/latitude on an Earth-sized
+  // ellipsoid -- while every other SSDL node lives in the anchor's local ENU metres.  They therefore
+  // carry no transform and no parent, and the compiler refuses them anywhere but directly under Scene.
+  //
+  // All four talk to the engine through the plain embind surface (no facade), so three rules from
+  // ssmap-embind-ownership-and-units apply throughout: an object a factory RETURNS is owned by JS and
+  // must be delete()d, an accessor WRAPPER (scene.globe) must not be, and a QFuture is only valid
+  // inside its own then() callback.
+  //
+  // The globe, its terrain and its imagery stack are page-global. Hot reload mounts the next generation
+  // BEFORE disposing the previous one, so only the last writer may restore what it changed -- the same
+  // ownership token the atmosphere sun uses above.
+  let globeOwner = null;
+
+  const GEO_TYPES = Object.freeze(["Globe", "ImageryLayer", "Tileset", "GeoJsonLayer"]);
+
+  const geoBool = () => ({ value_type: "boolean", unit: null, length: 1, divisor: 1 });
+  const geoNum = (unit = "scalar") => ({ value_type: "scalar", unit, length: 1, divisor: 1e6 });
+  const geoVec3 = (unit) => ({ value_type: "vector3", unit, length: 3, divisor: 1e6 });
+  const geoHex = () => ({ value_type: "color", unit: null, length: 1, divisor: 1 });
+  const geoText = () => ({ value_type: "string", unit: null, length: 1, divisor: 1 });
+
+  /**
+   * Every member of the four geographic components, with the descriptor the logical layer needs.
+   * `live: false` members are create_only in the catalog: they are read back but never written again.
+   * A contract test keeps this table and BuiltinCatalog/1 in step.
+   */
+  const GEO_MEMBERS = Object.freeze({
+    Globe: Object.freeze({
+      visible: { ...geoBool(), live: true },
+      opacity: { ...geoNum(), live: true },
+      baseColor: { ...geoHex(), live: true },
+      lighting: { ...geoBool(), live: true },
+      terrain: { ...geoText(), live: false },
+      terrainSkirts: { ...geoBool(), live: true },
+    }),
+    ImageryLayer: Object.freeze({
+      kind: { ...geoText(), live: false },
+      source: { ...geoText(), live: false },
+      rectangle: { value_type: "scalar_list", unit: "scalar", length: 4, divisor: 1e6, live: false },
+      webMercator: { ...geoBool(), live: false },
+      minimumLevel: { ...geoNum(), live: false },
+      maximumLevel: { ...geoNum(), live: false },
+      tileWidth: { ...geoNum(), live: false },
+      tileHeight: { ...geoNum(), live: false },
+      hasAlpha: { ...geoBool(), live: false },
+      visible: { ...geoBool(), live: true },
+      alpha: { ...geoNum(), live: true },
+      brightness: { ...geoNum(), live: true },
+      contrast: { ...geoNum(), live: true },
+      saturation: { ...geoNum(), live: true },
+      hue: { ...geoNum(), live: true },
+      gamma: { ...geoNum(), live: true },
+    }),
+    Tileset: Object.freeze({
+      source: { ...geoText(), live: false },
+      visible: { ...geoBool(), live: true },
+      offset: { ...geoVec3("m"), live: true },
+      rotation: { ...geoVec3("deg"), live: true },
+      scale: { ...geoNum(), live: true },
+      geometricErrorScale: { ...geoNum(), live: true },
+      maximumMemory: { ...geoNum(), live: true },
+      skipLevelOfDetail: { ...geoBool(), live: true },
+      splat: { ...geoBool(), live: false },
+    }),
+    GeoJsonLayer: Object.freeze({
+      source: { value_type: "asset_ref", unit: null, length: 1, divisor: 1, live: false },
+      url: { ...geoText(), live: false },
+      geometry: { ...geoText(), live: false },
+      extrudeHeightField: { ...geoText(), live: false },
+      fillColor: { ...geoHex(), live: false },
+      lineColor: { ...geoHex(), live: false },
+      opacity: { ...geoNum(), live: false },
+      lineWidth: { ...geoNum(), live: false },
+      altitude: { ...geoNum("m"), live: false },
+      altitudeMode: { ...geoText(), live: false },
+      depthTest: { ...geoBool(), live: false },
+      visible: { ...geoBool(), live: true },
+    }),
+  });
+
+  /** Author-visible defaults; the compiler does not materialise them, so the runtime must. */
+  const GEO_DEFAULTS = Object.freeze({
+    Globe: Object.freeze({ visible: true, opacity: 1, lighting: true, terrain: "default", terrainSkirts: true }),
+    ImageryLayer: Object.freeze({
+      kind: "xyz", rectangle: [-180, -90, 180, 90], webMercator: false, minimumLevel: 0, maximumLevel: 18,
+      tileWidth: 256, tileHeight: 256, hasAlpha: false, visible: true, alpha: 1,
+      brightness: 1, contrast: 1, saturation: 1, hue: 0, gamma: 1,
+    }),
+    Tileset: Object.freeze({
+      visible: true, offset: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0 }, scale: 1,
+      geometricErrorScale: 1, maximumMemory: 512, skipLevelOfDetail: false, splat: false,
+    }),
+    GeoJsonLayer: Object.freeze({
+      geometry: "polygon", opacity: 1, lineWidth: 1, altitude: 0, altitudeMode: "on_terrain",
+      depthTest: true, visible: true,
+    }),
+  });
+
+  const GEOJSON_CLASSES = Object.freeze({
+    polygon: "GeoJsonPolygonLayer", line: "GeoJsonPolylineLayer", point: "GeoJsonPointLayer",
+  });
+  const ALTITUDE_METHODS = Object.freeze({
+    absolute: "Absolute", on_terrain: "OnTerrain", relative_to_terrain: "RelativeToTerrain",
+  });
+  /** Readiness budget for a terrain provider, a tileset root or a GeoJSON layer, in milliseconds. */
+  const GEO_READY_TIMEOUT_MS = 30000;
+
+  /** cloneLogical() spreads, which turns [w, s, e, n] into {0: w, ...}; a rectangle must stay a list. */
+  const geoClone = (value) => Array.isArray(value) ? value.slice() : cloneLogical(value);
+
+  /** SSDL writes a vector as a list; the logical layer speaks {x, y, z}. Accept both on the way in. */
+  function geoAuthorValue(descriptor, value) {
+    if (descriptor.value_type === "vector3" && Array.isArray(value)) {
+      return { x: value[0], y: value[1], z: value[2] };
+    }
+    return geoClone(value);
+  }
+
+  function geoMemberDescriptor(type, property) {
+    const descriptor = GEO_MEMBERS[type]?.[property];
+    invariant(descriptor, `member_unsupported: ${type}.${property}`);
+    invariant(descriptor.live, `member_readonly: ${type}.${property} is create_only`);
+    const { live, ...rest } = descriptor;
+    return { kind: "member", ...rest };
+  }
+
+  /** Delete every embind wrapper this call owns, newest first, whatever happened in between. */
+  function releaseNative(wrappers) {
+    for (let index = wrappers.length - 1; index >= 0; index -= 1) {
+      try { if (typeof wrappers[index]?.delete === "function") wrappers[index].delete(); } catch (_) {}
+    }
+  }
+
+  /**
+   * A thenable that resolves when the native object is ready, rejecting on a budget the caller must
+   * supply: setTimeout(fn, undefined) fires on the next tick, so an omitted budget would make every
+   * readiness race resolve as an instant timeout (data-models.js:129).
+   */
+  function awaitGeoReady(runtime, thenable, label, timeoutMs = runtime.geoReadyTimeoutMs) {
+    invariant(Number.isFinite(timeoutMs) && timeoutMs > 0, `${label} readiness needs a timeout budget`);
+    if (!thenable || typeof thenable.then !== "function") {
+      return Promise.reject(codedError("unsupported_runtime", `${label}: readyPromise is not a thenable`));
+    }
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = runtime.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(codedError("not_ready", `${label} did not become ready within ${timeoutMs} ms`));
+      }, timeoutMs);
+      Promise.resolve(thenable).then(
+        (value) => { if (!settled) { settled = true; clearTimeout(timer); resolve(value); } },
+        (error) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(codedError("engine_exception", `${label}: ${error?.message || String(error)}`));
+        },
+      );
+    });
+  }
+
+  /** Shared identity, logical-slot and teardown behaviour for the four geographic components. */
+  class GeoComponent {
+    constructor(runtime, type, spec) {
+      invariant(spec && typeof spec === "object", `${type} needs a spec`);
+      const members = GEO_MEMBERS[type];
+      const unsupported = Object.keys(spec).find((name) => name !== "id" && name !== "key" && !Object.hasOwn(members, name));
+      invariant(!unsupported, `member_unsupported: ${type}.${unsupported}`);
+      const id = spec.id || spec.key;
+      invariant(typeof id === "string" && id.length > 0, `${type}.id or key is required`);
+      invariant(!runtime.geoComponents.has(id), `geographic layer id '${id}' is already registered`);
+      runtime.assertReferenceIdAvailable(id);
+      this.runtime = runtime;
+      this.id = id;
+      this.type = type;
+      this.component_type = type;
+      this.disposed = false;
+      this.ready = false;
+      this.loadError = null;
+      this.authorValues = { ...GEO_DEFAULTS[type] };
+      for (const [name, value] of Object.entries(spec)) {
+        if (name === "id" || name === "key" || value === undefined) continue;
+        this.authorValues[name] = geoAuthorValue(members[name], value);
+      }
+      for (const [name, descriptor] of Object.entries(members)) {
+        // A member with no default and no author value (Globe.baseColor) is left to the engine: it has
+        // no logical slot, so binding it without setting it reads back as unknown_reference.
+        if (descriptor.live && this.authorValues[name] !== undefined) {
+          normalizeLogical(descriptor, this.authorValues[name], `${type}.${name}`);
+        }
+      }
+    }
+
+    /** Called by every subclass once its native object exists, so a failed constructor registers nothing. */
+    publish() {
+      this.runtime.geoComponents.set(this.id, this);
+      for (const [name, descriptor] of Object.entries(GEO_MEMBERS[this.type])) {
+        if (descriptor.live && this.authorValues[name] !== undefined) {
+          this.runtime.registerLogicalSlot(this, name, this.authorValues[name]);
+        }
+      }
+      return this;
+    }
+
+    value(name) { return this.authorValues[name]; }
+
+    applyProperty(property, value) {
+      invariant(!this.disposed, `${this.type} '${this.id}' is disposed`);
+      const receipt = this.writeNative(property, value);
+      this.authorValues[property] = geoClone(value);
+      return receipt || { ok: true, property, value: cloneLogical(value) };
+    }
+
+    /** Record a background failure where geo_read and ssworld_capture_frame can both see it. */
+    noteFailure(error) {
+      if (this.disposed) return;
+      const code = error?.code || "engine_exception";
+      this.loadError = { code, message: error?.message || String(error) };
+      this.runtime.noteGeoError(this, code, this.loadError.message);
+    }
+
+    snapshot() {
+      return {
+        id: this.id, type: this.type, ready: this.ready,
+        values: { ...this.authorValues }, ...(this.loadError ? { error: this.loadError } : {}),
+      };
+    }
+
+    dispose() {
+      if (this.disposed) return { ok: true, removed: false, idempotent: true };
+      this.runtime.disposeTargetDependents(this);
+      let result;
+      try { result = this.teardown(); }
+      finally {
+        this.runtime.geoComponents.delete(this.id);
+        this.disposed = true;
+        this.runtime.disposeOwnerSlots(this);
+      }
+      return result || { ok: true, removed: true, idempotent: false };
+    }
+  }
+
+  class Globe extends GeoComponent {
+    constructor(runtime, spec) {
+      super(runtime, "Globe", spec);
+      const globe = runtime.scene?.globe;
+      invariant(globe && typeof globe === "object", "unsupported_runtime: Scene.globe is unavailable in this engine build");
+      // scene.globe is an ACCESSOR wrapper, not a factory result: deleting it would take the engine's
+      // own globe with it.
+      this.native = globe;
+      this.restore = {
+        show: globe.show, opacity: globe.opacity, lightingEnabled: globe.lightingEnabled,
+        terrainSkirts: typeof globe.showTerrainSkirts === "function" ? globe.showTerrainSkirts() : null,
+      };
+      this.terrainChanged = false;
+      globeOwner = this;
+      for (const name of ["visible", "opacity", "lighting", "terrainSkirts"]) this.writeNative(name, this.authorValues[name]);
+      if (this.authorValues.baseColor !== undefined) this.writeNative("baseColor", this.authorValues.baseColor);
+      this.publish();
+      this.applyTerrain(this.authorValues.terrain);
+    }
+
+    writeNative(property, value) {
+      const globe = this.native;
+      if (property === "visible") { globe.show = value; return { ok: true, property, value }; }
+      if (property === "opacity") { globe.opacity = value; return { ok: true, property, value }; }
+      if (property === "lighting") { globe.lightingEnabled = value; return { ok: true, property, value }; }
+      if (property === "terrainSkirts") {
+        if (typeof globe.setShowTerrainSkirts === "function") globe.setShowTerrainSkirts(value);
+        return { ok: true, property, value };
+      }
+      if (property === "baseColor") {
+        const factory = this.runtime.Module?.Color?.fromRgbF;
+        invariant(typeof factory === "function", "unsupported_runtime: SSmap.Color.fromRgbF is unavailable");
+        const channels = value.slice(1).match(/../g).map((part) => Number.parseInt(part, 16) / 255);
+        const alpha = channels.length === 4 ? channels[3] : 1;
+        const color = this.runtime.Module.Color.fromRgbF(
+          srgbToLinear(channels[0]), srgbToLinear(channels[1]), srgbToLinear(channels[2]), alpha);
+        try { globe.baseColor = color; } finally { releaseNative([color]); }
+        return { ok: true, property, value };
+      }
+      throw codedError("member_unsupported", `member_unsupported: Globe.${property}`);
+    }
+
+    applyTerrain(url) {
+      if (url === "default" || url === undefined) return;
+      const globe = this.native;
+      if (typeof globe.setTerrainProviderUrl !== "function") {
+        this.noteFailure(codedError("unsupported_runtime", "Globe.setTerrainProviderUrl is unavailable in this engine build"));
+        return;
+      }
+      this.terrainChanged = true;
+      let pending;
+      try { pending = globe.setTerrainProviderUrl(url); }
+      catch (error) { this.noteFailure(codedError("engine_exception", `terrain '${url}': ${error?.message || String(error)}`)); return; }
+      if (!pending || typeof pending.then !== "function") { this.ready = true; return; }
+      // The QFuture wrapper is only valid until its callback returns, so nothing outside keeps it.
+      this.terrainPromise = awaitGeoReady(this.runtime, pending, `Globe '${this.id}' terrain`)
+        .then(() => { this.ready = true; })
+        .catch((error) => this.noteFailure(codedError(error.code || "terrain_load_failed", error.message)))
+        .finally(() => { releaseNative([pending]); });
+    }
+
+    describe() {
+      const globe = this.native;
+      return {
+        terrain_mode: this.authorValues.terrain === "default" ? "default" : "url",
+        terrain_url: this.authorValues.terrain === "default" ? null : this.authorValues.terrain,
+        terrain_ready: this.terrainChanged ? this.ready : true,
+        imagery_layer_count: this.layerCount(),
+        ...this.anchorGround(),
+      };
+    }
+
+    layerCount() {
+      const globe = this.native;
+      if (typeof globe.imageryLayers !== "function") return null;
+      let collection = null;
+      try { collection = globe.imageryLayers(); return typeof collection?.length === "function" ? collection.length() : null; }
+      catch (_) { return null; }
+      // imageryLayers() is an accessor on the globe, not a factory result: it is not deleted.
+    }
+
+    /**
+     * The number an author cannot see any other way: with terrain on, the ground under the anchor is no
+     * longer at the anchor's ellipsoid height, so every z: 0 node is that far underground or in the air.
+     */
+    anchorGround() {
+      const globe = this.native;
+      const anchor = this.runtime.anchor;
+      const Cartographic = this.runtime.Module?.Cartographic;
+      if (typeof globe.getHeight !== "function" || typeof Cartographic?.fromDegrees !== "function") return {};
+      const wrappers = [];
+      try {
+        const carto = Cartographic.fromDegrees(anchor.lon, anchor.lat, 0);
+        wrappers.push(carto);
+        const height = globe.getHeight(carto, true);
+        if (!Number.isFinite(height)) return {};
+        return {
+          terrain_height_at_anchor_m: Number(height.toFixed(3)),
+          anchor_height_m: anchor.height,
+          anchor_above_terrain_m: Number((anchor.height - height).toFixed(3)),
+          note: "local z = 0 sits at the anchor's ellipsoid height; a positive anchor_above_terrain_m means the scene floats that far over the terrain, a negative one means it is buried",
+        };
+      } catch (_) { return {}; }
+      finally { releaseNative(wrappers); }
+    }
+
+    teardown() {
+      const globe = this.native;
+      // Only the last generation to touch the page-global globe may hand it back.
+      if (globeOwner !== this) return { ok: true, removed: true, restored: false };
+      globeOwner = null;
+      try {
+        globe.show = this.restore.show;
+        globe.opacity = this.restore.opacity;
+        globe.lightingEnabled = this.restore.lightingEnabled;
+        if (this.restore.terrainSkirts !== null && typeof globe.setShowTerrainSkirts === "function") {
+          globe.setShowTerrainSkirts(this.restore.terrainSkirts);
+        }
+        if (this.terrainChanged && typeof globe.setDefaultTerrain === "function") globe.setDefaultTerrain();
+      } catch (_) { /* a disposed engine is not an authoring error */ }
+      return { ok: true, removed: true, restored: true };
+    }
+  }
+
+  class ImageryLayer extends GeoComponent {
+    constructor(runtime, spec) {
+      super(runtime, "ImageryLayer", spec);
+      const globe = runtime.scene?.globe;
+      invariant(globe && typeof globe === "object", "unsupported_runtime: Scene.globe is unavailable in this engine build");
+      invariant(typeof globe.addImageryLayer === "function", "unsupported_runtime: Globe.addImageryLayer is unavailable");
+      this.globe = globe;
+      this.provider = null;
+      const values = this.authorValues;
+      const kind = values.kind;
+      const wrappers = [];
+      try {
+        if (kind === "xyz") {
+          const Provider = runtime.Module?.UrlTemplateImageryProvider;
+          const Layer = runtime.Module?.ImageryLayer;
+          invariant(typeof Provider === "function" && typeof Layer === "function",
+            "unsupported_runtime: SSmap.UrlTemplateImageryProvider / SSmap.ImageryLayer are unavailable");
+          this.provider = new Provider(values.source, values.webMercator, values.maximumLevel,
+            values.minimumLevel, values.tileWidth, values.tileHeight, values.hasAlpha);
+          const rectangle = this.rectangle();
+          wrappers.push(rectangle);
+          this.native = new Layer(this.provider, rectangle);
+          globe.addImageryLayer(this.native);
+        } else if (kind === "wms") {
+          invariant(typeof globe.addWmsImageryLayer === "function", "unsupported_runtime: Globe.addWmsImageryLayer is unavailable");
+          this.native = globe.addWmsImageryLayer(values.source);
+        } else if (kind === "arcgis") {
+          invariant(typeof globe.addArcGisMapServerImageryLayer === "function",
+            "unsupported_runtime: Globe.addArcGisMapServerImageryLayer is unavailable");
+          this.native = globe.addArcGisMapServerImageryLayer(values.source);
+        } else {
+          invariant(typeof globe.addSingleTileImageryLayer === "function",
+            "unsupported_runtime: Globe.addSingleTileImageryLayer is unavailable");
+          const rectangle = this.rectangle();
+          wrappers.push(rectangle);
+          this.native = globe.addSingleTileImageryLayer(values.source, rectangle, values.hasAlpha, true);
+        }
+      } finally { releaseNative(wrappers); }
+      invariant(this.native, `ImageryLayer '${this.id}': the engine returned no layer for kind '${kind}'`);
+      this.nativeIndex = this.indexOf();
+      for (const [name, descriptor] of Object.entries(GEO_MEMBERS.ImageryLayer)) {
+        if (descriptor.live) this.writeNative(name, values[name]);
+      }
+      this.ready = true;
+      this.publish();
+    }
+
+    rectangle() {
+      const Rectangle = this.runtime.Module?.Rectangle;
+      invariant(typeof Rectangle?.fromDegrees === "function", "unsupported_runtime: SSmap.Rectangle.fromDegrees is unavailable");
+      const [west, south, east, north] = this.authorValues.rectangle;
+      return Rectangle.fromDegrees(west, south, east, north);
+    }
+
+    /** Position in the globe's imagery stack: declaration order is draw order, and this proves it. */
+    indexOf() {
+      if (typeof this.globe.imageryLayers !== "function") return null;
+      try {
+        const collection = this.globe.imageryLayers();
+        return typeof collection?.length === "function" ? collection.length() - 1 : null;
+      } catch (_) { return null; }
+    }
+
+    writeNative(property, value) {
+      const layer = this.native;
+      if (property === "visible") { layer.show = value; return { ok: true, property, value }; }
+      if (Object.hasOwn(GEO_MEMBERS.ImageryLayer, property) && GEO_MEMBERS.ImageryLayer[property].live) {
+        layer[property] = value;
+        return { ok: true, property, value };
+      }
+      throw codedError("member_unsupported", `member_unsupported: ImageryLayer.${property}`);
+    }
+
+    describe() {
+      return { kind: this.authorValues.kind, source: this.authorValues.source, native_index: this.nativeIndex };
+    }
+
+    teardown() {
+      // code3 wraps every removeImageryLayer in try/catch because the web build throws on some layer
+      // kinds; the layer still has to be deleted afterwards or the whole tile cache stays resident.
+      let removed = false;
+      try { this.globe.removeImageryLayer(this.native); removed = true; } catch (_) {}
+      releaseNative([this.native, this.provider]);
+      this.native = null;
+      this.provider = null;
+      return { ok: true, removed: true, native_removed: removed };
+    }
+  }
+
+  class Tileset extends GeoComponent {
+    constructor(runtime, spec) {
+      super(runtime, "Tileset", spec);
+      const scene = runtime.scene;
+      const Module = runtime.Module;
+      invariant(typeof Module?.Tileset === "function" && typeof Module?.Entity === "function"
+        && typeof scene?.addEntity === "function", "unsupported_runtime: SSmap.Tileset / SSmap.Entity / Scene.addEntity are unavailable");
+      const values = this.authorValues;
+      this.native = values.splat === true ? new Module.Tileset(values.source, true) : new Module.Tileset(values.source);
+      this.entity = new Module.Entity();
+      invariant(typeof this.entity.addComponent === "function", "unsupported_runtime: Entity.addComponent is unavailable");
+      for (const name of ["geometricErrorScale", "maximumMemory", "skipLevelOfDetail"]) {
+        if (values[name] !== undefined) this.writeNative(name, values[name]);
+      }
+      this.entity.addComponent(this.native);
+      scene.addEntity(this.entity);
+      this.writeNative("visible", values.visible);
+      this.applyModelMatrix();
+      this.publish();
+      this.awaitReady();
+    }
+
+    awaitReady() {
+      const readiness = this.native?.readyPromise;
+      if (!readiness || typeof readiness.then !== "function") { this.ready = true; return; }
+      this.readyPromise = awaitGeoReady(this.runtime, readiness, `Tileset '${this.id}'`)
+        .then(() => { this.ready = true; })
+        // A tileset that never becomes ready is a data problem, not a mount failure: the rest of the
+        // scene stays up and geo_read names the layer.
+        .catch((error) => this.noteFailure(codedError(error.code === "not_ready" ? "tileset_not_ready" : error.code, error.message)));
+    }
+
+    writeNative(property, value) {
+      if (property === "visible") { this.entity.enabled = value; return { ok: true, property, value }; }
+      if (property === "geometricErrorScale") { this.native.geometricErrorScale = value; return { ok: true, property, value }; }
+      if (property === "maximumMemory") { this.native.maximumMemoryUsage = value; return { ok: true, property, value }; }
+      if (property === "skipLevelOfDetail") { this.native.skipLevelOfDetail = value; return { ok: true, property, value }; }
+      if (["offset", "rotation", "scale"].includes(property)) {
+        // offset / rotation / scale are three views of ONE native write. Coalesce them so a binding that
+        // moves and turns a tileset in the same frame composes the matrix once.
+        this.runtime.frameCoordinator.request(`${this.runtime.modelScopeId}:tileset:${this.id}`, () => {
+          if (!this.disposed) this.applyModelMatrix();
+        });
+        return { ok: true, property, value: geoClone(value) };
+      }
+      throw codedError("member_unsupported", `member_unsupported: Tileset.${property}`);
+    }
+
+    applyProperty(property, value) {
+      // The matrix is composed from authorValues, so the new value has to land before the write.
+      if (["offset", "rotation", "scale"].includes(property)) {
+        invariant(!this.disposed, `Tileset '${this.id}' is disposed`);
+        this.authorValues[property] = geoAuthorValue(GEO_MEMBERS.Tileset[property], value);
+        return this.writeNative(property, value);
+      }
+      return super.applyProperty(property, value);
+    }
+
+    /** modelMatrix = translate(offset) * rotate(Euler degrees) * scale, in the tileset root's local frame. */
+    applyModelMatrix() {
+      const Module = this.runtime.Module;
+      const { Matrix4, Quaternion, Vector3 } = Module || {};
+      if (typeof Matrix4?.fromTranslationRotationScale !== "function"
+        || typeof Quaternion?.fromEulerAngles !== "function" || typeof Vector3?.create !== "function") {
+        this.noteFailure(codedError("unsupported_runtime",
+          "SSmap.Matrix4.fromTranslationRotationScale / Quaternion.fromEulerAngles / Vector3.create are unavailable, so offset/rotation/scale cannot be applied"));
+        return null;
+      }
+      const { offset, rotation, scale } = this.authorValues;
+      const wrappers = [];
+      try {
+        const quaternion = Quaternion.fromEulerAngles(rotation.x, rotation.y, rotation.z);
+        wrappers.push(quaternion);
+        const basis = quaternion.toRotationMatrix();
+        wrappers.push(basis);
+        const translation = Vector3.create(offset.x, offset.y, offset.z);
+        wrappers.push(translation);
+        const scaling = Vector3.create(scale, scale, scale);
+        wrappers.push(scaling);
+        const matrix = Matrix4.fromTranslationRotationScale(translation, basis, scaling);
+        wrappers.push(matrix);
+        this.native.modelMatrix = matrix;
+        return { ok: true, property: "modelMatrix" };
+      } finally { releaseNative(wrappers); }
+    }
+
+    describe() {
+      const out = { source: this.authorValues.source, splat: this.authorValues.splat === true };
+      const wrappers = [];
+      try {
+        if (this.native?.rectangle) {
+          const rectangle = this.native.rectangle;
+          wrappers.push(rectangle);
+          const degrees = typeof rectangle?.toDegrees === "function" ? rectangle.toDegrees() : null;
+          if (degrees) {
+            wrappers.push(degrees);
+            out.bounds = { west: degrees.west, south: degrees.south, east: degrees.east, north: degrees.north, units: "degrees" };
+          }
+        }
+      } catch (_) { /* an unready tileset has no bounds yet */ }
+      finally { releaseNative(wrappers); }
+      return out;
+    }
+
+    teardown() {
+      this.runtime.frameCoordinator.cancel(`${this.runtime.modelScopeId}:tileset:${this.id}`);
+      // Scene.removeEntity is not bound; deleting the entity takes the tileset component with it, so
+      // the component must NOT be deleted a second time (that would be a use-after-free).
+      releaseNative([this.entity]);
+      this.entity = null;
+      this.native = null;
+      return { ok: true, removed: true };
+    }
+  }
+
+  class GeoJsonLayer extends GeoComponent {
+    constructor(runtime, spec) {
+      super(runtime, "GeoJsonLayer", spec);
+      const values = this.authorValues;
+      invariant((values.source === undefined) !== (values.url === undefined),
+        `GeoJsonLayer '${this.id}' needs exactly one of source (a managed assets/*.geojson file) or url`);
+      if (values.source !== undefined) {
+        this.source = managedAssetRef(values.source, "geojson",
+          ["application/geo+json", "application/json"], 8 * 1024 * 1024, "GeoJsonLayer.source");
+      }
+      const className = GEOJSON_CLASSES[values.geometry];
+      invariant(className, `GeoJsonLayer '${this.id}': geometry must be one of ${Object.keys(GEOJSON_CLASSES).join(" / ")}`);
+      const Layer = runtime.Module?.[className];
+      invariant(typeof Layer === "function", `unsupported_runtime: SSmap.${className} is unavailable in this engine build`);
+      this.className = className;
+      this.native = new Layer();
+      invariant(typeof this.native.addString === "function" && typeof this.native.create === "function",
+        `unsupported_runtime: ${className} has no addString/create`);
+      this.featureCount = null;
+      /** Colours handed to the native layer; it holds them, so they outlive applyStyle(). */
+      this.styleColors = [];
+      this.publish();
+      this.writeNative("visible", values.visible);
+      // The document arrives asynchronously (managed bytes or a fetch), but the installer builds this
+      // component synchronously, so the load runs as a tail the teardown can outrun.
+      this.loadPromise = this.load().catch((error) => this.noteFailure(error));
+    }
+
+    async load() {
+      const values = this.authorValues;
+      let document;
+      if (this.source) {
+        const bytes = await this.runtime.resolveAsset(this.source, "GeoJsonLayer.source");
+        document = new TextDecoder().decode(bytes);
+      } else {
+        // The engine is never handed the URL: fetching here turns a CORS or 404 into a named error
+        // instead of a silently empty layer.
+        const fetcher = this.runtime.fetch;
+        invariant(typeof fetcher === "function", "unsupported_runtime: this page has no fetch for GeoJsonLayer.url");
+        let response;
+        try { response = await fetcher(values.url, { cache: "no-store" }); }
+        catch (error) { throw codedError("geojson_fetch_failed", `GeoJsonLayer '${this.id}': ${values.url} could not be fetched (${error?.message || error}); a cross-origin server must send Access-Control-Allow-Origin`); }
+        if (!response?.ok) throw codedError("geojson_fetch_failed", `GeoJsonLayer '${this.id}': ${values.url} answered ${response?.status}`);
+        document = await response.text();
+      }
+      if (this.disposed) return null;
+      let parsed;
+      try { parsed = JSON.parse(document); }
+      catch (error) { throw codedError("geojson_invalid", `GeoJsonLayer '${this.id}': the document is not JSON (${error.message})`); }
+      this.featureCount = Array.isArray(parsed?.features) ? parsed.features.length
+        : parsed?.type === "Feature" ? 1 : null;
+      this.native.addString(document);
+      this.applyStyle();
+      if (this.native.create() !== true) {
+        throw codedError("not_ready", `GeoJsonLayer '${this.id}': the engine refused to build the layer (create() did not return true)`);
+      }
+      const readiness = this.native.readyPromise;
+      if (readiness && typeof readiness.then === "function") {
+        await awaitGeoReady(this.runtime, readiness, `GeoJsonLayer '${this.id}'`);
+      }
+      if (this.disposed) return null;
+      this.ready = true;
+      // visible is the one live member, and create() rebuilds the entity, so re-assert it.
+      this.writeNative("visible", this.authorValues.visible);
+      return { ok: true, ready: true, feature_count: this.featureCount };
+    }
+
+    /** Style is create_only: the native layer only reads these before create(). */
+    applyStyle() {
+      const layer = this.native;
+      const values = this.authorValues;
+      const color = (value) => {
+        const factory = this.runtime.Module?.Color?.fromRgbF;
+        invariant(typeof factory === "function", "unsupported_runtime: SSmap.Color.fromRgbF is unavailable");
+        const channels = value.slice(1).match(/../g).map((part) => Number.parseInt(part, 16) / 255);
+        return this.runtime.Module.Color.fromRgbF(srgbToLinear(channels[0]), srgbToLinear(channels[1]),
+          srgbToLinear(channels[2]), channels.length === 4 ? channels[3] : 1);
+      };
+      // The engine keeps whatever these setters were handed for the life of the layer, so the colours
+      // are owned by this component and released in teardown(), not at the end of the style pass.
+      const wrappers = this.styleColors;
+      {
+        if (values.geometry === "polygon") {
+          if (values.fillColor !== undefined) { const value = color(values.fillColor); wrappers.push(value); layer.fillColor = value; }
+          if (values.lineColor !== undefined) { const value = color(values.lineColor); wrappers.push(value); layer.lineColor = value; }
+          layer.fillAlpha = values.opacity;
+          layer.lineAlpha = values.opacity;
+          layer.lineWidth = values.lineWidth;
+          if (values.extrudeHeightField !== undefined) layer.extrudeHeightField = values.extrudeHeightField;
+          // GeoJsonPolygonLayer defaults to entityType LINE, which draws the rings and no fill at all —
+          // a "polygon" that is invisible from above. SSDL decides the body from the author's intent:
+          // an extruded field means solid blocks, anything else means a filled plane.
+          const entityTypes = this.runtime.Module?.EntityType;
+          const body = values.extrudeHeightField !== undefined ? "SINGLEBUILDING" : "PLANE";
+          if (entityTypes?.[body] !== undefined) layer.entityType = entityTypes[body];
+        } else if (values.geometry === "line") {
+          if (values.lineColor !== undefined) { const value = color(values.lineColor); wrappers.push(value); layer.color = value; }
+          layer.alpha = values.opacity;
+          layer.width = values.lineWidth;
+        } else {
+          layer.scale = values.opacity;
+        }
+        if (typeof layer.setAltitude === "function") layer.setAltitude(values.altitude);
+        const method = this.runtime.Module?.AltitudeMethod?.[ALTITUDE_METHODS[values.altitudeMode]];
+        if (method !== undefined && typeof layer.setAltitudeMethod === "function") layer.setAltitudeMethod(method);
+        if (typeof layer.setDepthTest === "function") layer.setDepthTest(values.depthTest);
+        else layer.depthTest = values.depthTest;
+      }
+    }
+
+    writeNative(property, value) {
+      if (property === "visible") { this.native.enabled = value; return { ok: true, property, value }; }
+      throw codedError("member_unsupported", `member_unsupported: GeoJsonLayer.${property}`);
+    }
+
+    describe() {
+      const out = {
+        geometry: this.authorValues.geometry, native_class: this.className,
+        source: this.source ? this.source.asset_id : null, url: this.authorValues.url ?? null,
+        feature_count: this.featureCount,
+      };
+      const wrappers = [];
+      try {
+        if (this.ready && typeof this.native?.extent === "function") {
+          const extent = this.native.extent();
+          wrappers.push(extent);
+          const degrees = typeof extent?.toDegrees === "function" ? extent.toDegrees() : null;
+          if (degrees) {
+            wrappers.push(degrees);
+            out.bounds = { west: degrees.west, south: degrees.south, east: degrees.east, north: degrees.north, units: "degrees" };
+          }
+        }
+      } catch (_) { /* an unready layer has no extent */ }
+      finally { releaseNative(wrappers); }
+      return out;
+    }
+
+    teardown() {
+      releaseNative([this.native]);
+      this.native = null;
+      releaseNative(this.styleColors);
+      this.styleColors = [];
+      return { ok: true, removed: true };
+    }
+  }
+
   class CameraView {
     constructor(runtime, spec) {
       const allowed = new Set(["id", "key", "label", "longitude", "latitude", "height", "duration", "heading", "pitch", "roll",
@@ -6212,6 +7036,13 @@
         read: () => owner.authorValues[property],
       };
     }
+    if (owner instanceof GeoComponent) {
+      return {
+        ...geoMemberDescriptor(owner.type, property),
+        write: (value) => owner.applyProperty(property, value),
+        read: () => owner.value(property),
+      };
+    }
     if (owner instanceof PostProcessVolume) {
       return {
         ...postProcessMemberValueDescriptor(property),
@@ -6304,6 +7135,11 @@
           ? options.expressionRuntime.evaluate.bind(options.expressionRuntime)
           : null;
       this.resolveManagedAsset = options.resolveManagedAsset || null;
+      // GeoJsonLayer.url is fetched by the page, never by the engine, so a CORS or 404 failure is named
+      // instead of arriving as a silently empty layer (loopback-asset-proxy-throat).
+      this.fetch = options.fetch || (typeof globalThis.fetch === "function" ? globalThis.fetch.bind(globalThis) : null);
+      this.geoReadyTimeoutMs = Number.isFinite(options.geoReadyTimeoutMs) && options.geoReadyTimeoutMs > 0
+        ? options.geoReadyTimeoutMs : GEO_READY_TIMEOUT_MS;
       this.modelScopeId = options.modelScopeId || "ssdl-builtins-models";
       invariant(typeof this.modelScopeId === "string" && this.modelScopeId.length > 0,
         "modelScopeId must be a non-empty string");
@@ -6322,6 +7158,10 @@
       this.modelReservations = new Set();
       this.modelIncarnations = new Map();
       this.environmentComponents = new Map();
+      // Geographic layers keep one registry across all four types: they share an id space, a teardown
+      // order and one read-back tool, and the globe is at most one of them.
+      this.geoComponents = new Map();
+      this.geoErrors = [];
       this.sunSkies = new Map();
       this.postProcessVolumes = new Map();
       this.materials = new Map();
@@ -6946,6 +7786,7 @@
     createCameraView(spec) { return new CameraView(this, spec); }
     createLightComponent() { throw new Error("type_abstract: LightComponent cannot be instantiated"); }
     createSunSky(spec) { return new SunSky(this, spec); }
+    createEnvironment(spec) { return new Environment(this, spec); }
     createDirectionalLight(spec) { return new DirectionalLight(this, spec); }
     createPointLight(spec) { return new PointLight(this, spec); }
     createSpotLight(spec) { return new SpotLight(this, spec); }
@@ -6955,6 +7796,10 @@
     createVolumetricCloud(spec) { return new VolumetricCloud(this, spec); }
     createExponentialHeightFog(spec) { return new ExponentialHeightFog(this, spec); }
     createPostProcessVolume(spec) { return new PostProcessVolume(this, spec); }
+    createGlobe(spec) { return new Globe(this, spec); }
+    createImageryLayer(spec) { return new ImageryLayer(this, spec); }
+    createTileset(spec) { return new Tileset(this, spec); }
+    createGeoJsonLayer(spec) { return new GeoJsonLayer(this, spec); }
     createPrefab(spec) { return new Prefab(this, spec); }
     createInstances(spec) { return new Instances(this, spec); }
     createTapHandler(spec) { return new TapHandler(this, spec); }
@@ -6981,6 +7826,36 @@
       invariant(bytes.byteLength === asset.size_bytes,
         `${field} managed bytes do not match the declared size`);
       return bytes;
+    }
+
+    /** Background failure of a geographic layer: recorded for geo_read and emitted for the page log. */
+    noteGeoError(component, code, message) {
+      const entry = Object.freeze({ id: component.id, type: component.type, code, message });
+      this.geoErrors.push(entry);
+      this.emit("geoerror", entry);
+      return entry;
+    }
+
+    /**
+     * What the ENGINE holds for the geographic layers right now: whether the terrain arrived, how far
+     * the anchor's local z = 0 sits above the terrain under it, the imagery stack in draw order, and
+     * each tileset / GeoJSON layer's readiness and extent.
+     */
+    geoRead() {
+      const layers = [...this.geoComponents.values()];
+      const of = (type) => layers.filter((item) => item.type === type)
+        .map((item) => ({ ...item.snapshot(), ...item.describe() }));
+      const globe = layers.find((item) => item.type === "Globe");
+      return {
+        schema_version: "SSWorldGeoReadback/1",
+        anchor: { ...this.anchor },
+        globe: globe ? { ...globe.snapshot(), ...globe.describe() } : null,
+        imagery: of("ImageryLayer"),
+        tilesets: of("Tileset"),
+        geojson: of("GeoJsonLayer"),
+        errors: this.geoErrors.slice(),
+        note: globe ? null : "no Globe node: the engine's default terrain and lighting are in force and the sphere carries no imagery",
+      };
     }
 
     activateView(id, options) {
@@ -7045,6 +7920,9 @@
       for (const sunSky of [...this.sunSkies.values()]) sunSky.dispose();
       for (const component of [...this.environmentComponents.values()]) component.dispose();
       for (const volume of [...this.postProcessVolumes.values()]) volume.dispose();
+      // Imagery layers before the globe: removeImageryLayer needs the globe the Globe node restores.
+      for (const layer of [...this.geoComponents.values()].filter((item) => item.type !== "Globe")) layer.dispose();
+      for (const globe of [...this.geoComponents.values()]) globe.dispose();
       // Batches before prefabs before source objects: a prefab borrows its source node's material, so
       // the source must outlive it, and a batch names its prefab when releasing.
       for (const batch of [...this.instanceBatches.values()]) batch.dispose();

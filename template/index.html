@@ -309,6 +309,16 @@
       return { schema_version: "SSWorldEnvironmentReadback/1", anchor, engine_sun: sun, components };
     }
 
+    // What the ENGINE holds for the geographic layers: whether the terrain arrived, how far the scene's
+    // local z = 0 sits above the ground under the anchor (turning terrain on moves the ground, not the
+    // scene), the imagery stack in draw order, and each tileset / GeoJSON layer's readiness and extent.
+    function readGeo() {
+      const runtime = currentBridge?.runtime;
+      if (!runtime) throw Object.assign(new Error(`no scene module is mounted (runtime state '${document.body.dataset.runtime}')`), { code: "geo_unavailable" });
+      if (typeof runtime.geoRead !== "function") throw Object.assign(new Error("this runtime predates the geographic components"), { code: "geo_unavailable" });
+      return runtime.geoRead();
+    }
+
     async function runCommand(command) {
       try {
         if (command.kind === "status") return { id: command.id, ok: true, status: pageStatus(), camera: cameraState() };
@@ -316,6 +326,7 @@
         if (command.kind === "logic_read") return { id: command.id, ok: true, logic: readLogic(), status: pageStatus() };
         if (command.kind === "logic_write") return { id: command.id, ok: true, ...writeLogic(command.params), status: pageStatus() };
         if (command.kind === "environment_read") return { id: command.id, ok: true, environment: readEnvironment(), status: pageStatus() };
+        if (command.kind === "geo_read") return { id: command.id, ok: true, geo: readGeo(), status: pageStatus() };
         return { id: command.id, ok: false, error: `unknown command ${command.kind}` };
       } catch (error) {
         return { id: command.id, ok: false, error: error.message, ...(error.code ? { code: error.code } : {}),
@@ -475,6 +486,10 @@
             onBindingError: (entry) => noteError("binding_error",
               `${entry.target ?? "?"}.${entry.property ?? "?"}: ${entry.code}: ${entry.message} [binding ${entry.binding ?? "?"}, batch rolled back]`),
           });
+          // Terrain, tileset and GeoJSON loads finish long after mount, so their failures arrive here
+          // rather than as a thrown error; ssworld_capture_frame maps them back to the node.
+          builtinRuntime.on("geoerror", (entry) => noteError("geo_error",
+            `${entry.id}.${entry.type}: ${entry.code}: ${entry.message}`));
           currentBridge = runtime;
           return {
             runtime,
@@ -486,7 +501,9 @@
             window,
             ui,
             anchor: runtime.anchor,
-            capabilities: ["scene.write", "scene.readback", "dom", "project.assets"],
+            // network.read: a GeoJsonLayer url and every imagery/terrain/tileset service is fetched from
+            // this page, so the generation is declaring that it reaches the network.
+            capabilities: ["scene.write", "scene.readback", "dom", "project.assets", "network.read"],
             catalogDigest: builtinRuntime.capabilities().builtin_catalog_digest,
             runtimeAbiDigest: builtinRuntime.capabilities().scene_module_runtime_abi_digest,
             manifest: moduleManifest,

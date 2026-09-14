@@ -5,6 +5,7 @@ import expressionRuntime from "./expression-runtime.js";
 import propertyRegistry from "../generated/property-registry.js";
 import { emitSceneModule } from "./scene-module-emitter.mjs";
 import { expandSourceProject } from "./source-project-0.3.mjs";
+import { validateGeo } from "./geo-0.3.mjs";
 
 const catalog = JSON.parse(readFileSync(new URL("../generated/builtin-catalog-v1.json", import.meta.url), "utf8"));
 const compare = (left, right) => left < right ? -1 : left > right ? 1 : 0;
@@ -28,6 +29,7 @@ const IMPLEMENTATION_DIGEST = digest({
   compiler: readFileSync(new URL(import.meta.url), "utf8"),
   emitter: readFileSync(new URL("./scene-module-emitter.mjs", import.meta.url), "utf8"),
   source_project: readFileSync(new URL("./source-project-0.3.mjs", import.meta.url), "utf8"),
+  geo: readFileSync(new URL("./geo-0.3.mjs", import.meta.url), "utf8"),
   expression_runtime: readFileSync(new URL("./expression-runtime.js", import.meta.url), "utf8"),
   catalog, property_registry: propertyRegistry.registry_digest,
 });
@@ -434,6 +436,7 @@ function compileDocument(document, source, options = {}) {
     }
   };
   walk(document.root);
+  validateGeo(rawNodes, { rootId, catalog, fail, literalValue, containsReference });
   for (const { child, id } of rawNodes) {
     if (child.type === "Binding") continue;
     for (const [name, descriptor] of Object.entries(catalog.components[child.type].members)) {
@@ -621,6 +624,16 @@ function compileDocument(document, source, options = {}) {
     if (!symbols.nodes.has(target) || typeof property !== "string") fail("unknown_reference", fields.get("target"));
     const expected = symbols.types.get(`${target}.${property}`);
     if (!expected) fail("unknown_reference", fields.get("property"));
+    // An inline `alpha: expression` is refused on a create_only member; an explicit Binding at the same
+    // member used to slip past and only fail at mount, where the author has no line number to go on.
+    const targetType = symbols.nodes.get(target)?.type;
+    const targetMember = Object.entries(catalog.components[targetType]?.members || {})
+      .find(([name, descriptor]) => (descriptor.runtime_property || name) === property)?.[1];
+    if (targetMember?.read_only) fail("readonly_property", fields.get("property"), `${targetType}.${property} is read-only`);
+    if (targetMember?.update_class === "create_only") {
+      fail("binding_update_class_unsupported", fields.get("property"),
+        `${targetType}.${property} is create_only: it is read once when the node is built, so a Binding on it would never take effect`);
+    }
     if (bindings.some((item) => item.target.node === target && item.target.property === property)) fail("multiple_logical_writer", child);
     const dependencies = new Set();
     const expression = compileExpression(fields.get("value").value, expected, symbols, dependencies);

@@ -52,7 +52,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const list = await client.request("tools/list", {});
   const names = list.result.tools.map((tool) => tool.name);
   assert.deepEqual(names, ["ssworld_catalog", "ssworld_project_list", "ssworld_project_create", "ssworld_source_read",
-    "ssworld_source_write", "ssworld_source_patch", "ssworld_source_batch", "ssworld_compile", "ssworld_scene_inspect", "ssworld_preview", "ssworld_capture_frame", "ssworld_logic_read", "ssworld_logic_write", "ssworld_environment_read", "ssworld_engine_status"]);
+    "ssworld_source_write", "ssworld_source_patch", "ssworld_source_batch", "ssworld_compile", "ssworld_scene_inspect", "ssworld_preview", "ssworld_capture_frame", "ssworld_logic_read", "ssworld_logic_write", "ssworld_environment_read", "ssworld_geo_read", "ssworld_engine_status"]);
   for (const tool of list.result.tools) assert.equal(tool.rich, undefined, `${tool.name} leaks internal flags`);
   for (const tool of list.result.tools) assert.equal(tool.inputSchema.type, "object", tool.name);
 
@@ -60,7 +60,13 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(catalog.isError, false);
   assert.ok(catalog.body.components.Box?.supported, "Box must be a supported component");
   assert.match(catalog.body.conventions.quaternion_order, /\[x, y, z, w\]/);
-  assert.match(catalog.body.unavailable_components.SunSky.alternative, /atmosphereSunLight/);
+  assert.equal(catalog.body.unavailable_components.SunSky, undefined, "SunSky is available now that the sun position solver exists");
+  assert.ok(catalog.body.components.Environment?.supported, "Environment must be a supported component");
+  assert.ok(catalog.body.components.SunSky?.supported, "SunSky must be a supported component");
+  const environment = await client.call("ssworld_catalog", { component: "Environment" });
+  assert.match(environment.body.runtime_note, /scene clock/);
+  assert.equal(environment.body.contract.members.dateTime.value_type, "string");
+  assert.match(environment.body.contract.members.dateTime.note, /explicit offset/);
   const sky = await client.call("ssworld_catalog", { component: "SkyAtmosphere" });
   assert.equal(sky.body.contract.members.skyLuminanceFactor.value_type, "vector3", "catalog must agree with the runtime (vector3)");
   const sun = await client.call("ssworld_catalog", { component: "DirectionalLight" });
@@ -84,12 +90,11 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.match(catalog.body.catalog_digest, /^sha256:/);
   const cached = await client.call("ssworld_catalog", { if_digest: catalog.body.catalog_digest });
   assert.deepEqual(cached.body, { catalog_digest: catalog.body.catalog_digest, unchanged: true });
-  const batch = await client.call("ssworld_catalog", { components: ["Box", "Sphere", "DirectionalLight", "CameraView", "SunSky"], detail: "compact" });
+  const batch = await client.call("ssworld_catalog", { components: ["Box", "Sphere", "DirectionalLight", "CameraView", "Nope"], detail: "compact" });
   assert.equal(batch.isError, false, JSON.stringify(batch.body));
   assert.equal(batch.body.catalog_digest, catalog.body.catalog_digest);
   assert.deepEqual(Object.keys(batch.body.components), ["Box", "Sphere", "DirectionalLight", "CameraView"]);
-  assert.equal(batch.body.unknown[0].component, "SunSky");
-  assert.match(batch.body.unknown[0].alternative, /atmosphereSunLight/);
+  assert.equal(batch.body.unknown[0].component, "Nope");
   // CameraView.position became writable with the chase-camera work, so it now reads identically to the
   // three geometry positions and hoists out of all four entries.
   assert.equal(batch.body.shared_members.position, "vector3 m");

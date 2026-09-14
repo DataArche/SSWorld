@@ -59,8 +59,46 @@ const EMPTY_SCENE = `Scene {
 }
 `;
 
+// The geographic starting point. It ships NO third-party tile service: a basemap URL carries terms of
+// use and often a key, and neither is ours to accept on the author's behalf. What it does ship is the
+// exact shape of the node, commented out, next to a camera that is already framed geographically.
+const GEO_SCENE = `Scene {
+  id: main
+
+  // The globe every SSDL scene already stands on, now addressable.
+  // terrain: "default" is the engine's own; give it a terrain-tile directory URL to switch.
+  // Turning terrain on moves the GROUND, not this scene: local z = 0 stays at the anchor's
+  // ellipsoid height, so call ssworld_geo_read and read anchor_above_terrain_m afterwards.
+  Globe { id: earth; terrain: "default"; lighting: false }
+
+  // A basemap. Uncomment and put YOUR tile service in source - an xyz template must carry {x} {y} {z}.
+  // Layers draw in declaration order, so the first one is the base and later ones stack on top.
+  // ImageryLayer {
+  //   id: base
+  //   source: "https://your-tile-service.example.com/tiles/{z}/{x}/{y}.png"
+  //   webMercator: true
+  //   maximumLevel: 18
+  //   alpha: 1
+  // }
+
+  // 3D Tiles and vector data land here too; both are Scene children with no position of their own:
+  // Tileset { id: city; source: "https://your-host.example.com/city/tileset.json"; offset: [0, 0, 0] }
+  // GeoJsonLayer { id: parks; source: "assets/parks.geojson"; geometry: "polygon"; fillColor: "#2e7d32" }
+
+  // A marker at the anchor, in local metres, so the page shows where the scene actually is.
+  Box { id: marker; width: 20; depth: 20; height: 60; position: [0, 0, 30]
+    PrincipledMaterial { baseColor: "#e0533d"; roughness: 0.5 }
+  }
+
+  // Geographic framing: longitude/latitude/height are degrees and metres above the ellipsoid,
+  // the same world the layers above live in.
+  CameraView { id: overview; longitude: __ANCHOR_LON__; latitude: __ANCHOR_LAT__; height: 900; heading: 0; pitch: -35 }
+  Camera { id: mainCamera; initialView: overview }
+}
+`;
+
 export async function createProject(name, { anchor = DEFAULT_ANCHOR, title, template = "starter" } = {}) {
-  if (!["starter", "empty"].includes(template)) throw new Error(`unknown template '${template}'; use 'starter' or 'empty'`);
+  if (!["starter", "empty", "geo"].includes(template)) throw new Error(`unknown template '${template}'; use 'starter', 'empty' or 'geo'`);
   const directory = projectDir(name, { mustExist: false });
   if (existsSync(directory)) throw new Error(`project '${name}' already exists; pick another name or edit it with ssworld_source_write`);
   mkdirSync(directory, { recursive: true });
@@ -70,6 +108,7 @@ export async function createProject(name, { anchor = DEFAULT_ANCHOR, title, temp
     writeFileSync(path.join(directory, file), file === "style.css" ? raw : renderTemplate(raw, values), "utf8");
   }
   if (template === "empty") writeFileSync(path.join(directory, "scene.ssdl"), EMPTY_SCENE, "utf8");
+  if (template === "geo") writeFileSync(path.join(directory, "scene.ssdl"), renderTemplate(GEO_SCENE, values), "utf8");
   const manifestPath = path.join(directory, "showcase.manifest.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   manifest.name = name;
