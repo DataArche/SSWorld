@@ -52,6 +52,12 @@
     "Lathe",
     "Tube",
     "Loft",
+    "Sweep",
+    "Torus",
+    "Mesh",
+    "Roof",
+    "Stairs",
+    "Capsule",
     "Label",
     "Model",
     "Texture",
@@ -329,7 +335,7 @@
 
   function extrudeParams(params) {
     invariant(params && typeof params === "object", "ExtrudedPolygon.params is required");
-    const allowed = new Set(["outer", "holes", "height", "cap", "bevel"]);
+    const allowed = new Set(["outer", "holes", "height", "cap", "bevel", "taper", "axis"]);
     const unknown = Object.keys(params).find((name) => !allowed.has(name));
     invariant(!unknown, `member_unsupported: ExtrudedPolygon.params.${unknown}`);
     invariant(Array.isArray(params.outer), "ExtrudedPolygon.params.outer must be an array");
@@ -353,6 +359,8 @@
       result.cap = params.cap;
     }
     if (params.bevel !== undefined) result.bevel = params.bevel;
+    if (params.taper !== undefined) result.taper = params.taper;
+    if (params.axis !== undefined) result.axis = params.axis;
     return result;
   }
 
@@ -3221,23 +3229,764 @@
     });
   }
 
+  // ---- Shared procedural-geometry algorithms -------------------------------------------------
+  // This block is copied verbatim into compiler-0.3.mjs (budget + degeneracy checks) and
+  // ssdl-builtins.js (the real generators).  Both copies are pinned to the same reference vectors in
+  // src/ssdl/fixtures/geometry-vectors/*.json, so an edit to one copy without the other turns a test
+  // red instead of letting the compiler accept what the runtime refuses (or the other way round).
+  // Everything here is deterministic: no Math.random, no Date, no locale.
+  const GEOMETRY_ALGORITHMS_VERSION = "SSDLGeometryAlgorithms/1";
+  function geometryFailure(code, message) {
+    return Object.assign(new Error(message), { code });
+  }
+  /**
+   * Centripetal Catmull-Rom (alpha = 0.5) through `points` ([x, y, z] arrays).  Open curves clamp
+   * their end points; closed curves wrap.  `samples` output points per control segment; an open curve
+   * ends with the last control point, so it yields (n - 1) * samples + 1 points, a closed one n * samples.
+   */
+  function catmullRomResample(points, samples, closed = false) {
+    const n = points.length;
+    if (n < 2) return points.map((point) => point.slice());
+    const get = (index) => closed ? points[((index % n) + n) % n] : points[Math.min(n - 1, Math.max(0, index))];
+    const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    const lerp = (a, b, weightA, weightB) => [a[0] * weightA + b[0] * weightB, a[1] * weightA + b[1] * weightB, a[2] * weightA + b[2] * weightB];
+    const out = [];
+    const segments = closed ? n : n - 1;
+    for (let index = 0; index < segments; index += 1) {
+      const p0 = get(index - 1), p1 = get(index), p2 = get(index + 1), p3 = get(index + 2);
+      let t0 = 0, t1 = Math.sqrt(distance(p0, p1)), t2 = t1 + Math.sqrt(distance(p1, p2)), t3 = t2 + Math.sqrt(distance(p2, p3));
+      // A coincident control point (clamped ends, or an authored repeat) collapses a knot interval;
+      // fall back to the uniform parameterisation for that segment instead of dividing by zero.
+      if (t1 - t0 < 1e-12 || t2 - t1 < 1e-12 || t3 - t2 < 1e-12) { t0 = 0; t1 = 1; t2 = 2; t3 = 3; }
+      for (let sample = 0; sample < samples; sample += 1) {
+        const t = t1 + (t2 - t1) * (sample / samples);
+        const a1 = lerp(p0, p1, (t1 - t) / (t1 - t0), (t - t0) / (t1 - t0));
+        const a2 = lerp(p1, p2, (t2 - t) / (t2 - t1), (t - t1) / (t2 - t1));
+        const a3 = lerp(p2, p3, (t3 - t) / (t3 - t2), (t - t2) / (t3 - t2));
+        const b1 = lerp(a1, a2, (t2 - t) / (t2 - t0), (t - t0) / (t2 - t0));
+        const b2 = lerp(a2, a3, (t3 - t) / (t3 - t1), (t - t1) / (t3 - t1));
+        out.push(lerp(b1, b2, (t2 - t) / (t2 - t1), (t - t1) / (t2 - t1)));
+      }
+    }
+    if (!closed) out.push(points[n - 1].slice());
+    return out;
+  }
+  /** Signed area of a planar ring ([x, y] or longer arrays; only the first two coordinates count). */
+  function ringSignedArea(ring) {
+    let area = 0;
+    for (let index = 0; index < ring.length; index += 1) {
+      const a = ring[index], b = ring[(index + 1) % ring.length];
+      area += a[0] * b[1] - b[0] * a[1];
+    }
+    return area / 2;
+  }
+  function segmentsIntersect(a, b, c, d) {
+    const orient = (p, q, r) => {
+      const value = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+      return value > 1e-12 ? 1 : value < -1e-12 ? -1 : 0;
+    };
+    const onSegment = (p, q, r) => Math.min(p[0], r[0]) - 1e-12 <= q[0] && q[0] <= Math.max(p[0], r[0]) + 1e-12
+      && Math.min(p[1], r[1]) - 1e-12 <= q[1] && q[1] <= Math.max(p[1], r[1]) + 1e-12;
+    const o1 = orient(a, b, c), o2 = orient(a, b, d), o3 = orient(c, d, a), o4 = orient(c, d, b);
+    if (o1 !== o2 && o3 !== o4) return true;
+    if (o1 === 0 && onSegment(a, c, b)) return true;
+    if (o2 === 0 && onSegment(a, d, b)) return true;
+    if (o3 === 0 && onSegment(c, a, d)) return true;
+    if (o4 === 0 && onSegment(c, b, d)) return true;
+    return false;
+  }
+  /** Index of the first edge pair of a ring that crosses (non-adjacent edges only), or -1. */
+  function ringSelfIntersection(ring, closed = true) {
+    const count = closed ? ring.length : ring.length - 1;
+    for (let i = 0; i < count; i += 1) {
+      for (let j = i + 2; j < count; j += 1) {
+        if (closed && i === 0 && j === count - 1) continue;
+        if (segmentsIntersect(ring[i], ring[(i + 1) % ring.length], ring[j], ring[(j + 1) % ring.length])) return [i, j];
+      }
+    }
+    return null;
+  }
+  /**
+   * Ear-clipping triangulation of one outer ring (counter-clockwise, [x, y]) with optional holes
+   * (clockwise).  Holes are bridged into the outer ring (rightmost hole first, David Eberly's visible
+   * vertex construction), then ears are clipped.  Returns flat triangle indices into the concatenation
+   * outer ++ holes[0] ++ holes[1] ...  Throws `mesh_invalid` when no ear exists (a self-intersecting or
+   * collapsed ring).  O(n^2) per hole and per ear; callers cap the total point count.
+   */
+  function earcutRings(outer, holes = []) {
+    const vertices = [];
+    let ring = outer.map((point, index) => { vertices.push(point); return index; });
+    const holeRings = holes.map((hole) => {
+      const start = vertices.length;
+      hole.forEach((point) => vertices.push(point));
+      return hole.map((_, index) => start + index);
+    });
+    const point = (index) => vertices[index];
+    const crossesAny = (a, b) => {
+      const rings = [ring, ...holeRings];
+      for (const candidate of rings) {
+        for (let index = 0; index < candidate.length; index += 1) {
+          const c = candidate[index], d = candidate[(index + 1) % candidate.length];
+          if (c === a || c === b || d === a || d === b) continue;
+          if (segmentsIntersect(point(a), point(b), point(c), point(d))) return true;
+        }
+      }
+      return false;
+    };
+    // Bridge holes from the rightmost inward so an earlier bridge never blocks a later one.
+    holeRings.sort((left, right) => Math.max(...right.map((index) => point(index)[0])) - Math.max(...left.map((index) => point(index)[0])));
+    for (const hole of holeRings) {
+      let holeVertex = 0;
+      for (let index = 1; index < hole.length; index += 1) if (point(hole[index])[0] > point(hole[holeVertex])[0]) holeVertex = index;
+      const m = point(hole[holeVertex]);
+      const order = ring.map((index, position) => ({ position, distance: Math.hypot(point(index)[0] - m[0], point(index)[1] - m[1]) }))
+        .sort((left, right) => left.distance - right.distance || left.position - right.position);
+      let bridge = -1;
+      for (const candidate of order) {
+        if (!crossesAny(hole[holeVertex], ring[candidate.position])) { bridge = candidate.position; break; }
+      }
+      if (bridge === -1) throw geometryFailure("mesh_invalid", "a hole cannot be connected to the outer ring without crossing an edge");
+      const rotated = [...hole.slice(holeVertex), ...hole.slice(0, holeVertex)];
+      ring = [...ring.slice(0, bridge + 1), ...rotated, rotated[0], ...ring.slice(bridge)];
+    }
+    const indices = [];
+    let remaining = ring.slice();
+    const sameXY = (a, b) => a[0] === b[0] && a[1] === b[1];
+    const isEar = (position) => {
+      const size = remaining.length;
+      const ia = remaining[(position + size - 1) % size], ib = remaining[position], ic = remaining[(position + 1) % size];
+      const a = point(ia), b = point(ib), c = point(ic);
+      const cross = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+      if (cross <= 1e-12) return false;
+      for (const index of remaining) {
+        if (index === ia || index === ib || index === ic) continue;
+        const p = point(index);
+        if (sameXY(p, a) || sameXY(p, b) || sameXY(p, c)) continue;
+        const w0 = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+        const w1 = (c[0] - b[0]) * (p[1] - b[1]) - (c[1] - b[1]) * (p[0] - b[0]);
+        const w2 = (a[0] - c[0]) * (p[1] - c[1]) - (a[1] - c[1]) * (p[0] - c[0]);
+        if (w0 >= -1e-12 && w1 >= -1e-12 && w2 >= -1e-12) return false;
+      }
+      return true;
+    };
+    let guard = 0;
+    while (remaining.length > 3) {
+      let clipped = false;
+      for (let position = 0; position < remaining.length; position += 1) {
+        if (!isEar(position)) continue;
+        const size = remaining.length;
+        indices.push(remaining[(position + size - 1) % size], remaining[position], remaining[(position + 1) % size]);
+        remaining.splice(position, 1);
+        clipped = true;
+        break;
+      }
+      if (!clipped) {
+        // Collinear runs leave no strict ear; drop a zero-area corner and carry on.
+        const size = remaining.length;
+        let dropped = false;
+        for (let position = 0; position < size; position += 1) {
+          const a = point(remaining[(position + size - 1) % size]), b = point(remaining[position]), c = point(remaining[(position + 1) % size]);
+          const cross = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+          if (Math.abs(cross) <= 1e-12) { remaining.splice(position, 1); dropped = true; break; }
+        }
+        if (!dropped) throw geometryFailure("mesh_invalid", "the ring could not be triangulated (it crosses itself or is not counter-clockwise)");
+      }
+      if ((guard += 1) > 200000) throw geometryFailure("mesh_invalid", "the ring could not be triangulated");
+    }
+    if (remaining.length === 3) {
+      const a = point(remaining[0]), b = point(remaining[1]), c = point(remaining[2]);
+      const cross = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+      if (cross > 1e-12) indices.push(remaining[0], remaining[1], remaining[2]);
+    }
+    return indices;
+  }
+  /**
+   * Move every vertex of a ring along the mitre of its two edge normals by `distance` (metres).  For a
+   * counter-clockwise ring a positive distance moves inward.  Returns { ring, flipped } where `flipped`
+   * is the index of the first edge whose direction reversed (the inset ate the edge), or -1.
+   */
+  function offsetRing(ring, distance) {
+    const count = ring.length;
+    const out = [];
+    for (let index = 0; index < count; index += 1) {
+      const previous = ring[(index + count - 1) % count], current = ring[index], next = ring[(index + 1) % count];
+      const e0 = [current[0] - previous[0], current[1] - previous[1]], e1 = [next[0] - current[0], next[1] - current[1]];
+      const l0 = Math.hypot(e0[0], e0[1]), l1 = Math.hypot(e1[0], e1[1]);
+      if (l0 < 1e-12 || l1 < 1e-12) throw geometryFailure("mesh_degenerate", `ring point ${index} repeats its neighbour`);
+      const n0 = [-e0[1] / l0, e0[0] / l0], n1 = [-e1[1] / l1, e1[0] / l1];
+      const dot = n0[0] * n1[0] + n0[1] * n1[1];
+      if (1 + dot < 1e-9) throw geometryFailure("mesh_degenerate", `ring point ${index} folds back on itself`);
+      const scale = distance / (1 + dot);
+      out.push([current[0] + (n0[0] + n1[0]) * scale, current[1] + (n0[1] + n1[1]) * scale, ...(current.length > 2 ? [current[2]] : [])]);
+    }
+    let flipped = -1;
+    for (let index = 0; index < count && flipped === -1; index += 1) {
+      const a = ring[index], b = ring[(index + 1) % count], c = out[index], d = out[(index + 1) % count];
+      if ((b[0] - a[0]) * (d[0] - c[0]) + (b[1] - a[1]) * (d[1] - c[1]) <= 0) flipped = index;
+    }
+    return { ring: out, flipped };
+  }
+  /** Deterministic 32-bit lattice hash to [0, 1). */
+  function latticeHash(x, y, seed) {
+    let h = (Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(y | 0, 0x165667b1) ^ Math.imul(seed | 0, 0x9e3779b1)) | 0;
+    h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+    h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  }
+  /** Value noise in [0, 1): bilinear lattice hash with a smoothstep fade. */
+  function valueNoise2(x, y, seed) {
+    const ix = Math.floor(x), iy = Math.floor(y);
+    const fx = x - ix, fy = y - iy;
+    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const a = latticeHash(ix, iy, seed), b = latticeHash(ix + 1, iy, seed);
+    const c = latticeHash(ix, iy + 1, seed), d = latticeHash(ix + 1, iy + 1, seed);
+    return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sy;
+  }
+  /** Fractal value noise in [-1, 1]: `octaves` layers, lacunarity 2, gain 0.5, normalised. */
+  function fbm2(x, y, seed, octaves, frequency) {
+    let sum = 0, amplitude = 1, norm = 0, scale = frequency;
+    for (let octave = 0; octave < octaves; octave += 1) {
+      sum += amplitude * (valueNoise2(x * scale, y * scale, seed + octave) * 2 - 1);
+      norm += amplitude;
+      scale *= 2;
+      amplitude *= 0.5;
+    }
+    return sum / norm;
+  }
+  /** Resample a closed ring ([x, y, z]) to `count` points evenly spaced by arc length, starting at point 0. */
+  function resampleClosedRing(ring, count) {
+    const n = ring.length;
+    const lengths = [];
+    let total = 0;
+    for (let index = 0; index < n; index += 1) {
+      const a = ring[index], b = ring[(index + 1) % n];
+      const length = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+      lengths.push(length);
+      total += length;
+    }
+    if (!(total > 0)) throw geometryFailure("mesh_degenerate", "ring has zero length");
+    const out = [];
+    let segment = 0, walked = 0;
+    for (let index = 0; index < count; index += 1) {
+      const target = total * index / count;
+      while (segment < n - 1 && walked + lengths[segment] < target - 1e-12) { walked += lengths[segment]; segment += 1; }
+      const a = ring[segment], b = ring[(segment + 1) % n];
+      const t = lengths[segment] > 0 ? Math.min(1, Math.max(0, (target - walked) / lengths[segment])) : 0;
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]);
+    }
+    return out;
+  }
+  /** Cumulative arc length of an open polyline ([x, y, z]); returns { lengths (per segment), total }. */
+  function polylineLengths(points) {
+    const lengths = [];
+    let total = 0;
+    for (let index = 1; index < points.length; index += 1) {
+      const a = points[index - 1], b = points[index];
+      const length = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+      lengths.push(length);
+      total += length;
+    }
+    return { lengths, total };
+  }
+  /** Point and unit tangent at arc-length `distance` along an open polyline. */
+  function polylineSample(points, lengths, distance) {
+    let segment = 0, walked = 0;
+    while (segment < lengths.length - 1 && walked + lengths[segment] < distance - 1e-12) { walked += lengths[segment]; segment += 1; }
+    const a = points[segment], b = points[segment + 1];
+    const length = lengths[segment];
+    const t = length > 0 ? Math.min(1, Math.max(0, (distance - walked) / length)) : 0;
+    const tangent = length > 0 ? [(b[0] - a[0]) / length, (b[1] - a[1]) / length, (b[2] - a[2]) / length] : [1, 0, 0];
+    return { point: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t], tangent };
+  }
+  /**
+   * Roof planning shared by the compiler (face counts) and the runtime (mesh).  `footprint` is a
+   * convex quadrilateral as [x, y, z] (any winding; normalised to counter-clockwise, z of the first
+   * point is the eave height).  Returns the faces as polygons of [x, y, z] wound counter-clockwise seen
+   * from outside, plus the eave ring the runtime skirts when the roof has a thickness.
+   */
+  function roofFaces(footprint, style, pitchDegrees, ridge, overhang) {
+    if (footprint.length !== 4) throw geometryFailure("mesh_invalid", "footprint must be exactly 4 points (a convex quadrilateral); split other outlines into quadrilaterals or use Sweep/Loft");
+    const z0 = footprint[0][2];
+    let ring = footprint.map((point) => [point[0], point[1]]);
+    if (ringSignedArea(ring) < 0) ring = ring.slice().reverse();
+    for (let index = 0; index < 4; index += 1) {
+      const a = ring[index], b = ring[(index + 1) % 4], c = ring[(index + 2) % 4];
+      const cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+      if (cross <= 1e-9) throw geometryFailure("mesh_invalid", `footprint is not a convex quadrilateral at point ${(index + 1) % 4}`);
+    }
+    if (overhang > 0) ring = offsetRing(ring, -overhang).ring;
+    const length = (index) => Math.hypot(ring[(index + 1) % 4][0] - ring[index][0], ring[(index + 1) % 4][1] - ring[index][1]);
+    const alignment = (index, axis) => { const dx = ring[(index + 1) % 4][0] - ring[index][0], dy = ring[(index + 1) % 4][1] - ring[index][1]; return Math.abs(axis === "x" ? dx : dy) / Math.hypot(dx, dy); };
+    let longPairIsEven;
+    if (ridge === "x" || ridge === "y") longPairIsEven = alignment(0, ridge) + alignment(2, ridge) >= alignment(1, ridge) + alignment(3, ridge);
+    else longPairIsEven = length(0) + length(2) >= length(1) + length(3);
+    const p = (longPairIsEven ? [0, 1, 2, 3] : [1, 2, 3, 0]).map((index) => [ring[index][0], ring[index][1], z0]);
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, z0];
+    const m1 = mid(p[1], p[2]), m3 = mid(p[3], p[0]);
+    const span = (Math.hypot(p[2][0] - p[1][0], p[2][1] - p[1][1]) + Math.hypot(p[0][0] - p[3][0], p[0][1] - p[3][1])) / 2;
+    const slope = Math.tan(pitchDegrees * Math.PI / 180);
+    const lift = (point, rise) => [point[0], point[1], point[2] + rise];
+    let faces;
+    if (style === "gable") {
+      const rise = slope * span / 2;
+      const r1 = lift(m1, rise), r3 = lift(m3, rise);
+      faces = [[p[0], p[1], r1, r3], [p[2], p[3], r3, r1], [p[1], p[2], r1], [p[3], p[0], r3]];
+    } else if (style === "hip") {
+      const rise = slope * span / 2;
+      const ridgeLength = Math.hypot(m1[0] - m3[0], m1[1] - m3[1]);
+      if (ridgeLength <= span + 1e-9) {
+        const apex = lift(mid(m1, m3), rise);
+        faces = [[p[0], p[1], apex], [p[1], p[2], apex], [p[2], p[3], apex], [p[3], p[0], apex]];
+      } else {
+        const d = [(m1[0] - m3[0]) / ridgeLength, (m1[1] - m3[1]) / ridgeLength];
+        const r1 = lift([m1[0] - d[0] * span / 2, m1[1] - d[1] * span / 2, z0], rise);
+        const r3 = lift([m3[0] + d[0] * span / 2, m3[1] + d[1] * span / 2, z0], rise);
+        faces = [[p[0], p[1], r1, r3], [p[2], p[3], r3, r1], [p[1], p[2], r1], [p[3], p[0], r3]];
+      }
+    } else if (style === "shed") {
+      const rise = slope * span;
+      const h2 = lift(p[2], rise), h3 = lift(p[3], rise);
+      faces = [[p[0], p[1], h2, h3], [p[2], p[3], h3, h2], [p[1], p[2], h2], [p[3], p[0], h3]];
+    } else {
+      throw geometryFailure("mesh_invalid", 'style must be "gable", "hip" or "shed"');
+    }
+    return { faces, eave: p };
+  }
+  /** Stair flight outline in the (x, z) plane, counter-clockwise with x right and z up. */
+  function stairsOutline(steps, rise, run, landing) {
+    const end = steps * run + landing, top = steps * rise;
+    const outline = [[0, 0], [end, 0], [end, top]];
+    if (landing > 0) outline.push([steps * run, top]);
+    for (let index = steps - 1; index >= 0; index -= 1) {
+      outline.push([index * run, (index + 1) * rise]);
+      if (index > 0) outline.push([index * run, index * rise]);
+    }
+    return outline;
+  }
+  const GEOMETRY_ALGORITHMS = Object.freeze({
+    version: GEOMETRY_ALGORITHMS_VERSION, catmullRomResample, ringSignedArea, segmentsIntersect, ringSelfIntersection,
+    earcutRings, offsetRing, latticeHash, valueNoise2, fbm2, resampleClosedRing, polylineLengths, polylineSample,
+    roofFaces, stairsOutline,
+  });
+  // ---- end shared procedural-geometry algorithms --------------------------------------------
+
+  // ---- Generated-mesh lane helpers shared by the newer generators -----------------------------
+  function meshChoice(value, field, allowed, fallback) {
+    if (value === undefined) return fallback;
+    invariant(allowed.includes(value), `${field} must be one of ${allowed.map((item) => `"${item}"`).join(", ")}`);
+    return value;
+  }
+  function meshBoolean(value, field, fallback) {
+    if (value === undefined) return fallback;
+    invariant(typeof value === "boolean", `${field} must be boolean`);
+    return value;
+  }
+  function meshNumber(value, field, min, max, exclusiveMin = false) {
+    finite(value, field);
+    invariant((exclusiveMin ? value > min : value >= min) && value <= max,
+      `${field} must be ${exclusiveMin ? ">" : ">="} ${min} and <= ${max}`);
+    return value;
+  }
+  // smooth: "catmullrom" threads the control points on a centripetal Catmull-Rom curve BEFORE the
+  // generator runs, so every later check (budget, repeats, folds) sees the resampled list.
+  function smoothedControlPoints(type, params, points, closed) {
+    const smooth = meshChoice(params.smooth, `${type}.params.smooth`, ["none", "catmullrom"], "none");
+    if (smooth === "none") {
+      invariant(params.samples === undefined, `${type}.params.samples needs smooth: "catmullrom"`);
+      return points;
+    }
+    const samples = params.samples === undefined ? 4 : meshInteger(params.samples, `${type}.params.samples`, 1, 16);
+    if (points.length < 2) return points;
+    return GEOMETRY_ALGORITHMS.catmullRomResample(points.map((point) => [point.x, point.y, point.z]), samples, closed)
+      .map(([x, y, z]) => ({ x, y, z }));
+  }
+  function flipWinding(indices) {
+    for (let index = 0; index < indices.length; index += 3) {
+      const swap = indices[index + 1];
+      indices[index + 1] = indices[index + 2];
+      indices[index + 2] = swap;
+    }
+    return indices;
+  }
+  function meshFinish(positions, uvs, indices) {
+    return { positions, uvs, indices, tangents: tangentFrames(positions, uvs, indices) };
+  }
+  /** Planar ring ({x, y} points or [x, y]) -> [x, y] arrays, orientation normalised. */
+  function planarRing(ring, field, wantCounterClockwise) {
+    invariant(Array.isArray(ring) && ring.length >= 3 && ring.length <= 256, `${field} must hold 3..256 points`);
+    const points = ring.map((point, index) => {
+      const p = Array.isArray(point) ? { x: point[0], y: point[1] } : point;
+      return [finite(p?.x, `${field}[${index}][0]`), finite(p?.y, `${field}[${index}][1]`)];
+    });
+    for (let index = 1; index < points.length; index += 1) {
+      invariant(Math.hypot(points[index][0] - points[index - 1][0], points[index][1] - points[index - 1][1]) > 1e-9,
+        `${field}[${index}] repeats ${field}[${index - 1}]`);
+    }
+    const crossing = GEOMETRY_ALGORITHMS.ringSelfIntersection(points, true);
+    invariant(!crossing, `${field} crosses itself (edges ${crossing?.[0]} and ${crossing?.[1]})`);
+    const area = GEOMETRY_ALGORITHMS.ringSignedArea(points);
+    invariant(Math.abs(area) > 1e-12, `${field} has no area`);
+    if ((area < 0) === wantCounterClockwise) points.reverse();
+    return points;
+  }
+  /**
+   * Prism builder for the generated-mesh lane.  `levels` are { outer, holes, h } with [x, y] rings
+   * (outer counter-clockwise, holes clockwise); walls are one flat quad per edge per band, caps are
+   * ear-clipped.  `axis` maps (a, b, h) into engine XYZ: "z" -> (a, b, h), "x" -> (h, a, b), and
+   * "y" -> (a, h, b), which mirrors, so its winding is flipped at the end.
+   */
+  function extrudeMesh(levels, { axis = "z", capBottom = true, capTop = true, offset = 0 } = {}) {
+    const map = axis === "z" ? (a, b, h) => ({ x: a, y: b, z: h + offset })
+      : axis === "x" ? (a, b, h) => ({ x: h + offset, y: a, z: b })
+        : (a, b, h) => ({ x: a, y: h + offset, z: b });
+    const height = levels[levels.length - 1].h - levels[0].h;
+    const positions = [], uvs = [], indices = [];
+    const ringsOf = (level) => [level.outer, ...(level.holes || [])];
+    for (let k = 0; k < levels.length - 1; k += 1) {
+      const lower = ringsOf(levels[k]), upper = ringsOf(levels[k + 1]);
+      const v0 = height > 0 ? (levels[k].h - levels[0].h) / height : 0;
+      const v1 = height > 0 ? (levels[k + 1].h - levels[0].h) / height : 1;
+      for (let r = 0; r < lower.length; r += 1) {
+        const ringLow = lower[r], ringHigh = upper[r], n = ringLow.length;
+        const fractions = normalizedArcFractions(ringLow.map(([x, y]) => ({ x, y })), true, ["x", "y"]);
+        for (let j = 0; j < n; j += 1) {
+          const j1 = (j + 1) % n;
+          const u0 = fractions[j], u1 = j1 === 0 ? 1 : fractions[j1];
+          const base = positions.length;
+          positions.push(map(ringLow[j][0], ringLow[j][1], levels[k].h), map(ringLow[j1][0], ringLow[j1][1], levels[k].h),
+            map(ringHigh[j1][0], ringHigh[j1][1], levels[k + 1].h), map(ringHigh[j][0], ringHigh[j][1], levels[k + 1].h));
+          uvs.push({ u: u0, v: v0 }, { u: u1, v: v0 }, { u: u1, v: v1 }, { u: u0, v: v1 });
+          indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+        }
+      }
+    }
+    const cap = (level, up) => {
+      const flat = ringsOf(level).flat();
+      const triangles = GEOMETRY_ALGORITHMS.earcutRings(level.outer, level.holes || []);
+      let minA = Infinity, minB = Infinity, maxA = -Infinity, maxB = -Infinity;
+      for (const [a, b] of flat) { minA = Math.min(minA, a); maxA = Math.max(maxA, a); minB = Math.min(minB, b); maxB = Math.max(maxB, b); }
+      const spanA = maxA - minA || 1, spanB = maxB - minB || 1;
+      const base = positions.length;
+      for (const [a, b] of flat) {
+        positions.push(map(a, b, level.h));
+        uvs.push({ u: (a - minA) / spanA, v: (b - minB) / spanB });
+      }
+      for (let index = 0; index < triangles.length; index += 3) {
+        if (up) indices.push(base + triangles[index], base + triangles[index + 1], base + triangles[index + 2]);
+        else indices.push(base + triangles[index], base + triangles[index + 2], base + triangles[index + 1]);
+      }
+    };
+    if (capBottom) cap(levels[0], false);
+    if (capTop) cap(levels[levels.length - 1], true);
+    if (axis === "y") flipWinding(indices);
+    return meshFinish(positions, uvs, indices);
+  }
+  /** Axis-aligned box as six flat quads (24 vertices) with per-face UVs, faces outward. */
+  function pushBox(positions, uvs, indices, min, max) {
+    const faces = [
+      [[min.x, min.y, min.z], [max.x, min.y, min.z], [max.x, min.y, max.z], [min.x, min.y, max.z]], // -y
+      [[max.x, max.y, min.z], [min.x, max.y, min.z], [min.x, max.y, max.z], [max.x, max.y, max.z]], // +y
+      [[min.x, max.y, min.z], [min.x, min.y, min.z], [min.x, min.y, max.z], [min.x, max.y, max.z]], // -x
+      [[max.x, min.y, min.z], [max.x, max.y, min.z], [max.x, max.y, max.z], [max.x, min.y, max.z]], // +x
+      [[min.x, max.y, min.z], [max.x, max.y, min.z], [max.x, min.y, min.z], [min.x, min.y, min.z]], // -z
+      [[min.x, min.y, max.z], [max.x, min.y, max.z], [max.x, max.y, max.z], [min.x, max.y, max.z]], // +z
+    ];
+    for (const face of faces) {
+      const base = positions.length;
+      face.forEach(([x, y, z]) => positions.push({ x, y, z }));
+      uvs.push({ u: 0, v: 0 }, { u: 1, v: 0 }, { u: 1, v: 1 }, { u: 0, v: 1 });
+      indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+  }
+  /** Rings of one level offset for a taper/bevel: the outer ring moves inward, holes move outward. */
+  function insetLevel(level, distance, field) {
+    const outer = GEOMETRY_ALGORITHMS.offsetRing(level.outer, distance);
+    invariant(outer.flipped === -1, `${field}: outer edge ${outer.flipped} flips when inset by ${distance} m; use a smaller value`);
+    const holes = (level.holes || []).map((hole, index) => {
+      const offset = GEOMETRY_ALGORITHMS.offsetRing(hole, -distance);
+      invariant(offset.flipped === -1, `${field}: holes[${index}] edge ${offset.flipped} flips when offset by ${distance} m; use a smaller value`);
+      return offset.ring;
+    });
+    return { outer: outer.ring, holes };
+  }
+
+  function extrudedPolygonMesh(params) {
+    const axis = meshChoice(params.axis, "ExtrudedPolygon.params.axis", ["z", "x", "y"], "z");
+    const height = finite(params.height, "ExtrudedPolygon.params.height");
+    invariant(height > 0, "ExtrudedPolygon.params.height must be > 0 on the generated-mesh lane");
+    const outer = planarRing(params.outer, "ExtrudedPolygon.params.outer", true);
+    const holes = (params.holes || []).map((ring, index) => planarRing(ring, `ExtrudedPolygon.params.holes[${index}]`, false));
+    const pointCount = outer.length + holes.reduce((sum, ring) => sum + ring.length, 0);
+    invariant(pointCount <= 512, "ExtrudedPolygon with bevel/taper/axis is limited to 512 ring points in total");
+    const cap = meshBoolean(params.cap, "ExtrudedPolygon.params.cap", true);
+    const bevel = params.bevel ? meshNumber(params.bevel, "ExtrudedPolygon.params.bevel", 0, height, true) : 0;
+    invariant(bevel < height, "ExtrudedPolygon.params.bevel must be less than height");
+    const taper = params.taper ? meshNumber(params.taper, "ExtrudedPolygon.params.taper", 0, Infinity, true) : 0;
+    const bottom = { outer, holes, h: 0 };
+    const top = taper > 0 ? insetLevel(bottom, taper, "ExtrudedPolygon.params.taper") : { outer, holes };
+    let levels;
+    if (bevel > 0) {
+      const t = (height - bevel) / height;
+      const lerpRing = (low, high) => low.map((point, index) => [point[0] + (high[index][0] - point[0]) * t, point[1] + (high[index][1] - point[1]) * t]);
+      const shoulder = { outer: lerpRing(outer, top.outer), holes: holes.map((hole, index) => lerpRing(hole, top.holes[index])), h: height - bevel };
+      const crown = insetLevel(top, bevel, "ExtrudedPolygon.params.bevel");
+      levels = [bottom, shoulder, { ...crown, h: height }];
+    } else {
+      levels = [bottom, { ...top, h: height }];
+    }
+    const bands = levels.length - 1;
+    meshBudget("ExtrudedPolygon", bands * pointCount * 4 + (cap ? 2 * pointCount : 0));
+    return extrudeMesh(levels, { axis, capBottom: cap, capTop: cap });
+  }
+
+  function sweepMesh(params) {
+    meshParams("Sweep", params, ["profile", "path", "closedProfile", "cap", "twist", "scaleEnd", "smooth", "samples"]);
+    const closedProfile = meshBoolean(params.closedProfile, "Sweep.params.closedProfile", true);
+    const cap = meshBoolean(params.cap, "Sweep.params.cap", false);
+    invariant(!cap || closedProfile, "Sweep.params.cap needs a closed profile");
+    const twist = params.twist === undefined ? 0 : finite(params.twist, "Sweep.params.twist");
+    const scaleEnd = params.scaleEnd === undefined ? 1 : meshNumber(params.scaleEnd, "Sweep.params.scaleEnd", 0, 10, true);
+    let profile;
+    if (closedProfile) {
+      profile = planarRing(meshPoints(params.profile, "Sweep.params.profile", 3).map((point) => ({ x: point.x, y: point.z })), "Sweep.params.profile", true);
+    } else {
+      profile = meshPoints(params.profile, "Sweep.params.profile", 2).map((point) => [point.x, point.z]);
+      for (let index = 1; index < profile.length; index += 1) {
+        invariant(Math.hypot(profile[index][0] - profile[index - 1][0], profile[index][1] - profile[index - 1][1]) > 1e-9,
+          `Sweep.params.profile[${index}] repeats Sweep.params.profile[${index - 1}]`);
+      }
+    }
+    const path = smoothedControlPoints("Sweep", params, meshPoints(params.path, "Sweep.params.path", 2), false);
+    const P = profile.length, L = path.length;
+    meshBudget("Sweep", P * L + (cap ? 2 * P : 0));
+    const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+    const cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
+    const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
+    const norm = (v, field) => { const l = Math.hypot(v.x, v.y, v.z); invariant(l > 1e-12, field); return { x: v.x / l, y: v.y / l, z: v.z / l }; };
+    const tangents = path.map((point, i) => {
+      const prev = i > 0 ? norm(sub(point, path[i - 1]), "Sweep.params.path must not repeat adjacent points") : null;
+      const next = i < L - 1 ? norm(sub(path[i + 1], point), "Sweep.params.path must not repeat adjacent points") : null;
+      return prev && next ? norm({ x: prev.x + next.x, y: prev.y + next.y, z: prev.z + next.z }, "Sweep.params.path folds back on itself") : prev || next;
+    });
+    // Same parallel-transport frame as Tube, but with the normal negated so that for a path along +Y
+    // the profile's x lands on +X and its z on +Z (the profile is read as drawn: x right, z up,
+    // looking along the path).  That frame is left-handed against ringQuads, hence the flip below.
+    const reference = Math.abs(tangents[0].z) < 0.9 ? { x: 0, y: 0, z: 1 } : { x: 0, y: 1, z: 0 };
+    let normal = norm(cross(reference, tangents[0]), "Sweep frame");
+    const positions = [], uvs = [], indices = [];
+    const pathV = normalizedArcFractions(path, false, ["x", "y", "z"]);
+    const profileU = normalizedArcFractions(profile.map(([x, z]) => ({ x, z })), closedProfile, ["x", "z"]);
+    for (let i = 0; i < L; i += 1) {
+      if (i > 0) {
+        const projected = { x: normal.x - tangents[i].x * dot(normal, tangents[i]), y: normal.y - tangents[i].y * dot(normal, tangents[i]), z: normal.z - tangents[i].z * dot(normal, tangents[i]) };
+        normal = Math.hypot(projected.x, projected.y, projected.z) > 1e-9 ? norm(projected, "Sweep frame") : normal;
+      }
+      const binormal = cross(tangents[i], normal);
+      const axisA = { x: -normal.x, y: -normal.y, z: -normal.z }, axisB = binormal;
+      const angle = twist * pathV[i] * Math.PI / 180, scale = 1 + (scaleEnd - 1) * pathV[i];
+      const cosine = Math.cos(angle), sine = Math.sin(angle);
+      for (let j = 0; j < P; j += 1) {
+        const a = (profile[j][0] * cosine - profile[j][1] * sine) * scale;
+        const b = (profile[j][0] * sine + profile[j][1] * cosine) * scale;
+        positions.push({ x: path[i].x + axisA.x * a + axisB.x * b, y: path[i].y + axisA.y * a + axisB.y * b, z: path[i].z + axisA.z * a + axisB.z * b });
+        uvs.push({ u: profileU[j], v: pathV[i] });
+      }
+    }
+    ringQuads(indices, L, P, closedProfile);
+    flipWinding(indices);
+    if (cap) {
+      const triangles = GEOMETRY_ALGORITHMS.earcutRings(profile, []);
+      const minA = Math.min(...profile.map((p) => p[0])), spanA = (Math.max(...profile.map((p) => p[0])) - minA) || 1;
+      const minB = Math.min(...profile.map((p) => p[1])), spanB = (Math.max(...profile.map((p) => p[1])) - minB) || 1;
+      const capRing = (start, reversed) => {
+        const base = positions.length;
+        for (let j = 0; j < P; j += 1) {
+          positions.push(positions[start + j]);
+          uvs.push({ u: (profile[j][0] - minA) / spanA, v: (profile[j][1] - minB) / spanB });
+        }
+        for (let index = 0; index < triangles.length; index += 3) {
+          if (reversed) indices.push(base + triangles[index], base + triangles[index + 2], base + triangles[index + 1]);
+          else indices.push(base + triangles[index], base + triangles[index + 1], base + triangles[index + 2]);
+        }
+      };
+      // A counter-clockwise profile (x right, z up, looking along the path) faces back along -T as
+      // triangulated, so the start cap keeps the ear order and the end cap reverses it.
+      capRing(0, false);
+      capRing((L - 1) * P, true);
+    }
+    return meshFinish(positions, uvs, indices);
+  }
+
+  function torusMesh(params) {
+    meshParams("Torus", params, ["radius", "tube", "segments", "tubeSegments"]);
+    const radius = meshNumber(params.radius, "Torus.params.radius", 0, Infinity, true);
+    const tube = meshNumber(params.tube, "Torus.params.tube", 0, Infinity, true);
+    invariant(tube < radius, "Torus.params.tube must be less than radius");
+    const segments = meshInteger(params.segments, "Torus.params.segments", 3, 256);
+    const tubeSegments = meshInteger(params.tubeSegments, "Torus.params.tubeSegments", 3, 64);
+    meshBudget("Torus", segments * (tubeSegments + 1));
+    const positions = [], uvs = [], indices = [];
+    for (let k = 0; k <= tubeSegments; k += 1) {
+      const theta = 2 * Math.PI * k / tubeSegments;
+      const ringRadius = radius + tube * Math.cos(theta), z = tube * Math.sin(theta);
+      for (let j = 0; j < segments; j += 1) {
+        const phi = 2 * Math.PI * j / segments;
+        positions.push({ x: ringRadius * Math.cos(phi), y: ringRadius * Math.sin(phi), z });
+        uvs.push({ u: j / segments, v: k / tubeSegments });
+      }
+    }
+    ringQuads(indices, tubeSegments + 1, segments, true);
+    return meshFinish(positions, uvs, indices);
+  }
+
+  function meshLiteral(params) {
+    meshParams("Mesh", params, ["vertices", "faces", "uvs", "shading"]);
+    invariant(Array.isArray(params.vertices) && params.vertices.length >= 9 && params.vertices.length % 3 === 0,
+      "Mesh.params.vertices must be a flat [x, y, z, ...] list with at least 3 corners");
+    const vertexCount = params.vertices.length / 3;
+    invariant(vertexCount <= MESH_MAX_VERTICES, `Mesh.params.vertices holds ${vertexCount} corners (limit ${MESH_MAX_VERTICES})`);
+    invariant(Array.isArray(params.faces) && params.faces.length >= 3 && params.faces.length % 3 === 0,
+      "Mesh.params.faces must be a flat [a, b, c, ...] triangle index list");
+    params.vertices.forEach((value, index) => finite(value, `Mesh.params.vertices[${index}]`));
+    params.faces.forEach((value, index) => invariant(Number.isInteger(value) && value >= 0 && value < vertexCount,
+      `Mesh.params.faces[${index}] must be an integer in 0..${vertexCount - 1}`));
+    const hasUv = params.uvs !== undefined;
+    if (hasUv) {
+      invariant(Array.isArray(params.uvs) && params.uvs.length === 2 * vertexCount, `Mesh.params.uvs must hold 2 * ${vertexCount} numbers`);
+      params.uvs.forEach((value, index) => finite(value, `Mesh.params.uvs[${index}]`));
+    }
+    const shading = meshChoice(params.shading, "Mesh.params.shading", ["flat", "smooth"], "flat");
+    const vertex = (index) => ({ x: params.vertices[3 * index], y: params.vertices[3 * index + 1], z: params.vertices[3 * index + 2] });
+    const uv = (index) => ({ u: params.uvs[2 * index], v: params.uvs[2 * index + 1] });
+    const faceCount = params.faces.length / 3;
+    for (let face = 0; face < faceCount; face += 1) {
+      const a = vertex(params.faces[3 * face]), b = vertex(params.faces[3 * face + 1]), c = vertex(params.faces[3 * face + 2]);
+      const ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z, vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z;
+      const area = Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+      invariant(area > 1e-12, `Mesh.params.faces[${face}] is degenerate (zero area)`);
+    }
+    if (shading === "flat") {
+      meshBudget("Mesh", 3 * faceCount);
+      const positions = [], uvs = [], indices = [];
+      for (let index = 0; index < params.faces.length; index += 1) {
+        positions.push(vertex(params.faces[index]));
+        if (hasUv) uvs.push(uv(params.faces[index]));
+        indices.push(index);
+      }
+      return hasUv ? meshFinish(positions, uvs, indices) : { positions, indices };
+    }
+    const positions = Array.from({ length: vertexCount }, (_, index) => vertex(index));
+    const indices = params.faces.slice();
+    if (!hasUv) return { positions, indices };
+    return meshFinish(positions, Array.from({ length: vertexCount }, (_, index) => uv(index)), indices);
+  }
+
+  function roofMesh(params) {
+    meshParams("Roof", params, ["footprint", "style", "pitch", "ridge", "overhang", "thickness"]);
+    const footprint = meshPoints(params.footprint, "Roof.params.footprint", 4).map((point) => [point.x, point.y, point.z]);
+    invariant(footprint.length === 4, "Roof.params.footprint must be exactly 4 points (a convex quadrilateral)");
+    const style = meshChoice(params.style, "Roof.params.style", ["gable", "hip", "shed"], undefined);
+    invariant(style !== undefined, "Roof.params.style is required");
+    const pitch = meshNumber(params.pitch, "Roof.params.pitch", 0, 85, true);
+    const ridge = meshChoice(params.ridge, "Roof.params.ridge", ["auto", "x", "y"], "auto");
+    const overhang = params.overhang === undefined ? 0 : meshNumber(params.overhang, "Roof.params.overhang", 0, Infinity);
+    const thickness = params.thickness === undefined ? 0 : meshNumber(params.thickness, "Roof.params.thickness", 0, Infinity);
+    const { faces } = GEOMETRY_ALGORITHMS.roofFaces(footprint, style, pitch, ridge, overhang);
+    const positions = [], uvs = [], indices = [];
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const face of faces) for (const [x, y] of face) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+    const spanX = maxX - minX || 1, spanY = maxY - minY || 1;
+    const pushFace = (face, lower, reversed) => {
+      const base = positions.length;
+      for (const [x, y, z] of face) {
+        positions.push({ x, y, z: z - lower });
+        uvs.push({ u: (x - minX) / spanX, v: (y - minY) / spanY });
+      }
+      for (let index = 1; index + 1 < face.length; index += 1) {
+        if (reversed) indices.push(base, base + index + 1, base + index);
+        else indices.push(base, base + index, base + index + 1);
+      }
+    };
+    for (const face of faces) pushFace(face, 0, false);
+    if (thickness > 0) {
+      for (const face of faces) pushFace(face, thickness, true);
+      // Skirt the boundary: every directed edge used once (its reverse never appears) is an eave.
+      const key = (a, b) => `${a[0]},${a[1]},${a[2]}|${b[0]},${b[1]},${b[2]}`;
+      const directed = new Set();
+      for (const face of faces) for (let index = 0; index < face.length; index += 1) directed.add(key(face[index], face[(index + 1) % face.length]));
+      for (const face of faces) {
+        for (let index = 0; index < face.length; index += 1) {
+          const a = face[index], b = face[(index + 1) % face.length];
+          if (directed.has(key(b, a))) continue;
+          const base = positions.length;
+          positions.push({ x: a[0], y: a[1], z: a[2] - thickness }, { x: b[0], y: b[1], z: b[2] - thickness }, { x: b[0], y: b[1], z: b[2] }, { x: a[0], y: a[1], z: a[2] });
+          uvs.push({ u: 0, v: 0 }, { u: 1, v: 0 }, { u: 1, v: 1 }, { u: 0, v: 1 });
+          indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+        }
+      }
+    }
+    meshBudget("Roof", positions.length);
+    return meshFinish(positions, uvs, indices);
+  }
+
+  function stairsMesh(params) {
+    meshParams("Stairs", params, ["steps", "rise", "run", "width", "solid", "tread", "landing"]);
+    const steps = meshInteger(params.steps, "Stairs.params.steps", 1, 1024);
+    const rise = meshNumber(params.rise, "Stairs.params.rise", 0, Infinity, true);
+    const run = meshNumber(params.run, "Stairs.params.run", 0, Infinity, true);
+    const width = meshNumber(params.width, "Stairs.params.width", 0, Infinity, true);
+    const solid = meshBoolean(params.solid, "Stairs.params.solid", true);
+    const tread = params.tread === undefined ? 0.05 : meshNumber(params.tread, "Stairs.params.tread", 0, Infinity, true);
+    const landing = params.landing === undefined ? 0 : meshNumber(params.landing, "Stairs.params.landing", 0, Infinity);
+    if (solid) {
+      const outline = GEOMETRY_ALGORITHMS.stairsOutline(steps, rise, run, landing);
+      meshBudget("Stairs", outline.length * 4 + outline.length * 2);
+      return extrudeMesh([{ outer: outline, holes: [], h: 0 }, { outer: outline, holes: [], h: width }], { axis: "y", offset: -width / 2 });
+    }
+    const slabs = steps + (landing > 0 ? 1 : 0);
+    meshBudget("Stairs", slabs * 24);
+    const positions = [], uvs = [], indices = [];
+    for (let index = 0; index < steps; index += 1) {
+      const top = (index + 1) * rise;
+      pushBox(positions, uvs, indices, { x: index * run, y: -width / 2, z: top - tread }, { x: (index + 1) * run, y: width / 2, z: top });
+    }
+    if (landing > 0) {
+      pushBox(positions, uvs, indices, { x: steps * run, y: -width / 2, z: steps * rise - tread }, { x: steps * run + landing, y: width / 2, z: steps * rise });
+    }
+    return meshFinish(positions, uvs, indices);
+  }
+
   function heightFieldMesh(params) {
-    meshParams("HeightField", params, ["width", "depth", "columns", "rows", "heights"]);
+    meshParams("HeightField", params, ["width", "depth", "columns", "rows", "heights", "noise", "seed", "frequency", "amplitude", "octaves"]);
+    const noise = meshChoice(params.noise, "HeightField.params.noise", ["fbm"], null);
+    let seed = 0, frequency = 0.01, amplitude = 10, octaves = 4;
+    if (noise) {
+      invariant(Number.isInteger(params.seed) && params.seed >= 0 && params.seed <= 4294967295, "HeightField.params.seed must be an integer in 0..4294967295 (required with noise)");
+      seed = params.seed;
+      if (params.frequency !== undefined) frequency = meshNumber(params.frequency, "HeightField.params.frequency", 0, Infinity, true);
+      if (params.amplitude !== undefined) amplitude = meshNumber(params.amplitude, "HeightField.params.amplitude", 0, Infinity, true);
+      if (params.octaves !== undefined) octaves = meshInteger(params.octaves, "HeightField.params.octaves", 1, 8);
+    } else {
+      for (const name of ["seed", "frequency", "amplitude", "octaves"]) invariant(params[name] === undefined, `HeightField.params.${name} needs noise: "fbm"`);
+      invariant(params.heights !== undefined, "HeightField.params.heights is required without noise");
+    }
     const width = finite(params.width, "HeightField.params.width"), depth = finite(params.depth, "HeightField.params.depth");
     invariant(width > 0 && depth > 0, "HeightField.params.width/depth must be > 0");
     const columns = meshInteger(params.columns, "HeightField.params.columns", 1, 4096);
     const rows = meshInteger(params.rows, "HeightField.params.rows", 1, 4096);
     const count = (columns + 1) * (rows + 1);
     meshBudget("HeightField", count);
-    invariant(Array.isArray(params.heights) && params.heights.length === count,
+    invariant(params.heights === undefined || (Array.isArray(params.heights) && params.heights.length === count),
       `HeightField.params.heights needs (columns+1)*(rows+1) = ${count} values`);
     const positions = [], uvs = [], indices = [];
     for (let r = 0; r <= rows; r += 1) {
       for (let c = 0; c <= columns; c += 1) {
         const x = -width / 2 + width * (c / columns);
         const y = -depth / 2 + depth * (r / rows);
-        positions.push({ x, y,
-          z: finite(params.heights[r * (columns + 1) + c], `HeightField.params.heights[${r * (columns + 1) + c}]`) });
+        const authored = params.heights === undefined ? 0
+          : finite(params.heights[r * (columns + 1) + c], `HeightField.params.heights[${r * (columns + 1) + c}]`);
+        positions.push({ x, y, z: noise ? authored + amplitude * GEOMETRY_ALGORITHMS.fbm2(x, y, seed, octaves, frequency) : authored });
         uvs.push({ u: (x + width / 2) / width, v: (y + depth / 2) / depth });
       }
     }
@@ -3251,8 +4000,8 @@
   }
 
   function latheMesh(params) {
-    meshParams("Lathe", params, ["profile", "segments", "closed"]);
-    const profile = meshPoints(params.profile, "Lathe.params.profile", 2);
+    meshParams("Lathe", params, ["profile", "segments", "closed", "smooth", "samples"]);
+    const profile = smoothedControlPoints("Lathe", params, meshPoints(params.profile, "Lathe.params.profile", 2), false);
     const segments = meshInteger(params.segments, "Lathe.params.segments", 3, 256);
     invariant(profile.every((point) => point.x >= 0), "Lathe.params.profile radius (x) must be >= 0");
     invariant(params.closed === undefined || typeof params.closed === "boolean", "Lathe.params.closed must be boolean");
@@ -3283,8 +4032,8 @@
   }
 
   function tubeMesh(params) {
-    meshParams("Tube", params, ["path", "radius", "segments", "closed"]);
-    const path = meshPoints(params.path, "Tube.params.path", 2);
+    meshParams("Tube", params, ["path", "radius", "segments", "closed", "smooth", "samples"]);
+    const path = smoothedControlPoints("Tube", params, meshPoints(params.path, "Tube.params.path", 2), false);
     const radius = finite(params.radius, "Tube.params.radius");
     invariant(radius > 0, "Tube.params.radius must be > 0");
     const segments = meshInteger(params.segments, "Tube.params.segments", 3, 64);
@@ -3327,29 +4076,49 @@
   }
 
   function loftMesh(params) {
-    meshParams("Loft", params, ["sections", "cap"]);
+    meshParams("Loft", params, ["sections", "cap", "smooth", "samples", "resample", "closed"]);
     invariant(Array.isArray(params.sections) && params.sections.length >= 2 && params.sections.length <= 128, "Loft.params.sections must hold 2..128 rings");
-    const sections = params.sections.map((ring, index) => meshPoints(ring, `Loft.params.sections[${index}]`, 3));
+    let sections = params.sections.map((ring, index) => meshPoints(ring, `Loft.params.sections[${index}]`, 3).map((point) => [point.x, point.y, point.z]));
+    const resample = meshBoolean(params.resample, "Loft.params.resample", false);
+    const closed = meshBoolean(params.closed, "Loft.params.closed", false);
+    const cap = meshBoolean(params.cap, "Loft.params.cap", false);
+    invariant(!(closed && cap), "Loft.params.cap is not allowed with closed");
+    if (resample) {
+      const target = Math.max(...sections.map((ring) => ring.length));
+      sections = sections.map((ring, index) => {
+        try { return GEOMETRY_ALGORITHMS.resampleClosedRing(ring, target); }
+        catch (error) { return invariant(false, `Loft.params.sections[${index}] ${error.message}`); }
+      });
+    }
     const count = sections[0].length;
-    invariant(sections.every((ring) => ring.length === count), "Loft.params.sections must all have the same number of points");
-    invariant(params.cap === undefined || typeof params.cap === "boolean", "Loft.params.cap must be boolean");
-    meshBudget("Loft", sections.length * count + 2);
+    invariant(sections.every((ring) => ring.length === count), "Loft.params.sections must all have the same number of points (or set resample: true)");
+    const smooth = meshChoice(params.smooth, "Loft.params.smooth", ["none", "catmullrom"], "none");
+    if (smooth === "catmullrom") {
+      const samples = params.samples === undefined ? 4 : meshInteger(params.samples, "Loft.params.samples", 1, 16);
+      const columns = Array.from({ length: count }, (_, j) => GEOMETRY_ALGORITHMS.catmullRomResample(sections.map((ring) => ring[j]), samples, closed));
+      sections = Array.from({ length: columns[0].length }, (_, k) => columns.map((column) => column[k]));
+    } else {
+      invariant(params.samples === undefined, 'Loft.params.samples needs smooth: "catmullrom"');
+    }
+    const rings = closed ? sections.length + 1 : sections.length;
+    meshBudget("Loft", rings * count + (cap ? 2 : 0));
     const positions = [], uvs = [], indices = [];
-    for (let k = 0; k < sections.length; k += 1) {
-      const ring = sections[k];
+    const objectRings = sections.map((ring) => ring.map(([x, y, z]) => ({ x, y, z })));
+    for (let k = 0; k < rings; k += 1) {
+      const ring = objectRings[k % objectRings.length];
       const ringU = normalizedArcFractions(ring, true, ["x", "y", "z"]);
-      const v = k / (sections.length - 1);
+      const v = k / (rings - 1);
       for (let j = 0; j < ring.length; j += 1) {
         positions.push(ring[j]);
         uvs.push({ u: ringU[j], v });
       }
     }
-    ringQuads(indices, sections.length, count, true);
-    if (params.cap) {
+    ringQuads(indices, rings, count, true);
+    if (cap) {
       const centroid = (ring) => ({ x: ring.reduce((sum, p) => sum + p.x, 0) / ring.length, y: ring.reduce((sum, p) => sum + p.y, 0) / ring.length, z: ring.reduce((sum, p) => sum + p.z, 0) / ring.length });
-      ringCap(positions, uvs, indices, 0, count, centroid(sections[0]), false, ringUvMean(uvs, 0, count));
-      const start = (sections.length - 1) * count;
-      ringCap(positions, uvs, indices, start, count, centroid(sections[sections.length - 1]), true,
+      ringCap(positions, uvs, indices, 0, count, centroid(objectRings[0]), false, ringUvMean(uvs, 0, count));
+      const start = (objectRings.length - 1) * count;
+      ringCap(positions, uvs, indices, start, count, centroid(objectRings[objectRings.length - 1]), true,
         ringUvMean(uvs, start, count));
     }
     return { positions, uvs, indices, tangents: tangentFrames(positions, uvs, indices) };
@@ -3408,7 +4177,46 @@
 
   class ExtrudedPolygon extends SceneObject {
     constructor(runtime, spec) {
-      super(runtime, geometryComponentSpec("ExtrudedPolygon", "extrude", { ...spec, params: extrudeParams(spec?.params) }));
+      const params = extrudeParams(spec?.params);
+      // bevel / taper / a non-z axis switch the node to the generated-mesh lane; without them the
+      // native extrude request is built byte for byte as before (Prefab and reconcile depend on it).
+      const generated = Boolean(params.bevel) || Boolean(params.taper) || (params.axis !== undefined && params.axis !== "z");
+      if (generated) {
+        super(runtime, geometryComponentSpec("ExtrudedPolygon", "mesh", { ...spec, params: extrudedPolygonMesh(params) }));
+      } else {
+        // A zero taper and a "z" axis mean "no change": strip them so the native request keeps its shape.
+        delete params.axis;
+        delete params.taper;
+        super(runtime, geometryComponentSpec("ExtrudedPolygon", "extrude", { ...spec, params }));
+      }
+    }
+  }
+  class Sweep extends SceneObject {
+    constructor(runtime, spec) { super(runtime, geometryComponentSpec("Sweep", "mesh", { ...spec, params: sweepMesh(spec?.params) })); }
+  }
+  class Torus extends SceneObject {
+    constructor(runtime, spec) { super(runtime, geometryComponentSpec("Torus", "mesh", { ...spec, params: torusMesh(spec?.params) })); }
+  }
+  class Mesh extends SceneObject {
+    constructor(runtime, spec) { super(runtime, geometryComponentSpec("Mesh", "mesh", { ...spec, params: meshLiteral(spec?.params) })); }
+  }
+  class Roof extends SceneObject {
+    constructor(runtime, spec) { super(runtime, geometryComponentSpec("Roof", "mesh", { ...spec, params: roofMesh(spec?.params) })); }
+  }
+  class Stairs extends SceneObject {
+    constructor(runtime, spec) { super(runtime, geometryComponentSpec("Stairs", "mesh", { ...spec, params: stairsMesh(spec?.params) })); }
+  }
+  class Capsule extends SceneObject {
+    constructor(runtime, spec) {
+      const params = spec?.params;
+      invariant(params && typeof params === "object", "Capsule.params is required");
+      meshParams("Capsule", params, ["radius", "height", "segments"]);
+      const radius = meshNumber(params.radius, "Capsule.params.radius", 0, Infinity, true);
+      const height = meshNumber(params.height, "Capsule.params.height", 0, Infinity, true);
+      invariant(height > 2 * radius, "Capsule.params.height must exceed 2 * radius");
+      const segments = meshInteger(params.segments, "Capsule.params.segments", 8, 256);
+      invariant(segments % 4 === 0, "Capsule.params.segments must be divisible by four");
+      super(runtime, geometryComponentSpec("Capsule", "capsule", { ...spec, params: { radius, height, segments } }));
     }
   }
 
@@ -5468,6 +6276,12 @@
     Lathe: "createLathe",
     Tube: "createTube",
     Loft: "createLoft",
+    Sweep: "createSweep",
+    Torus: "createTorus",
+    Mesh: "createMesh",
+    Roof: "createRoof",
+    Stairs: "createStairs",
+    Capsule: "createCapsule",
   });
 
   class Repeater {
@@ -5756,7 +6570,8 @@
       invariant(spec && typeof spec === "object", "Instances needs a spec");
       const allowed = new Set(["id", "key", "prefab", "placement", "positions", "origin", "spacing",
         "columns", "count", "seed", "rotations", "rotations_z", "rotation_z",
-        "scales", "scales_uniform", "scale"]);
+        "scales", "scales_uniform", "scale",
+        "center", "radius", "startAngle", "faceCenter", "path", "step", "alignToPath", "smooth", "samples"]);
       const unknown = Object.keys(spec).find((name) => !allowed.has(name));
       invariant(!unknown, `member_unsupported: Instances.${unknown}`);
       const id = spec.id || spec.key;
@@ -5768,18 +6583,24 @@
         "Instances.prefab must be a live Prefab from the same runtime");
       const capability = requirePrefabFacadeV2(runtime, "Instances");
       const placement = spec.placement ?? (spec.positions !== undefined ? "explicit" : "grid");
-      invariant(placement === "explicit" || placement === "grid",
-        'Instances.placement must be "explicit" or "grid"');
+      invariant(["explicit", "grid", "ring", "along_path"].includes(placement),
+        'Instances.placement must be "explicit", "grid", "ring" or "along_path"');
+      const PLACEMENT_MEMBERS = {
+        explicit: ["positions"], grid: ["origin", "spacing", "columns"],
+        ring: ["center", "radius", "startAngle", "faceCenter"], along_path: ["path", "step", "alignToPath", "smooth", "samples"],
+      };
+      for (const [mode, names] of Object.entries(PLACEMENT_MEMBERS)) {
+        if (mode === placement) continue;
+        for (const name of names) invariant(spec[name] === undefined, `Instances.${name} belongs to ${mode} placement`);
+      }
 
       let count;
       let gridRequest = null;
       let positions = null;
+      let autoYaw = null;
       if (placement === "explicit") {
         invariant(Array.isArray(spec.positions) && spec.positions.length > 0,
           "Instances.positions must be a non-empty list of [x, y, z] for explicit placement");
-        for (const name of ["origin", "spacing", "columns"]) {
-          invariant(spec[name] === undefined, `Instances.${name} belongs to grid placement`);
-        }
         // vector3_list is the one member the compiler hands over undecoded: decode() only reshapes
         // vector3/quaternion into { x, y, z }, so explicit positions arrive as [[x, y, z], ...] --
         // exactly what the invariant above promises.  Reading them as objects made every explicit batch
@@ -5791,8 +6612,47 @@
           invariant(spec.count === count,
             "Instances.count must match the number of positions in explicit placement");
         }
+      } else if (placement === "ring") {
+        invariant(Number.isInteger(spec.count) && spec.count > 0, "Instances.count must be a positive integer");
+        count = spec.count;
+        const center = vector3(spec.center, { x: 0, y: 0, z: 0 }, "Instances.center");
+        const radius = finite(spec.radius, "Instances.radius");
+        invariant(radius > 0, "Instances.radius must be > 0 metres");
+        const startAngle = spec.startAngle === undefined ? 0 : finite(spec.startAngle, "Instances.startAngle");
+        const faceCenter = meshBoolean(spec.faceCenter, "Instances.faceCenter", false);
+        const angles = Array.from({ length: count }, (_unused, index) => startAngle + 360 * index / count);
+        positions = angles.map((degrees) => ({
+          x: center.x + radius * Math.cos(degrees * Math.PI / 180),
+          y: center.y + radius * Math.sin(degrees * Math.PI / 180),
+          z: center.z,
+        }));
+        // Facing the centre means the instance's local +X axis points at it: half a turn past its bearing.
+        if (faceCenter) autoYaw = angles.map((degrees) => degrees + 180);
+      } else if (placement === "along_path") {
+        const path = smoothedControlPoints("Instances", spec, meshPoints(spec.path, "Instances.path", 2), false)
+          .map((point) => [point.x, point.y, point.z]);
+        const { lengths, total } = GEOMETRY_ALGORITHMS.polylineLengths(path);
+        invariant(total > 0, "Instances.path has no length");
+        invariant((spec.step === undefined) !== (spec.count === undefined), "Instances along_path needs exactly one of step or count");
+        let spacing;
+        if (spec.step !== undefined) {
+          const step = finite(spec.step, "Instances.step");
+          invariant(step > 0, "Instances.step must be > 0 metres");
+          count = Math.floor(total / step + 1e-9) + 1;
+          spacing = step;
+        } else {
+          invariant(Number.isInteger(spec.count) && spec.count > 0, "Instances.count must be a positive integer");
+          count = spec.count;
+          spacing = count > 1 ? total / (count - 1) : 0;
+        }
+        invariant(count <= PREFAB_MAX_INSTANCES_PER_BATCH,
+          `Instances along_path would place ${count} instances (limit ${PREFAB_MAX_INSTANCES_PER_BATCH} per batch); raise step or lower count`);
+        const alignToPath = meshBoolean(spec.alignToPath, "Instances.alignToPath", false);
+        const samples = Array.from({ length: count }, (_unused, index) =>
+          GEOMETRY_ALGORITHMS.polylineSample(path, lengths, Math.min(total, index * spacing)));
+        positions = samples.map(({ point }) => ({ x: point[0], y: point[1], z: point[2] }));
+        if (alignToPath) autoYaw = samples.map(({ tangent }) => Math.atan2(tangent[1], tangent[0]) * 180 / Math.PI);
       } else {
-        invariant(spec.positions === undefined, "Instances.positions belongs to explicit placement");
         invariant(Number.isInteger(spec.count) && spec.count > 0, "Instances.count must be a positive integer");
         count = spec.count;
         const columns = spec.columns ?? count;
@@ -5841,6 +6701,11 @@
       } else if (spec.rotation_z !== undefined) {
         const shared = quaternionZ(finite(spec.rotation_z, "Instances.rotation_z"));
         rotations = Array.from({ length: count }, () => shared);
+      }
+      if (autoYaw) {
+        invariant(rotationSources.length === 0,
+          `Instances.${placement === "ring" ? "faceCenter" : "alignToPath"} is mutually exclusive with ${rotationSources.join(" / ") || "rotations / rotations_z / rotation_z"}`);
+        rotations = autoYaw.map((degrees) => quaternionZ(degrees));
       }
       // An all-identity list still renders on an old engine, so only a rotation that
       // actually turns something is worth failing the whole batch over.
@@ -8165,6 +9030,12 @@
     createHeightField(spec) { return new HeightField(this, spec); }
     createLathe(spec) { return new Lathe(this, spec); }
     createTube(spec) { return new Tube(this, spec); }
+    createSweep(spec) { return new Sweep(this, spec); }
+    createTorus(spec) { return new Torus(this, spec); }
+    createMesh(spec) { return new Mesh(this, spec); }
+    createRoof(spec) { return new Roof(this, spec); }
+    createStairs(spec) { return new Stairs(this, spec); }
+    createCapsule(spec) { return new Capsule(this, spec); }
     createLoft(spec) { return new Loft(this, spec); }
     createPolygon(spec) { return new Polygon(this, spec); }
     createExtrudedPolygon(spec) { return new ExtrudedPolygon(this, spec); }
@@ -8376,6 +9247,8 @@
     testing: Object.freeze({
       nativeResult, hexColor, quaternion, quaternionZ, directedRotationDelta, wireValue, authorValue,
       animationDefinition, compositeTimeline, polygonParams, polylineMesh, sunSkySpec, sunDirectionFromAnchor,
+      geometryAlgorithms: GEOMETRY_ALGORITHMS, sweepMesh, torusMesh, meshLiteral, roofMesh, stairsMesh, extrudedPolygonMesh,
+      latheMesh, tubeMesh, loftMesh, heightFieldMesh,
     }),
   });
 });

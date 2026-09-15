@@ -164,6 +164,68 @@
         }
       }
     },
+    "Capsule": {
+      "adapter": "geometry",
+      "factory": "createCapsule",
+      "members": {
+        "color": {
+          "runtime_property": "material.color",
+          "value_type": "color"
+        },
+        "height": {
+          "note": "total height including both hemispheres; must exceed 2 * radius",
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "opacity": {
+          "runtime_property": "material.opacity",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "parent": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "position": {
+          "runtime_property": "transform.position",
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "radius": {
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "rotation": {
+          "runtime_property": "transform.rotation",
+          "unit": "scalar",
+          "value_type": "quaternion"
+        },
+        "scale": {
+          "runtime_property": "transform.scale",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "segments": {
+          "note": "integer, at least 8 and divisible by four",
+          "required": true,
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        }
+      },
+      "params": [
+        "radius",
+        "height",
+        "segments"
+      ]
+    },
     "ColorAnimation": {
       "adapter": "animation",
       "commands": [
@@ -600,6 +662,17 @@
       "adapter": "geometry",
       "factory": "createExtrudedPolygon",
       "members": {
+        "axis": {
+          "note": "extrusion axis: \"z\" (default, the outline lies in XY), \"x\" (outline in YZ, extruded along +X) or \"y\" (outline in XZ, extruded along +Y); a triangle outline along x is a ramp or wedge, a pentagon a gabled block. Anything but \"z\" switches the node to the generated-mesh lane",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "bevel": {
+          "note": "chamfer size at the top edge in metres, > 0 and less than both height and half the shortest edge; switches the node to the generated-mesh lane (with UVs)",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
         "cap": {
           "update_class": "create_only",
           "value_type": "boolean"
@@ -649,6 +722,12 @@
           "unit": "scalar",
           "value_type": "vector3"
         },
+        "taper": {
+          "note": "inset of the top face in metres, > 0, along the vertex bisectors; an edge that would flip is refused with mesh_invalid; switches the node to the generated-mesh lane",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
         "visible": {
           "value_type": "boolean"
         }
@@ -657,7 +736,10 @@
         "outer",
         "holes",
         "height",
-        "cap"
+        "cap",
+        "bevel",
+        "taper",
+        "axis"
       ]
     },
     "GeoJsonLayer": {
@@ -778,6 +860,12 @@
       "adapter": "geometry",
       "factory": "createHeightField",
       "members": {
+        "amplitude": {
+          "note": "noise peak height in metres, > 0 (default 10); the field spans about -amplitude..+amplitude",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
         "color": {
           "runtime_property": "material.color",
           "value_type": "color"
@@ -794,11 +882,29 @@
           "update_class": "create_only",
           "value_type": "scalar"
         },
+        "frequency": {
+          "note": "noise cycles per metre, > 0 (default 0.01 = one feature per 100 m)",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
         "heights": {
-          "required": true,
+          "note": "(columns+1)*(rows+1) corner heights, row-major from -depth/2; optional once noise is set, and then added on top of the noise",
+          "required": false,
           "unit": "m",
           "update_class": "create_only",
           "value_type": "scalar_list"
+        },
+        "noise": {
+          "note": "\"fbm\": deterministic value-noise fractal (integer hash, no Math.random) sampled at every grid corner; makes heights optional",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "octaves": {
+          "note": "fbm octaves, integer 1..8 (default 4); lacunarity 2 and gain 0.5 are fixed",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
         },
         "opacity": {
           "runtime_property": "material.opacity",
@@ -830,6 +936,12 @@
           "unit": "scalar",
           "value_type": "vector3"
         },
+        "seed": {
+          "note": "integer 0..4294967295, required with noise; the same seed always yields the same terrain",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
         "visible": {
           "value_type": "boolean"
         },
@@ -845,7 +957,12 @@
         "depth",
         "columns",
         "rows",
-        "heights"
+        "heights",
+        "noise",
+        "seed",
+        "frequency",
+        "amplitude",
+        "octaves"
       ]
     },
     "HoverHandler": {
@@ -949,6 +1066,17 @@
       "adapter": "direct",
       "factory": "createInstances",
       "members": {
+        "alignToPath": {
+          "note": "along_path placement: yaw every instance along the path tangent (default false); mutually exclusive with rotations / rotations_z / rotation_z",
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "center": {
+          "note": "ring placement: circle centre in local metres",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector3"
+        },
         "columns": {
           "unit": "scalar",
           "update_class": "create_only",
@@ -960,13 +1088,24 @@
           "update_class": "create_only",
           "value_type": "scalar"
         },
+        "faceCenter": {
+          "note": "ring placement: yaw every instance to face the centre (default false); mutually exclusive with rotations / rotations_z / rotation_z",
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
         "origin": {
           "unit": "m",
           "update_class": "create_only",
           "value_type": "vector3"
         },
+        "path": {
+          "note": "along_path placement: polyline in local metres, 2..256 points; instances are spaced by arc length",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector3_list"
+        },
         "placement": {
-          "note": "explicit (give positions) or grid (give origin/spacing/columns/count); when omitted it is inferred from whether positions was given",
+          "note": "explicit (give positions), grid (origin/spacing/columns/count), ring (center/radius/count, optional startAngle/faceCenter) or along_path (path plus count or step, optional alignToPath); when omitted it is inferred from whether positions was given",
           "update_class": "create_only",
           "value_type": "string"
         },
@@ -980,6 +1119,12 @@
           "required": true,
           "update_class": "create_only",
           "value_type": "object_ref"
+        },
+        "radius": {
+          "note": "ring placement: circle radius in metres, > 0",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
         },
         "rotation_z": {
           "note": "one yaw in degrees about Z for the whole batch; mutually exclusive with rotations / rotations_z",
@@ -998,6 +1143,12 @@
           "unit": "deg",
           "update_class": "create_only",
           "value_type": "scalar_list"
+        },
+        "samples": {
+          "note": "subdivisions per control segment under smooth: \"catmullrom\", integer 1..16 (default 4); refused when smooth is none or absent",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
         },
         "scale": {
           "note": "one [sx, sy, sz] for the whole batch; mutually exclusive with scales / scales_uniform",
@@ -1022,11 +1173,28 @@
           "update_class": "create_only",
           "value_type": "scalar"
         },
+        "smooth": {
+          "note": "along_path placement: \"none\" (default) or \"catmullrom\" to thread the path through its points before spacing",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
         "spacing": {
           "note": "row and column spacing [dx, dy] for grid placement; both must be positive",
           "unit": "m",
           "update_class": "create_only",
           "value_type": "vector2"
+        },
+        "startAngle": {
+          "note": "ring placement: angle of the first instance in degrees counter-clockwise from +X (default 0)",
+          "unit": "deg",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "step": {
+          "note": "along_path placement: arc-length spacing in metres, > 0; give either step or count",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
         }
       }
     },
@@ -1159,6 +1327,12 @@
           "unit": "scalar",
           "value_type": "quaternion"
         },
+        "samples": {
+          "note": "subdivisions per control segment under smooth: \"catmullrom\", integer 1..16 (default 4); refused when smooth is none or absent",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
         "scale": {
           "runtime_property": "transform.scale",
           "unit": "scalar",
@@ -1170,6 +1344,11 @@
           "update_class": "create_only",
           "value_type": "scalar"
         },
+        "smooth": {
+          "note": "\"none\" (default) or \"catmullrom\": centripetal Catmull-Rom through the control points, end points clamped; the vertex budget and the degeneracy checks run on the resampled list",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
         "visible": {
           "value_type": "boolean"
         }
@@ -1177,7 +1356,9 @@
       "params": [
         "profile",
         "segments",
-        "closed"
+        "closed",
+        "smooth",
+        "samples"
       ]
     },
     "Loft": {
@@ -1188,9 +1369,88 @@
           "update_class": "create_only",
           "value_type": "boolean"
         },
+        "closed": {
+          "note": "stitch the last ring back to the first (a ring-shaped loft); cap is refused when closed",
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
         "color": {
           "runtime_property": "material.color",
           "value_type": "color"
+        },
+        "opacity": {
+          "runtime_property": "material.opacity",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "parent": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "position": {
+          "runtime_property": "transform.position",
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "resample": {
+          "note": "resample every ring by arc length to the point count of the largest ring, so rings may have different point counts (each still 3..256)",
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "rotation": {
+          "runtime_property": "transform.rotation",
+          "unit": "scalar",
+          "value_type": "quaternion"
+        },
+        "samples": {
+          "note": "subdivisions per control segment under smooth: \"catmullrom\", integer 1..16 (default 4); refused when smooth is none or absent",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "scale": {
+          "runtime_property": "transform.scale",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "sections": {
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "ring_list"
+        },
+        "smooth": {
+          "note": "\"none\" (default) or \"catmullrom\": the j-th point of every ring is threaded on one centripetal Catmull-Rom curve, so the surface bulges smoothly between rings; applied after resample",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "visible": {
+          "value_type": "boolean"
+        }
+      },
+      "params": [
+        "sections",
+        "cap",
+        "smooth",
+        "samples",
+        "resample",
+        "closed"
+      ]
+    },
+    "Mesh": {
+      "adapter": "geometry",
+      "factory": "createMesh",
+      "members": {
+        "color": {
+          "runtime_property": "material.color",
+          "value_type": "color"
+        },
+        "faces": {
+          "note": "flat triangle indices [a0, b0, c0, ...], integers in [0, vertexCount), counter-clockwise seen from outside",
+          "required": true,
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar_list"
         },
         "opacity": {
           "runtime_property": "material.opacity",
@@ -1216,19 +1476,33 @@
           "unit": "scalar",
           "value_type": "vector3"
         },
-        "sections": {
+        "shading": {
+          "note": "\"flat\" (default: every face gets its own three corners, so the vertex budget is 3 * faces) or \"smooth\" (corners are shared and the engine averages normals)",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "uvs": {
+          "note": "flat [u0, v0, ...], length 2 * vertexCount; only with it does the mesh carry UVs",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar_list"
+        },
+        "vertices": {
+          "note": "flat [x0, y0, z0, x1, y1, z1, ...] in local metres; length a multiple of 3, at most 65535 corners (the scalar_list cap of 65536 numbers allows 21845 vertices)",
           "required": true,
           "unit": "m",
           "update_class": "create_only",
-          "value_type": "ring_list"
+          "value_type": "scalar_list"
         },
         "visible": {
           "value_type": "boolean"
         }
       },
       "params": [
-        "sections",
-        "cap"
+        "vertices",
+        "faces",
+        "uvs",
+        "shading"
       ]
     },
     "Model": {
@@ -1771,7 +2045,7 @@
       "factory": "createPrefab",
       "members": {
         "source": {
-          "note": "points at a geometry node (Box/Sphere/Cylinder/Cone/Plane/HeightField/Lathe/Tube/Loft) or a fully loaded Model; the instances reuse its geometry and materials. Polygon cannot be an instance source",
+          "note": "points at a geometry node (Box/Sphere/Cylinder/Cone/Capsule/Plane/HeightField/Lathe/Tube/Loft/Sweep/Torus/Mesh/Roof/Stairs) or a fully loaded Model; the instances reuse its geometry and materials. Polygon cannot be an instance source",
           "required": true,
           "update_class": "create_only",
           "value_type": "object_ref"
@@ -1974,6 +2248,88 @@
           "value_type": "scalar"
         }
       }
+    },
+    "Roof": {
+      "adapter": "geometry",
+      "factory": "createRoof",
+      "members": {
+        "color": {
+          "runtime_property": "material.color",
+          "value_type": "color"
+        },
+        "footprint": {
+          "note": "exactly 4 points forming a convex quadrilateral, counter-clockwise, in local metres; z of the first point is the eave height. Other shapes are refused: split them into quadrilaterals or use Sweep/Loft",
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector3_list"
+        },
+        "opacity": {
+          "runtime_property": "material.opacity",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "overhang": {
+          "note": "eave overhang in metres, >= 0 (default 0)",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "parent": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "pitch": {
+          "note": "slope of the roof planes in degrees, (0, 85]",
+          "required": true,
+          "unit": "deg",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "position": {
+          "runtime_property": "transform.position",
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "ridge": {
+          "note": "\"auto\" (default: the ridge runs parallel to the longer pair of edges), \"x\" or \"y\"; for shed it is the direction of the high edge",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "rotation": {
+          "runtime_property": "transform.rotation",
+          "unit": "scalar",
+          "value_type": "quaternion"
+        },
+        "scale": {
+          "runtime_property": "transform.scale",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "style": {
+          "note": "\"gable\" (two slopes meeting at a ridge), \"hip\" (four slopes) or \"shed\" (one slope)",
+          "required": true,
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "thickness": {
+          "note": "slab thickness in metres; 0 (default) is a single surface, > 0 builds a slab with an underside and closed edges",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        }
+      },
+      "params": [
+        "footprint",
+        "style",
+        "pitch",
+        "ridge",
+        "overhang",
+        "thickness"
+      ]
     },
     "RotationAnimation": {
       "adapter": "animation",
@@ -2318,6 +2674,98 @@
         }
       }
     },
+    "Stairs": {
+      "adapter": "geometry",
+      "factory": "createStairs",
+      "members": {
+        "color": {
+          "runtime_property": "material.color",
+          "value_type": "color"
+        },
+        "landing": {
+          "note": "depth of a flat landing after the last step, >= 0 (default 0)",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "opacity": {
+          "runtime_property": "material.opacity",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "parent": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "position": {
+          "runtime_property": "transform.position",
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "rise": {
+          "note": "height of one step, > 0",
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "rotation": {
+          "runtime_property": "transform.rotation",
+          "unit": "scalar",
+          "value_type": "quaternion"
+        },
+        "run": {
+          "note": "depth of one step, > 0",
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "scale": {
+          "runtime_property": "transform.scale",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "solid": {
+          "note": "true (default): a solid flight down to the ground; false: floating treads of thickness tread",
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "steps": {
+          "note": "integer 1..1024",
+          "required": true,
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "tread": {
+          "note": "tread slab thickness for solid: false, > 0 (default 0.05)",
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "width": {
+          "note": "stair width, > 0",
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        }
+      },
+      "note": "starts at the origin and climbs along +X, Z up; width spans -width/2..+width/2 in Y",
+      "params": [
+        "steps",
+        "rise",
+        "run",
+        "width",
+        "solid",
+        "tread",
+        "landing"
+      ]
+    },
     "State": {
       "adapter": "direct",
       "factory": "createState",
@@ -2391,6 +2839,100 @@
           "value_type": "boolean"
         }
       }
+    },
+    "Sweep": {
+      "adapter": "geometry",
+      "factory": "createSweep",
+      "members": {
+        "cap": {
+          "note": "cap both ends (default false); only with a closed profile",
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "closedProfile": {
+          "note": "close the profile into a ring (default true); false sweeps an open strip such as a railing panel or a canopy",
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "color": {
+          "runtime_property": "material.color",
+          "value_type": "color"
+        },
+        "opacity": {
+          "runtime_property": "material.opacity",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "parent": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "path": {
+          "note": "2..256 points; a parallel-transport frame like Tube, so a vertical first segment is fine",
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector3_list"
+        },
+        "position": {
+          "runtime_property": "transform.position",
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "profile": {
+          "note": "cross-section in the local XZ plane as [x, 0, z] (like Lathe), 3..256 points, counter-clockwise; local +Y is the path direction",
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "vector3_list"
+        },
+        "rotation": {
+          "runtime_property": "transform.rotation",
+          "unit": "scalar",
+          "value_type": "quaternion"
+        },
+        "samples": {
+          "note": "subdivisions per control segment under smooth: \"catmullrom\", integer 1..16 (default 4); refused when smooth is none or absent",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "scale": {
+          "runtime_property": "transform.scale",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "scaleEnd": {
+          "note": "profile scale at the end of the path, (0, 10], interpolated linearly by arc length from 1 (default 1)",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "smooth": {
+          "note": "\"none\" (default) or \"catmullrom\": centripetal Catmull-Rom through the control points, end points clamped; the vertex budget and the degeneracy checks run on the resampled list",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "twist": {
+          "note": "total rotation of the profile about the path over its length, degrees (default 0)",
+          "unit": "deg",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        }
+      },
+      "params": [
+        "profile",
+        "path",
+        "closedProfile",
+        "cap",
+        "twist",
+        "scaleEnd",
+        "smooth",
+        "samples"
+      ]
     },
     "TapHandler": {
       "adapter": "interaction",
@@ -2490,6 +3032,77 @@
         "onTriggered"
       ]
     },
+    "Torus": {
+      "adapter": "geometry",
+      "factory": "createTorus",
+      "members": {
+        "color": {
+          "runtime_property": "material.color",
+          "value_type": "color"
+        },
+        "opacity": {
+          "runtime_property": "material.opacity",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "parent": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "position": {
+          "runtime_property": "transform.position",
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "radius": {
+          "note": "ring radius from the centre to the tube centre, > 0",
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "rotation": {
+          "runtime_property": "transform.rotation",
+          "unit": "scalar",
+          "value_type": "quaternion"
+        },
+        "scale": {
+          "runtime_property": "transform.scale",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "segments": {
+          "note": "around the ring, integer 3..256",
+          "required": true,
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "tube": {
+          "note": "tube radius, > 0 and less than radius",
+          "required": true,
+          "unit": "m",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "tubeSegments": {
+          "note": "around the tube, integer 3..64",
+          "required": true,
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "visible": {
+          "value_type": "boolean"
+        }
+      },
+      "params": [
+        "radius",
+        "tube",
+        "segments",
+        "tubeSegments"
+      ]
+    },
     "Tube": {
       "adapter": "geometry",
       "factory": "createTube",
@@ -2533,6 +3146,12 @@
           "unit": "scalar",
           "value_type": "quaternion"
         },
+        "samples": {
+          "note": "subdivisions per control segment under smooth: \"catmullrom\", integer 1..16 (default 4); refused when smooth is none or absent",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
         "scale": {
           "runtime_property": "transform.scale",
           "unit": "scalar",
@@ -2544,6 +3163,11 @@
           "update_class": "create_only",
           "value_type": "scalar"
         },
+        "smooth": {
+          "note": "\"none\" (default) or \"catmullrom\": centripetal Catmull-Rom through the control points, end points clamped; the vertex budget and the degeneracy checks run on the resampled list",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
         "visible": {
           "value_type": "boolean"
         }
@@ -2552,7 +3176,9 @@
         "path",
         "radius",
         "segments",
-        "closed"
+        "closed",
+        "smooth",
+        "samples"
       ]
     },
     "UnlitMaterial": {

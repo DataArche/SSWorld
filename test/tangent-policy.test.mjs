@@ -81,7 +81,7 @@ test("the gate keys off the host geometry, not the material", () => {
   const problems = checkRuntimeSupport({ nodes }).filter((item) => item.code === "material_requires_tangent");
   assert.equal(problems.length, 1);
   assert.equal(problems[0].node, "surface");
-  assert.match(problems[0].message, /Plane\/HeightField\/Lathe\/Tube\/Loft/);
+  assert.match(problems[0].message, /Plane\/HeightField\/Lathe\/Tube\/Loft\/Sweep\/Torus\/Roof\/Stairs/);
   assert.deepEqual([...TANGENT_CAPABLE_TYPES].sort(),
-    ["HeightField", "Lathe", "Loft", "Plane", "Tube"]);
+    ["HeightField", "Lathe", "Loft", "Plane", "Roof", "Stairs", "Sweep", "Torus", "Tube"]);
 });

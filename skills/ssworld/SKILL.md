@@ -1,7 +1,7 @@
 ---
 name: ssworld
 description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, map basemap, terrain, 3D Tiles city or GeoJSON overlay, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world on a real globe. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.16.0
+version: 1.18.0
 author: SSWorld
 license: Apache-2.0
 metadata:
@@ -15,13 +15,18 @@ When the user asks for a 3D scene, a model, a building, a city, a digital twin, 
 
 What you deliver: editable `.ssdl` sources, a preview page they can open, and a screenshot you have actually looked at. Answer in the language the user wrote in. Get a picture on screen first, then iterate against the picture.
 
+**Order of work is fixed: plan, then component files, then `scene.ssdl`, then compile, then inspect, then look.** The plan is not optional and it is not a sentence in your head — see "Plan before you write". Agents that skip it hand over a 600-line `scene.ssdl` of copy-pasted boxes, and that is a failed delivery even when it renders.
+
 ## 30 seconds
 
 ```
 ssworld_project_create {"name":"MyScene"}      // create + compile
 ssworld_catalog {"components":["Box","DirectionalLight"],"detail":"compact"}  // look properties up, never guess
-ssworld_source_write / _patch / _batch          // write scene.ssdl
+(write the build plan in your reply)            // parts table: Model / Prefab+Instances / Group / own .ssdl file  — NO source write before this exists
+ssworld_source_write LampPost.ssdl, Tower.ssdl  // component files FIRST
+ssworld_source_write scene.ssdl                 // then the skeleton: camera, lights, environment, ground, instantiations
 ssworld_compile                                 // compile, check ok
+ssworld_scene_inspect                           // by_file + leaf_children.by_type: the plan gate (below)
 ssworld_preview                                 // take viewer_url, open it with open_preview
 ssworld_capture_frame                           // screenshot, judge from the image
 ```
@@ -72,16 +77,17 @@ You may also edit the project's `.ssdl` files directly with the host's file tool
 | `ssworld_geo_read` | **Asks the engine what it holds for the geographic layers**: whether the terrain provider actually loaded, `anchor_above_terrain_m` (how far the scene's local `z: 0` sits above the ground under the anchor — turning terrain on moves the ground, not the scene), the imagery layers in real draw order with their `native_index`, and each `Tileset` / `GeoJsonLayer`'s readiness, extent and feature count. "Why is there no basemap" and "where did my buildings go" are one call away |
 | `ssworld_logic_write` | Writes several declared properties in one transaction: `{"set":{"p":0.4,"pace":0.0025}}`. Use it to put a game into a particular state before a screenshot — **do not edit the initial values in the source for that**. If any value is rejected the whole batch rolls back (`logical_write_rejected`); States are derived and cannot be written, so write the properties they read |
 
-## The 49 built-in components at a glance
+## The 55 built-in components at a glance
 
 Pick a shape from this table, then read the exact properties with `ssworld_catalog`. **Never guess property names from QML or three.js experience.**
 
 | Group | Components | Notes |
 |-------|-----------|-------|
 | **Skeleton** | `Scene` `Group` `Camera` `CameraView` | A parent can only be `Scene` or `Group`. Geometry cannot be a parent |
-| **Primitives** | `Box` `Sphere` `Cylinder` `Cone` `Plane` | All carry UVs and take textures. Box width/depth/height map to X/Y/Z |
-| **Procedural geometry** | `HeightField` `Lathe` `Tube` `Loft` | Parameters must be constants; at most 65535 vertices per node. **These four plus `Plane` are the only ones with tangents**, so `normalMap` and `WaterMaterial` only work on them |
-| | `Polygon` `ExtrudedPolygon` `Polyline` | Flat polygon / extrusion / polyline. They carry their own `color` and `opacity`. **No UVs, so no textures**, and they cannot be a Prefab source |
+| **Primitives** | `Box` `Sphere` `Cylinder` `Cone` `Capsule` `Plane` | All carry UVs and take textures. Box width/depth/height map to X/Y/Z. Capsule `height` includes both hemispheres (so `> 2 * radius`) and `segments` is a multiple of four |
+| **Procedural geometry** | `HeightField` `Lathe` `Tube` `Sweep` `Loft` `Torus` `Roof` `Stairs` `Mesh` | Parameters must be constants; at most 65535 vertices per node. **These eight (all but `Mesh`) plus `Plane` are the only ones with tangents**, so `normalMap` and `WaterMaterial` only work on them. `smooth: "catmullrom"` (+ `samples`, default 4) rounds a `Lathe` profile, a `Tube`/`Sweep` path and the columns of a `Loft`; `HeightField` takes `noise: "fbm"; seed: 7` instead of a heights list |
+| | *which one?* | `Tube` = round section along a path. `Sweep` = any section along a path: the profile is drawn in XZ as `[x, 0, z]` (x right, z up, looking along the path), closed by default, with `twist` / `scaleEnd` / `cap`, or `closedProfile: false` for a strip. `Loft` = rings bottom to top (`resample: true` when rings differ in point count, `closed: true` to close the body on itself). `Torus` = `radius` + `tube`. `Roof` = gable / hip / shed on a **convex 4-point** footprint with `pitch`, `overhang`, `thickness`; split other outlines into quads. `Stairs` = `steps`/`rise`/`run`/`width` climbing +X from the origin. `Mesh` = flat `vertices` + `faces` lists, the escape hatch for a script-generated shape — think Loft/Sweep first |
+| | `Polygon` `ExtrudedPolygon` `Polyline` | Flat polygon / extrusion / polyline. They carry their own `color` and `opacity`. **No UVs, so no textures**, and they cannot be a Prefab source. `ExtrudedPolygon` also takes `bevel` (top chamfer), `taper` (top inset, refused when it would eat an edge) and `axis: "x"` / `"y"` (a triangle outline becomes a ramp, a pentagon a gabled block); any of the three builds the block as a generated mesh with UVs, still without normal maps |
 | **Assets** | `Model` `Texture` | glb ≤ 32 MiB, images ≤ 8 MiB, both under the project's `assets/`, at most 64 per project |
 | **Materials** | `PrincipledMaterial` `UnlitMaterial` `WaterMaterial` | `target` points at geometry; one material per target. `PrincipledMaterial` is the lit PBR lane (`baseColorMap` / `metallicRoughnessMap` / `normalMap` / `emissiveMap`). **`UnlitMaterial` skips lighting, shadows and reflections entirely** — `baseColor` goes straight to the frame — which is the lane for markers, legends, holograms, signage and flat blocking; it carries only `baseColor` / `opacity` / `baseColorMap` / `uvScale` / `emissiveColor` (the PBR members are refused, not ignored), and `emissiveColor` (0..16) is how it crosses the bloom threshold since `baseColor` cannot exceed 1. **`WaterMaterial` is a prebuilt water surface, not a general material**: `baseColor` is the shallow colour and `deepColor` the colour reached after `depthFadeDistance` metres (default 150) — that fade reads the scene depth texture, so **there must be geometry under the water or `deepColor` never shows**. `waveIntensity` (0..4, default 0.103333, 0 = flat mirror) plus `flowDirection`/`flowSpeed` drive a built-in scrolling normal map; there is no texture slot and no `normalMap`. It needs tangents (`Plane`/`HeightField`/`Lathe`/`Tube`/`Loft`), is always translucent and two-sided whatever `opacity` says, and **animates with the clock** — set `flowSpeed: 0` before comparing screenshots |
 | **Instancing** | `Prefab` `Instances` | A whole batch is one native object. The source may be geometry or a Model |
@@ -94,21 +100,43 @@ Pick a shape from this table, then read the exact properties with `ssworld_catal
 | **Logic and input** | `State` `Timer` `TapHandler` `HoverHandler` `KeyHandler` | |
 | **Unavailable** | `Label` | `Label` has no font, and using it fails the whole scene load (the compiler already reports `runtime_unsupported`) |
 
-## Planning a scene: settle the shape before writing code
+## Plan before you write — a gate, not advice
 
-Walk these five in order before the first line of SSDL. Getting them wrong means rewriting later.
+Most bad deliveries have the same shape: no plan, one `scene.ssdl`, every lamp post typed out by hand, every building a fresh stack of boxes. Compiling and rendering does not excuse it; the user cannot edit such a file and the budget dies at the second street. So:
+
+**Rule 0. Write the plan into your reply before the first `ssworld_source_write`.** One table and one file list, visible to the user. If the request changes mid-way, update the plan before the code. A plan looks like this:
+
+| Part | Built from | Copies | Placement | File |
+|------|-----------|--------|-----------|------|
+| lamp post | `Cylinder` + `Sphere`, own material | 240 | `Prefab` + `Instances` grid 20 × 12 | `LampPost.ssdl` |
+| office tower | `Box` shaft + `Lathe` crown, `property` height/colour | 6 | six instantiations | `Tower.ssdl` |
+| pine tree | `assets/pine.glb` `Model` as Prefab source | 160 | `Instances` positions + `rotations_z` + `scales_uniform` | `scene.ssdl` |
+| plaza water | `Plane` + `WaterMaterial` | 1 | — | `scene.ssdl` |
+| camera, sun, sky, fog, ground | — | 1 | — | `scene.ssdl` |
+
+Files: `scene.ssdl` (skeleton, ~80 lines), `LampPost.ssdl`, `Tower.ssdl`.
+
+Then decide each row with these five rules. They are thresholds, not taste.
 
 **1. Is there a model for it? Then use `Model`.** Cars, people, trees, furniture, sculpture — organic shapes should not be assembled from primitives; a dozen boxes neither look right nor fit the budget. The cost: a Model brings its own materials and **does not accept `baseColor` or `emissiveColor`**, so recolouring means building your own geometry.
 
-**2. Dozens of copies or more? Use `Prefab` + `Instances`.** 240 street lamps are one native object and one draw call; 240 hand-written nodes are 240 of each. Build the source from `Cylinder`/`Lathe`/`Tube`/`Loft` if you want to recolour it, or hand it a glb if you want the real shape. Something appearing three to five times is not worth a Prefab.
+**2. Six or more copies of anything is `Prefab` + `Instances`. No exceptions.** 240 street lamps are one native object and one draw call; 240 hand-written nodes are 240 of each, and `usage.native_objects` tells on you. "But each one is rotated / a different size" is not a reason to hand-write: every instance carries its own yaw (`rotations_z`), full rotation (`rotations`) and size (`scales_uniform` / `scales`) — see Instancing. Build the source from `Cylinder`/`Lathe`/`Tube`/`Loft` if you want to recolour it, or hand it a glb if you want the real shape. Three to five copies with real differences (a different height, a different colour) are instantiations of a component file (rule 4), not a Prefab.
 
 **3. Do several parts move or rotate together? Make a `Group` the root.** Headlights on a car body, rotors on a fuselage — wrap them in a Group, write the attachments as fixed metric constants in local coordinates, and bind only the Group's own `position`/`rotation`. That saves unrolling quaternions into world coordinates every frame.
 
-**4. Will it recur, or is it over roughly 30 lines? Split it into its own `.ssdl`.** PascalCase filename (`Tower.ssdl`), instantiated from the entry as `Tower { id: eastTower; position: [...] }`. Expose the differences as `property`. Keep the entry `scene.ssdl` a skeleton: camera, lights, environment, ground, and a screenful of component instances.
+**4. Anything that appears twice, or any unit over ~30 lines, is its own `.ssdl` file.** PascalCase filename (`Tower.ssdl`), instantiated from the entry as `Tower { id: eastTower; position: [...]; height: 120 }`. Expose the differences as `property`. **`scene.ssdl` is a skeleton**: camera, lights, environment, ground, and one screenful of instantiations and `Instances` batches. Past ~150 lines it is wrong, and "I will split it later" never happens — write the component files **first**, then the skeleton that uses them.
 
 **5. Picture first, detail second.** Block the composition, camera and lighting out with a dozen masses and confirm with a screenshot. Past ~500 instances generate the source from a script in the project (`gen_*.py`) rather than typing it.
 
 In one line: **use a glb rather than assembling primitives; instance rather than repeating a glb; group what moves together; split what gets reused.**
+
+**The gate: check your own work with `ssworld_scene_inspect` after the first compile.** It is a compile-time fact, not a screenshot, so it costs nothing:
+
+- `by_file` — if `scene.ssdl` contributes most of the nodes of a scene that has more than a handful of parts, rule 4 was skipped. Split before adding detail.
+- `leaf_children.by_type` — a geometry type counted **6 or more** times directly under `Scene`, with no `Instances` node in the scene, is rule 2 skipped. Turn those siblings into one Prefab + one `Instances` now; every later edit would otherwise be made N times.
+- `budget.native_objects` growing with the number of copies is the same failure seen from the other side: an `Instances` batch costs **0** additional native objects, however many rows it has.
+
+Restructuring after a screenshot is cheap; restructuring after the user has started editing the file is not. Do it at this gate.
 
 ## SSDL semantics
 
@@ -195,12 +223,27 @@ Camera { id: cam; initialView: v }
 - **`SpotLight` and `RectLight` emit along their own -X**: `[0,0,0]` faces west, `[0,0,90]` south, `[0,0,180]` east, `[0,0,270]` north, `[0,-90,0]` straight down, `[0,90,0]` up. `attenuationRadius` is metres, cone angles are degrees.
 
 ### Materials and textures
-Put PNG/JPG under `assets/`, declare a `Texture`, then hand it to a material:
+Three material kinds, and the choice is about **lighting**, not looks. One target carries one material of one kind.
+
 ```ssdl
+// 1. PrincipledMaterial — the lit PBR lane. baseColor is relit by sun, sky and shadows, so the hex you wrote is not the hex on screen.
 Texture { id: brick; source: "assets/brick.png" }
 Box { id: wall; width: 12; depth: 0.4; height: 6; position: [0, 0, 3] }
-PrincipledMaterial { id: m; target: wall; baseColorMap: brick; uvScale: [0.25, 0.25] }
+PrincipledMaterial { id: m; target: wall; baseColorMap: brick; uvScale: [0.25, 0.25]; roughness: 0.8 }
+
+// 2. UnlitMaterial — no lighting, shadows or reflections: baseColor goes straight to the frame.
+//    Markers, legends, holograms, signage, flat blocking, anything whose colour is data.
+Box { id: zoneA; width: 30; depth: 30; height: 0.2; position: [40, 0, 0.1] }
+UnlitMaterial { target: zoneA; baseColor: "#ff3b30"; opacity: 0.6; emissiveColor: [3, 0.6, 0.6] }
+
+// 3. WaterMaterial — a prebuilt water surface. Needs tangents (Plane/HeightField/Lathe/Tube/Loft) and geometry UNDER it.
+Plane { id: lake; width: 200; depth: 120; position: [0, -80, 0.05] }
+Box { id: lakeBed; width: 200; depth: 120; height: 4; position: [0, -80, -2] }
+PrincipledMaterial { target: lakeBed; baseColor: "#3a3527"; roughness: 1 }
+WaterMaterial { target: lake; baseColor: "#2f6f8f"; deepColor: "#0b2a3a"; depthFadeDistance: 6; waveIntensity: 0.25; flowDirection: 30; flowSpeed: 0.4 }
 ```
+- **`UnlitMaterial`** carries only `baseColor` / `opacity` / `baseColorMap` / `uvScale` / `emissiveColor`; the PBR members (`metalness`, `roughness`, `normalMap`, `metallicRoughnessMap`, `emissiveMap`) are **refused at compile time**, not ignored. It is still tone mapped and post processed, so it is not a pixel-exact UI colour. `baseColor` cannot exceed 1, so `emissiveColor` (0..16) is how it crosses the bloom threshold. `opacity < 1` keeps the unlit path through the translucent pass. Read the catalog: `ssworld_catalog {"components":["UnlitMaterial"]}`.
+- **`WaterMaterial`** is not a general material. `baseColor` is the shallow colour, `deepColor` the colour reached after `depthFadeDistance` metres of water (default 150 — far too deep for a pond; use 3–10). That fade reads the scene depth texture, so **without geometry under the surface `deepColor` never shows**. `waveIntensity` (0..4, default 0.103333, `0` = flat mirror) plus `flowDirection` (compass degrees, one number) / `flowSpeed` (>= 0, default 1) drive a built-in scrolling normal map; there is **no texture slot and no `normalMap`**. `metalness` / `roughness` / `specular` / `uvScale` tune the built-in shading. It is always translucent and two-sided whatever `opacity` says, and it **animates with the clock** — set `flowSpeed: 0` before comparing two screenshots. Read the catalog: `ssworld_catalog {"components":["WaterMaterial","Plane"]}`.
 - `uvScale` multiplies the UV, so smaller values repeat the texture more densely.
 - **Roughness maps go through `metallicRoughnessMap`** (linear space, G = roughness, B = metalness, multiplied by the scalars on the material). That is what separates wet patches from dry ones on a road after rain.
 - **Normal maps go through `normalMap` + `normalScale`** (0..2). **Only `Plane`, `HeightField`, `Lathe`, `Tube` and `Loft` carry tangents**; a normal map on a Box, Sphere or Cylinder is a compile-time `material_requires_tangent`, and so is a `WaterMaterial` on one. To give a wall relief, lay a flat HeightField grid instead of a Box.
@@ -208,17 +251,30 @@ PrincipledMaterial { id: m; target: wall; baseColorMap: brick; uvScale: [0.25, 0
 - Identical image content counts once against the texture budget even under different paths and on several objects. The same image used as both a colour map and a metallic-roughness map counts twice, because the colour spaces differ.
 
 ### Instancing
+Every instance has its own **position, rotation and scale** — `Instances` is not a position-only batch, so "each copy is different" is never a reason to hand-write nodes.
 ```ssdl
 Cylinder { id: lampPost; radius: 0.12; height: 6; position: [0, 0, 3]; visible: false }
 PrincipledMaterial { target: lampPost; baseColor: "#2a2a30"; metalness: 0.8 }
 Prefab { id: pfLamp; source: lampPost }
+// grid placement: one batch, 240 rows, all facing the same way
 Instances { id: lamps; prefab: pfLamp; placement: "grid"; origin: [0,0,3]; spacing: [18,40]; columns: 20; count: 240 }
+// explicit placement: one position, one yaw and one size per row
+Instances { id: parkLamps; prefab: pfLamp; positions: [[0,0,3],[12,0,3],[24,0,3]]; rotations_z: [0, 90, 45]; scales_uniform: [1, 1, 1.2] }
 ```
-Placing them one by one: `Instances { prefab: pfLamp; positions: [[0,0,3],[12,0,3],[24,0,3]] }` (giving `positions` implies explicit placement, and it needs **at least two**).
+Giving `positions` implies explicit placement, and it needs **at least two**.
+
+Two more placements do the arithmetic for you:
+```ssdl
+// ring: 12 lamps on a 30 m circle, each turned so its +X faces the centre
+Instances { id: plaza; prefab: pfLamp; placement: "ring"; center: [0, 0, 3]; radius: 30; count: 12; faceCenter: true }
+// along_path: one lamp every 18 m along a kerb line, each turned along the kerb
+Instances { id: kerb; prefab: pfLamp; placement: "along_path"; path: [[0,0,3],[120,0,3],[120,80,3]]; step: 18; alignToPath: true }
+```
+`along_path` takes `step` (metres of arc length) **or** `count`, never both, and `smooth: "catmullrom"` rounds the path before spacing. `faceCenter` / `alignToPath` set every yaw themselves, so they exclude `rotations` / `rotations_z` / `rotation_z`. A member from another placement mode is `placement_invalid` at compile time, and so is a batch over 512.
 
 **A Model works as a source too**: `Model { id: car; source: "assets/car.glb" }` plus `Prefab { id: pfCar; source: car }` gives a fleet sharing the glb's own geometry and materials. Two rules apply only to Model sources: the source Model **must finish loading first** (the compiler guarantees Models are built before every other node, so just write it normally), and **you must not delete that Model while the Prefab is alive** (instances *borrow* its geometry, so deleting it is a dangling pointer and the runtime refuses outright). A multi-material glb costs one draw call per primitive and `draw_calls` reports that honestly; a geometry source is always 1.
 
-**Turning and resizing the copies.** A batch of 160 pines all facing the same way reads as wallpaper, so every instance can carry its own yaw and size:
+**Turning and resizing the copies.** A batch of 160 pines all facing the same way reads as wallpaper, so give every instance its own yaw and size:
 ```ssdl
 Instances { id: pines; prefab: pfPine; positions: [[-24,26,0],[-53,-1,0],[-30,46,0]]; rotations_z: [0,137,58]; scales_uniform: [1,1.3,0.85] }
 ```
@@ -349,7 +405,7 @@ For an animated scene capture two moments (different `settle_ms`), and recapture
 ## Traps
 
 - **Geometry cannot be a parent.** Hanging a Cone under a Box **compiles** and then fails to load: `SceneObject.parent must be a live Scene, Group or GeoAnchor from the same runtime`. Use a `Group` root for a multi-part unit, or have the generator flatten the parts into siblings under Scene with absolute coordinates.
-- **Degenerate meshes take the whole scene module down, and are now refused at compile time.** A radius of 0 in a `Lathe` `profile` (trying to make a point), exactly repeated adjacent points, a `Tube` path that doubles back on itself or repeats a point, two identical adjacent `Loft` rings — these used to fail the entire module with `GeometryFacade.createMesh: triangle is degenerate` without naming a node. Now the compiler reports `mesh_degenerate` with the node and the index. Use a small positive radius (say 0.02) instead of 0 for a point. And to be clear: **a vertical first segment of a `Tube` is fine** — the frame switches reference axis automatically once `|tangent.z| >= 0.9`.
+- **Degenerate meshes take the whole scene module down, and are now refused at compile time.** A radius of 0 in a `Lathe` `profile` (trying to make a point), exactly repeated adjacent points, a `Tube` or `Sweep` path that doubles back on itself or repeats a point, two identical adjacent `Loft` rings, a `Mesh` face with zero area — these used to fail the entire module with `GeometryFacade.createMesh: triangle is degenerate` without naming a node. Now the compiler reports `mesh_degenerate` with the node and the index. Use a small positive radius (say 0.02) instead of 0 for a point. A `Sweep` profile or extrusion outline that crosses itself, a `Roof` footprint that is not a convex quadrilateral, and a `taper` / `bevel` that would eat an edge are `mesh_invalid` with the edge named. And to be clear: **a vertical first segment of a `Tube` is fine** — the frame switches reference axis automatically once `|tangent.z| >= 0.9`.
 - **`HeightField.heights` counts grid corners, not cells.** `columns: 2; rows: 2` is four quads with **nine** corners, so it needs nine values, not four: `(columns+1)*(rows+1)`. Writing `columns*rows` values is the single most common `mesh_invalid`. Row-major, first row at `-depth/2` (south), first value at `-width/2` (west), and the whole list on one line. To cover a `width`-by-`depth` patch at a spacing of `s`, use `columns: width/s; rows: depth/s`.
 - **Writing a `Label` fails the whole scene load.** Put text in an `index.html` overlay (give the overlay `pointer-events: none` or it swallows clicks) or build it from geometry.
 - **An orange-brown sky means a scattering term or the sun's colour temperature was touched.** The five scattering vectors are now a compile-time `sky_scattering_refused` (see Lights); `temperature` is still writable but drags brightness along with hue. A bare `SkyAtmosphere` plus the sun's `lightColor` is the only tinting path confirmed on real hardware.
@@ -375,4 +431,4 @@ Never delete or overwrite an existing project of the user's; `ssworld_project_cr
 
 ## Always finish with
 
-The project name and source path, the `viewer_url`, the screenshot path (`capture_path`) and **what you saw in it**, any runtime errors, and which parts you did not verify.
+The project name and source path, the list of `.ssdl` files and what each holds, the `viewer_url`, the screenshot path (`capture_path`) and **what you saw in it**, any runtime errors, and which parts you did not verify.

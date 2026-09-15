@@ -458,10 +458,13 @@ export function meshUsage(sceneIR, generators = {}, limit = 65535) {
   for (const node of sceneIR?.nodes || []) {
     if (!Object.hasOwn(generators, node.type)) continue;
     const props = Object.fromEntries((node.properties || []).map((item) => [item.property, item.value]));
-    try { nodes.push({ id: node.id, type: node.type, ...generators[node.type](props) }); } catch { /* the compiler already rejected it */ }
+    try {
+      const estimate = generators[node.type](props);
+      if (estimate) nodes.push({ id: node.id, type: node.type, ...estimate });
+    } catch { /* the compiler already rejected it */ }
   }
   return { nodes, vertices: nodes.reduce((sum, item) => sum + item.vertices, 0), triangles: nodes.reduce((sum, item) => sum + item.triangles, 0),
-    vertex_limit_per_node: limit, note: "counts the meshes generated from HeightField/Lathe/Tube/Loft parameters; Box/Sphere/... and Model triangles are not estimated" };
+    vertex_limit_per_node: limit, note: "counts the meshes generated from HeightField/Lathe/Tube/Loft/Sweep/Torus/Mesh/Roof/Stairs parameters and from ExtrudedPolygon on its bevel/taper/axis lane; Box/Sphere/Capsule/... and Model triangles are not estimated" };
 }
 
 export const HOST_INTERFACES_FILE = "host_interfaces.json";

@@ -179,10 +179,17 @@ Several failures that used to surface only as a dead page are now compile errors
   (`min(96 x viewSampleCountScale, 768)`) and does not grow with the tracing distance, so a ray stretched a
   thousandfold aliases the cloud noise into vertical white streaks across the sky. A deck is
   `layerBottomAltitude: 1.8; layerHeight: 0.5`.
-- `mesh_degenerate` — a radius of 0 in a `Lathe` profile, exactly repeated adjacent points, a `Tube` path that doubles
-  back or repeats a point, two identical adjacent `Loft` rings. These produced
+- `mesh_degenerate` — a radius of 0 in a `Lathe` profile, exactly repeated adjacent points, a `Tube` or `Sweep` path that doubles
+  back or repeats a point, two identical adjacent `Loft` rings, a `Mesh` face with zero area, a ring with no area. These produced
   `GeometryFacade.createMesh: triangle is degenerate` and took the *entire* scene module down without naming a node.
   (A vertical first `Tube` segment is fine: the parallel-transport frame switches reference axis at `|tangent.z| >= 0.9`.)
+- `mesh_invalid` — a parameter outside its range or a shape the generator cannot build: a `Sweep` profile or an
+  `ExtrudedPolygon` outline that crosses itself, a `taper`/`bevel` that eats an edge (the message names the edge), a `Mesh`
+  face index out of range, a `Roof` footprint that is not a convex quadrilateral, `Capsule` with `height <= 2 * radius`
+  or a segment count not divisible by four, `samples` without `smooth: "catmullrom"`, `cap` on a closed `Loft`.
+- `placement_invalid` — `Instances` members that belong to another placement mode, a `ring` without a positive
+  `radius`, `along_path` with both or neither of `step`/`count`, more than 512 instances in one batch, or `faceCenter` /
+  `alignToPath` next to an explicit rotation member.
 - `runtime_unsupported` — `Label` (no font), `sunAzimuth`/`sunElevation` without `atmosphereSunLight: true`, and the
   members a light may not write in the mode it is in.
 - `multiple_writer` / `environment_duplicate` — an `Environment` owns the sun direction, so a `DirectionalLight`

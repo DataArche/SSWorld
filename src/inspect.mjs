@@ -83,6 +83,12 @@ const GEOMETRY_EXTENT = {
   Sphere: (node) => { const r = prop(node, "radius") ?? 0.5; return [2 * r, 2 * r, 2 * r]; },
   Cylinder: (node) => { const r = prop(node, "radius") ?? 0.5; return [2 * r, 2 * r, prop(node, "height") ?? 1]; },
   Cone: (node) => { const r = prop(node, "radius") ?? 0.5; return [2 * r, 2 * r, prop(node, "height") ?? 1]; },
+  Capsule: (node) => { const r = prop(node, "radius") ?? 0.5; return [2 * r, 2 * r, prop(node, "height") ?? 2]; },
+  Torus: (node) => { const r = (prop(node, "radius") ?? 1) + (prop(node, "tube") ?? 0.25); return [2 * r, 2 * r, 2 * (prop(node, "tube") ?? 0.25)]; },
+  Stairs: (node) => {
+    const steps = prop(node, "steps") ?? 1, run = prop(node, "run") ?? 0.3, rise = prop(node, "rise") ?? 0.2;
+    return [steps * run + (prop(node, "landing") ?? 0), prop(node, "width") ?? 1, steps * rise];
+  },
 };
 
 export function inspectScene(directory, { subtree = null, top = 12 } = {}) {
@@ -148,7 +154,7 @@ export function inspectScene(directory, { subtree = null, top = 12 } = {}) {
   const round = (v) => Number(v.toFixed(3));
   const bounds = counted ? { min: min.map(round), max: max.map(round), size: max.map((v, i) => round(v - min[i])), primitives_counted: counted,
     lowest_bottom: lowest, highest_top: highest, ...(Object.keys(ignored).length ? { not_measured: ignored } : {}),
-    note: "axis-aligned, local metres, from Box/Plane/Sphere/Cylinder/Cone sizes plus ancestor positions; rotation/scale/Model/polygons ignored" } : null;
+    note: "axis-aligned, local metres, from Box/Plane/Sphere/Cylinder/Cone/Capsule/Torus/Stairs sizes plus ancestor positions; rotation/scale/Model/polygons ignored" } : null;
   let budgets = {};
   try { budgets = JSON.parse(readFileSync(path.join(directory, "showcase.manifest.json"), "utf8")).budgets || {}; } catch {}
   const { node_types: _nodeTypes, ...budget } = budgetUsage({ scene_ir: ir, binding_ir: readBindingIR(directory) }, budgets);
