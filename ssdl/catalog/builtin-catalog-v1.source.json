@@ -1229,6 +1229,74 @@
         "onReleased"
       ]
     },
+    "PointerHandler": {
+      "members": {
+        "enabled": {
+          "value_type": "boolean"
+        },
+        "button": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "which mouse button the press / drag signals follow: 0 = left (the default), 1 = middle, 2 = right. Moves and the wheel are reported whatever is held."
+        },
+        "pressed": {
+          "value_type": "boolean",
+          "read_only": true,
+          "note": "true while that button is held over the canvas; it is released again when the pointer leaves or the gesture is cancelled, so a drag cannot latch on."
+        },
+        "hit": {
+          "value_type": "boolean",
+          "read_only": true,
+          "note": "true when the cursor is over scene geometry. hitX/hitY/hitZ keep the last point that WAS hit, so guard them with this instead of looking for a sentinel value."
+        },
+        "screenX": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "read_only": true,
+          "note": "cursor position in canvas pixels, origin top-left."
+        },
+        "screenY": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "read_only": true,
+          "note": "cursor position in canvas pixels, origin top-left."
+        },
+        "hitX": {
+          "value_type": "scalar",
+          "unit": "m",
+          "read_only": true,
+          "note": "the picked point in the anchor's LOCAL metres, the frame every position member uses (the engine picks in earth-centred metres and the runtime converts); only meaningful while hit is true."
+        },
+        "hitY": {
+          "value_type": "scalar",
+          "unit": "m",
+          "read_only": true,
+          "note": "the picked point in the anchor's LOCAL metres, the frame every position member uses (the engine picks in earth-centred metres and the runtime converts); only meaningful while hit is true."
+        },
+        "hitZ": {
+          "value_type": "scalar",
+          "unit": "m",
+          "read_only": true,
+          "note": "the picked point in the anchor's LOCAL metres, the frame every position member uses (the engine picks in earth-centred metres and the runtime converts); only meaningful while hit is true."
+        },
+        "wheelDelta": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "read_only": true,
+          "note": "the last wheel step (the browser's deltaY: positive scrolls away from the viewer); it holds its value until the next wheel event."
+        }
+      },
+      "factory": "createPointerHandler",
+      "adapter": "interaction",
+      "signals": [
+        "onMoved",
+        "onDragged",
+        "onPressed",
+        "onReleased",
+        "onWheel"
+      ]
+    },
     "Timer": {
       "members": {
         "interval": {
@@ -2749,6 +2817,11 @@
           "unit": "scalar",
           "update_class": "create_only",
           "note": "subdivisions per control segment under smooth: \"catmullrom\", integer 1..16 (default 4); refused when smooth is none or absent"
+        },
+        "flat": {
+          "value_type": "boolean",
+          "update_class": "create_only",
+          "note": "hard edges along the profile (default false): every profile edge gets its own ring pair, so steps and cylinder sections meet at a crease instead of a smoothed shoulder; the circular direction stays smooth. Doubles the ring count, and a profile already rounded by smooth: \"catmullrom\" should not use it"
         }
       },
       "factory": "createLathe",
@@ -2758,7 +2831,8 @@
         "segments",
         "closed",
         "smooth",
-        "samples"
+        "samples",
+        "flat"
       ]
     },
     "Tube": {
@@ -3198,6 +3272,11 @@
           "unit": "scalar",
           "update_class": "create_only",
           "note": "subdivisions per control segment under smooth: \"catmullrom\", integer 1..16 (default 4); refused when smooth is none or absent"
+        },
+        "flat": {
+          "value_type": "boolean",
+          "update_class": "create_only",
+          "note": "hard edges across the profile (default false): every profile edge gets its own vertex band, so a square section keeps its corners instead of being smoothed into a rounded tube; the path direction stays smooth. Doubles the vertex count of a closed profile, and a profile already rounded by smooth: \"catmullrom\" should not use it"
         }
       },
       "factory": "createSweep",
@@ -3210,7 +3289,8 @@
         "twist",
         "scaleEnd",
         "smooth",
-        "samples"
+        "samples",
+        "flat"
       ]
     },
     "Mesh": {
@@ -3452,13 +3532,13 @@
           "unit": "m",
           "update_class": "create_only",
           "required": true,
-          "note": "exactly 4 points forming a convex quadrilateral, counter-clockwise, in local metres; z of the first point is the eave height. Other shapes are refused: split them into quadrilaterals or use Sweep/Loft"
+          "note": "3..64 points forming a simple polygon (no holes, no crossings), counter-clockwise, in local metres; z of the first point is the eave height. A convex quadrilateral is planned in closed form and takes ridge; every other outline is planned from its straight skeleton and takes gables / lowEdge instead"
         },
         "style": {
           "value_type": "string",
           "update_class": "create_only",
           "required": true,
-          "note": "\"gable\" (two slopes meeting at a ridge), \"hip\" (four slopes) or \"shed\" (one slope)"
+          "note": "\"gable\" (two slopes meeting at a ridge), \"hip\" (a slope per edge) or \"shed\" (one slope)"
         },
         "pitch": {
           "value_type": "scalar",
@@ -3470,19 +3550,31 @@
         "ridge": {
           "value_type": "string",
           "update_class": "create_only",
-          "note": "\"auto\" (default: the ridge runs parallel to the longer pair of edges), \"x\" or \"y\"; for shed it is the direction of the high edge"
+          "note": "\"auto\" (default: the ridge runs parallel to the longer pair of edges), \"x\" or \"y\"; for shed it is the direction of the high edge. Convex quadrilaterals only -- a polygon derives its ridge from the skeleton and is refused if ridge is set"
         },
         "overhang": {
           "value_type": "scalar",
           "unit": "m",
           "update_class": "create_only",
-          "note": "eave overhang in metres, >= 0 (default 0)"
+          "note": "eave overhang in metres, >= 0 (default 0); refused when it turns an edge inside out"
         },
         "thickness": {
           "value_type": "scalar",
           "unit": "m",
           "update_class": "create_only",
           "note": "slab thickness in metres; 0 (default) is a single surface, > 0 builds a slab with an underside and closed edges"
+        },
+        "gables": {
+          "value_type": "scalar_list",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "polygon gable roofs only: the edge indices to finish as gable walls (edge i runs from point i to point i + 1). Omitted, every edge whose roof plane is a triangle becomes a gable (a rectangle gets the classic two, an L gets one per arm); an edge whose plane is not a triangle is refused and the message lists the ones that are"
+        },
+        "lowEdge": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "polygon shed roofs only: the index of the low eave edge the slope rises away from (default 0)"
         }
       },
       "factory": "createRoof",
@@ -3493,7 +3585,9 @@
         "pitch",
         "ridge",
         "overhang",
-        "thickness"
+        "thickness",
+        "gables",
+        "lowEdge"
       ]
     },
     "Stairs": {

@@ -3,7 +3,8 @@
  const binary=(head,tail)=>tail.reduce((a,[,op,,b])=>at({kind:'op',op,args:[a,b]}),head);
  const bad=(code)=>{const e=new Error(code);e.code=code;e.location=location();throw e;};
 }
-Start = _ imports:(Import _)* root:Node _ !. {return {imports:imports.map(x=>x[0]),root};}
+Start = _ pragmas:(Pragma _)* imports:(Import _)* root:Node _ !. {return {pragmas:pragmas.map(x=>x[0]),imports:imports.map(x=>x[0]),root};}
+Pragma = "pragma" ![A-Za-z_0-9] H name:Identifier End {if(name!=='spawnable')bad('unknown_pragma');return at({kind:'pragma',name});}
 Import = "import" ![A-Za-z_0-9] H dir:String H alias:("as" ![A-Za-z_0-9] H name:Identifier {return name;})? End {return at({kind:'import',directory:dir.value,alias});}
 Node = type:Qualified H "{" _ members:(Member _)* "}" {return at({kind:'node',type,members:members.map(x=>x[0])});}
 Member = Handler / Declaration / Node / name:MemberName H ":" H value:Expression End {return at({kind:'property',name,value});}

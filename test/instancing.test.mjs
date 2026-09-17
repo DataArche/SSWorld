@@ -66,3 +66,25 @@ test("per-instance rotation and scale compile through the packaged catalog", asy
   assert.equal(result.usage.instances.used, 9);
   assert.equal(result.usage.prefabs.used, 1);
 });
+
+// along_path spaced by `step` carries no `count` property at all, so a receipt that read the
+// property alone reported 0 rows for a batch the runtime then filled -- the compile numbers and the
+// running scene disagreed about how many instances exist.  100 m of path at 10 m spacing is 11.
+test("along_path spaced by step counts the rows the runtime will place", async (t) => {
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const result = await compileScene("lampPath", GRID.replace(
+    'placement: "grid"; origin: [0, 0, 3]; spacing: [18, 40]; columns: 20; count: 240',
+    'placement: "along_path"; path: [[0, 0, 3], [100, 0, 3]]; step: 10'));
+  assert.equal(result.ok, true, JSON.stringify(result.problems ?? result));
+  assert.equal(result.usage.instances.used, 11);
+  assert.equal(result.usage.native_objects.used, 2);
+});
+
+test("ring placement counts its instances", async (t) => {
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const result = await compileScene("lampRing", GRID.replace(
+    'placement: "grid"; origin: [0, 0, 3]; spacing: [18, 40]; columns: 20; count: 240',
+    'placement: "ring"; center: [0, 0, 3]; radius: 20; count: 7; faceCenter: true'));
+  assert.equal(result.ok, true, JSON.stringify(result.problems ?? result));
+  assert.equal(result.usage.instances.used, 7);
+});

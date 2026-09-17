@@ -38,11 +38,15 @@ export function emitSceneModule(compilation, options = {}) {
     })});`,
     `export const sceneIR = Object.freeze(${stableJson(payload.sceneIR)});`,
     `export const bindingIR = Object.freeze(${stableJson(payload.bindingIR)});`,
+    `export const usage = Object.freeze(${stableJson(compilation.static_usage || {})});`,
+    // Compiled `pragma spawnable` components. Host JS reaches them through api.scene.spawn(name, ...);
+    // nothing installs them at mount.
+    `export const fragments = Object.freeze(${stableJson(Object.fromEntries((compilation.fragments || []).map((item) => [item.name, item.fragment_ir])))});`,
     "export async function mount(ctx) {",
     "  if (!ctx?.runtime || typeof ctx.runtime.installGraph !== \"function\") {",
     "    throw Object.assign(new Error(\"SceneRuntimeBridge.installGraph is required\"), { code: \"scene_runtime_bridge_missing\" });",
     "  }",
-    "  return ctx.runtime.installGraph(sceneIR, bindingIR, { metadata });",
+    "  return ctx.runtime.installGraph(sceneIR, bindingIR, { metadata, fragments, usage });",
     "}",
     "export function snapshot(instance) { return instance.snapshot(); }",
     "export async function dispose(instance) { await instance.dispose(); }",
@@ -77,6 +81,13 @@ export function emitSceneModule(compilation, options = {}) {
     binding_ir_digest: compilation.binding_ir_digest,
     module_digest: textDigest(moduleSource),
     budgets: options.budgets || { native_objects: 32, bindings: 32, handlers: 8, timers: 8 },
+    ...(compilation.static_usage ? { static_usage: compilation.static_usage } : {}),
+    ...((compilation.fragments || []).length ? { fragments: Object.fromEntries(compilation.fragments.map((item) => [item.name, {
+      source_file: item.source_file,
+      fragment_ir_digest: item.fragment_ir_digest,
+      parameters: item.fragment_ir.parameters.map(({ name, type, default: value }) => ({ name, type, default: value })),
+      budget: item.fragment_ir.budget,
+    }])) } : {}),
     ...(compilation.scene_ir.host_interfaces ? { host_interfaces: compilation.scene_ir.host_interfaces } : {}),
   });
   return Object.freeze({

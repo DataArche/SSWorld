@@ -105,6 +105,7 @@ Manual registration for any other client:
 | `ssworld_capture_frame` | screenshot of the open preview through the engine (`saveImage2Base64`); stats with luma percentiles, exposure tails, colour-class coverage overall and per 3×3 region, top colours; runtime errors deduplicated and mapped to `scene.ssdl:line:column`; camera pose with `source: scene | engine_default`, the scene's `requested` camera and a `deviation` with reasons (clip planes are engine-managed); `receipt` binding the frame to source/IR digests, the page generation (`in_sync`, `staleness`) and the answering page (`client`, `clients_connected`); `framing` describing the offscreen render at the requested size (horizontal fov kept, vertical follows the aspect); `logic` with the page's live declared properties / `State.when` / host call errors / `bindings.invalid`; `await: {state | property, …}` to shoot only once a game state holds; `client` to pick one of several open pages; `reference_match` always `not_evaluated`; `detail: "brief"` for iteration loops (verdict, runtime errors, luma, 3×3 regions, path, `in_sync`, `logic` only); PNG returned as image content and saved to `captures/` |
 | `ssworld_environment_read` | ask the engine what it actually received for the environment: the adopted sun's direction read back from the native sun and converted to azimuth/elevation at the anchor (with the deviation from the scene's request), which `DirectionalLight` drives the atmosphere, and every environment component's live native values. The probe lives in the project's `index.html`, which is project-owned, so a page created before 0.9.8 answers `page_probe_unavailable` and the error names the handler to paste in |
 | `ssworld_geo_read` | ask the engine what it holds for the geographic layers: whether the terrain provider loaded, `anchor_above_terrain_m` (how far the scene's local `z: 0` sits above the ground under the anchor, because terrain moves the ground and not the scene), the imagery stack in real draw order with each layer's `native_index`, and every `Tileset` / `GeoJsonLayer`'s readiness, extent and feature count. Same project-owned probe as the environment read, so an older `index.html` answers `page_probe_unavailable` |
+| `ssworld_geometry_read` | measure the scene from the engine instead of a screenshot: every geometry node's and Model's `dimensions` (object axes, metres), world position/rotation/scale composed through the live scene graph, axis-aligned `world_bounds` (`tight` or an envelope), `ground` contact (`on` / `buried` / `above` z = 0, and a Box is centred on its position so z: 0 buries half of it), mesh facts the engine measured (vertex/triangle counts, closed, manifold, `area_m2` / `volume_m3`); Groups and GeoAnchors as the union of their descendants, Instances as the native union, the scene as its whole extent; `overlaps: true` lists intersecting boxes with the overlap volume, `ids` narrows, `detail: brief` trims. Same project-owned probe, so an older `index.html` answers `page_probe_unavailable` |
 | `ssworld_logic_read` / `ssworld_logic_write` | read the open page's scene logic (and whether the scene module actually mounted: `runtime.state` plus errors mapped to `scene.ssdl:line`) without a screenshot, or set declared properties in one transaction (`{set: {p: 0.4, pace: 0.0025}}`) to put a game into a situation before capturing; a refused value rolls the whole set back and names the failing binding |
 | `ssworld_engine_status` | engine pair installed? (`install: true` to download) |
 
@@ -185,11 +186,25 @@ Several failures that used to surface only as a dead page are now compile errors
   (A vertical first `Tube` segment is fine: the parallel-transport frame switches reference axis at `|tangent.z| >= 0.9`.)
 - `mesh_invalid` — a parameter outside its range or a shape the generator cannot build: a `Sweep` profile or an
   `ExtrudedPolygon` outline that crosses itself, a `taper`/`bevel` that eats an edge (the message names the edge), a `Mesh`
-  face index out of range, a `Roof` footprint that is not a convex quadrilateral, `Capsule` with `height <= 2 * radius`
+  face index out of range, a `Roof` footprint that crosses itself or whose skeleton cannot be closed (the message names the
+  edge to simplify), `ridge` on a polygon `Roof` or `gables`/`lowEdge` on a quadrilateral one, `Capsule` with `height <= 2 * radius`
   or a segment count not divisible by four, `samples` without `smooth: "catmullrom"`, `cap` on a closed `Loft`.
 - `placement_invalid` — `Instances` members that belong to another placement mode, a `ring` without a positive
   `radius`, `along_path` with both or neither of `step`/`count`, more than 512 instances in one batch, or `faceCenter` /
   `alignToPath` next to an explicit rotation member.
+- `spawnable_invalid` — a `pragma spawnable` component that cannot be one: a root that is not a single `Group`,
+  a `property` outside `real` / `bool` / `string` / `length` / `degrees` / `duration` or one without a default
+  (the default is what the fragment's budget and mesh limits are checked against), a scene singleton
+  (`Camera`, `Environment`, `Globe`, a light that owns the sun, a geographic layer), a `KeyHandler` or
+  `PointerHandler` (both claim the whole window), or a `Model` (it loads asynchronously, and `api.scene.spawn`
+  returns a live handle in the same turn). The entry `scene.ssdl` itself cannot be spawnable.
+- `spawn_budget` / `spawn_parameter_invalid` / `spawn_parameter_immutable` / `spawn_handle_unknown` /
+  `spawn_placement_invalid` — runtime refusals from `api.scene`. `spawn_budget` names the dimension and shows
+  static + already-spawned + this copy against the manifest limit, and nothing is built. `spawn_parameter_immutable`
+  means the parameter feeds a `create_only` member, so changing it is `dispose` + `spawn`, not `set`.
+- `spawn_replay_failed` — a hot reload replayed the spawn log into the new generation and one entry no longer
+  fits the component as it was edited. It does not stop the mount; the entries are in `ssworld_logic_read`
+  under `dynamic.spawn_failures`, and the objects they named are simply gone.
 - `runtime_unsupported` — `Label` (no font), `sunAzimuth`/`sunElevation` without `atmosphereSunLight: true`, and the
   members a light may not write in the mode it is in.
 - `multiple_writer` / `environment_duplicate` — an `Environment` owns the sun direction, so a `DirectionalLight`

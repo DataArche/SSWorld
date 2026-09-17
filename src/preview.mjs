@@ -126,12 +126,16 @@ const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".
   ".json": "application/json", ".map": "application/json", ".wasm": "application/wasm", ".css": "text/css", ".ssdl": "text/plain; charset=utf-8",
   ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml", ".glb": "model/gltf-binary", ".gltf": "model/gltf+json", ".bin": "application/octet-stream" };
 
+// Every file the browser runtime is made of, DISCOVERED rather than listed. A hand-written list is a
+// second place a new runtime module has to be remembered, and forgetting it fails only in a browser:
+// the page 404s on the import, never mounts, and every node test stays green (2026-09-15).
 const RUNTIME_FILES = {
-  "ssdl-builtins.js": path.join(SSDL_ROOT, "runtime", "ssdl-builtins.js"),
-  "scene-module-host.mjs": path.join(SSDL_ROOT, "runtime", "scene-module-host.mjs"),
-  "scene-runtime-bridge.mjs": path.join(SSDL_ROOT, "runtime", "scene-runtime-bridge.mjs"),
-  "scene-component-installer.mjs": path.join(SSDL_ROOT, "runtime", "scene-component-installer.mjs"),
-  "ssdl-builtin-catalog-v1.js": path.join(SSDL_ROOT, "runtime", "ssdl-builtin-catalog-v1.js"),
+  ...Object.fromEntries(readdirSync(path.join(SSDL_ROOT, "runtime"), { withFileTypes: true })
+    .filter((item) => item.isFile() && /\.(mjs|js)$/.test(item.name))
+    .map((item) => [item.name, path.join(SSDL_ROOT, "runtime", item.name)])),
+  // The catalog projection sits under runtime/generated/ in the repository and is flattened by the packer.
+  ...(existsSync(path.join(SSDL_ROOT, "runtime", "generated", "ssdl-builtin-catalog-v1.js"))
+    ? { "ssdl-builtin-catalog-v1.js": path.join(SSDL_ROOT, "runtime", "generated", "ssdl-builtin-catalog-v1.js") } : {}),
   "qtloader.js": path.join(SSDL_ROOT, "engine-support", "qtloader.js"),
   "integer-codec.js": path.join(SSDL_ROOT, "engine-support", "integer-codec.js"),
   "expression-runtime.js": path.join(SSDL_ROOT, "engine-support", "expression-runtime.js"),

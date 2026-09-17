@@ -10,7 +10,10 @@ function nestedSet(object, path, value) {
   object[keys.at(-1)] = value;
 }
 
-export async function installComponents(bridge, graph, sceneIR, catalog) {
+// The installer is split so a fragment can be installed SYNCHRONOUSLY. Only the Model pre-pass is
+// asynchronous (glb bytes have to arrive); everything else builds in one turn, and api.scene.spawn()
+// has to hand host JS a live handle before it returns.
+function prepareComponents(bridge, graph, sceneIR, catalog) {
   const runtime = bridge.runtime;
   const nodes = new Map(sceneIR.nodes.map(node => [node.id, node]));
   const constructing = new Set();
@@ -106,6 +109,11 @@ export async function installComponents(bridge, graph, sceneIR, catalog) {
     if (desc.adapter === 'geometry' || desc.adapter === 'group' || desc.adapter === 'model') {
       if (!spec.parent && parent && ['geometry','group'].includes(descriptor(parent)?.adapter)) spec.parent = construct(parent.id);
     }
+    // Instances is `direct`, so it would otherwise be the ONE node type that silently loses the
+    // node it was written inside; the runtime folds this chain into the batch's rows.
+    if (node.type === 'Instances' && parent && ['geometry','group'].includes(descriptor(parent)?.adapter)) {
+      spec.parent = construct(parent.id);
+    }
     if (desc.adapter === 'geometry') {
       spec.params = {};
       for (const key of desc.params) { if (spec[key] !== undefined) spec.params[key] = spec[key]; delete spec[key]; }
@@ -157,17 +165,31 @@ export async function installComponents(bridge, graph, sceneIR, catalog) {
     constructing.delete(id);
     return component;
   }
-  try {
-    for (const node of sceneIR.nodes) {
-      if (descriptor(node)?.adapter !== 'model') continue;
-      const model = await construct(node.id);
-      graph.own(node.id, model);
-    }
-    for (const node of sceneIR.nodes) if (node.type !== 'Scene') construct(node.id);
-    return { start() { for (const start of deferredStarts) start(); }, definitions:[...definitions] };
-  } catch (error) {
+  return {
+    modelNodes: sceneIR.nodes.filter(node => descriptor(node)?.adapter === 'model'),
+    async stageModels() { for (const node of this.modelNodes) graph.own(node.id, await construct(node.id)); },
+    finish() {
+      for (const node of sceneIR.nodes) if (node.type !== 'Scene') construct(node.id);
+      return { start() { for (const start of deferredStarts) start(); }, definitions:[...definitions] };
+    },
     // The owning host still disposes the runtime; keep the original error.
-    for (const component of [...graph.owned].reverse()) { try { component?.dispose?.({restore:false}); } catch (_) {} }
-    throw error;
+    rollback() { for (const component of [...graph.owned].reverse()) { try { component?.dispose?.({restore:false}); } catch (_) {} } },
+  };
+}
+
+export async function installComponents(bridge, graph, sceneIR, catalog) {
+  const installer = prepareComponents(bridge, graph, sceneIR, catalog);
+  try {
+    await installer.stageModels();
+    return installer.finish();
+  } catch (error) { installer.rollback(); throw error; }
+}
+
+/** The same construction, in one turn. Refuses Model, which cannot be built without awaiting bytes. */
+export function installComponentsSync(bridge, graph, sceneIR, catalog) {
+  const installer = prepareComponents(bridge, graph, sceneIR, catalog);
+  if (installer.modelNodes.length) {
+    throw Object.assign(new Error(`'${installer.modelNodes[0].id}' is a Model: a spawnable component cannot carry one, because a Model loads its bytes asynchronously and api.scene.spawn returns a live handle in the same turn`), { code: 'spawnable_invalid' });
   }
+  try { return installer.finish(); } catch (error) { installer.rollback(); throw error; }
 }

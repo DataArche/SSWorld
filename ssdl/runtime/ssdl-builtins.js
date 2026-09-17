@@ -110,6 +110,7 @@
     "TapHandler",
     "HoverHandler",
     "KeyHandler",
+    "PointerHandler",
     "Timer",
   ]);
 
@@ -285,6 +286,47 @@
     };
   }
 
+  // Composing a parent chain onto instance rows.  An instance row carries position, rotation and
+  // scale and nothing else, so a chain of locators has to collapse into exactly those three.
+  function quaternionProduct(outer, inner) {
+    return {
+      x: outer.w * inner.x + outer.x * inner.w + outer.y * inner.z - outer.z * inner.y,
+      y: outer.w * inner.y - outer.x * inner.z + outer.y * inner.w + outer.z * inner.x,
+      z: outer.w * inner.z + outer.x * inner.y - outer.y * inner.x + outer.z * inner.w,
+      w: outer.w * inner.w - outer.x * inner.x - outer.y * inner.y - outer.z * inner.z,
+    };
+  }
+
+  function rotateVector(rotation, vector) {
+    const tx = 2 * (rotation.y * vector.z - rotation.z * vector.y);
+    const ty = 2 * (rotation.z * vector.x - rotation.x * vector.z);
+    const tz = 2 * (rotation.x * vector.y - rotation.y * vector.x);
+    return {
+      x: vector.x + rotation.w * tx + rotation.y * tz - rotation.z * ty,
+      y: vector.y + rotation.w * ty + rotation.z * tx - rotation.x * tz,
+      z: vector.z + rotation.w * tz + rotation.x * ty - rotation.y * tx,
+    };
+  }
+
+  // An Instances batch folds its parent chain into its rows once, at create time.  Letting that
+  // chain move afterwards would leave the batch behind -- exactly the silent failure the fold was
+  // added to end -- so the transforms it was folded from are frozen while the batch is alive.
+  function assertFrameNotFrozen(owner, property, what) {
+    if (!property || !property.startsWith("transform.")) return;
+    const batches = owner && owner.instanceFrameBatches;
+    if (!batches || batches.size === 0) return;
+    throw codedError("transform_frozen_by_instances",
+      `transform_frozen_by_instances: ${what} '${owner.id}.${property}' carries Instances ${[...batches].join(", ")}, whose rows were baked in this frame`);
+  }
+
+  function identityRotation(rotation) { return Math.abs(rotation.w - 1) <= 1e-12; }
+  function unitScale(scale) {
+    return Math.abs(scale.x - 1) <= 1e-12 && Math.abs(scale.y - 1) <= 1e-12 && Math.abs(scale.z - 1) <= 1e-12;
+  }
+  function uniformScale(scale) {
+    return Math.abs(scale.x - scale.y) <= 1e-9 && Math.abs(scale.y - scale.z) <= 1e-9;
+  }
+
   function vector3(value, fallback, field) {
     const candidate = value || fallback;
     invariant(candidate && typeof candidate === "object", `${field} must be a vector`);
@@ -437,6 +479,7 @@
 
   // Locator rigs and Model roots carry no material: only transform.* and visible bind natively.
   function assertAnimatableProperty(target, property, type) {
+    assertFrameNotFrozen(target, property, "cannot animate");
     if (target instanceof Group || target instanceof GeoAnchor || target instanceof Model) {
       invariant(typeof property === "string" && (property.startsWith("transform.") || property === "visible"),
         `property_not_animatable: ${type} cannot animate ${target.component_type}.${property}; ${target.component_type} exposes only position/rotation/scale/visible`);
@@ -1704,6 +1747,7 @@
         `member_readonly: '${runtime.ownerId(this.target)}.${this.property}' cannot be a Binding target`);
       invariant(this.slot.binding === null,
         `property_bound: '${runtime.ownerId(this.target)}.${this.property}' already has a Binding`);
+      assertFrameNotFrozen(this.target, this.property, "cannot bind");
       const references = expressionReferences(this.expression);
       const unique = new Map();
       for (const reference of references) {
@@ -2758,6 +2802,8 @@
       this.materials = new Set();
       this.disposed = false;
       this.transform = { position, rotation, scale };
+      // Remembered so an Instances batch written inside this node can compose its frame.
+      this.parentNode = spec.parent && typeof spec.parent === "object" ? spec.parent : null;
       try {
         nativeResult(runtime.geometryFacade.attachObject(this.handle, runtime.scene, JSON.stringify({
           transform: this.transform,
@@ -2918,6 +2964,8 @@
           && spec.parent.disposed !== true,
         "Group.parent must be a live Scene, Group or GeoAnchor from the same runtime");
       }
+      // Remembered so an Instances batch written inside this node can compose its frame.
+      this.parentNode = spec.parent && typeof spec.parent === "object" ? spec.parent : null;
       this.transform = {
         position: nodePosition(spec, "Group"),
         rotation: spec.rotation !== undefined
@@ -3056,6 +3104,7 @@
       const altitude = finite(spec.altitude ?? 0, "GeoAnchor.altitude");
       invariant(longitude >= -180 && longitude <= 180, "GeoAnchor.longitude must be in -180..180");
       invariant(latitude >= -90 && latitude <= 90, "GeoAnchor.latitude must be in -90..90");
+      this.parentNode = null;
       this.transform = {
         position: nodePosition(spec, "GeoAnchor"),
         rotation: spec.rotation !== undefined
@@ -3129,6 +3178,18 @@
       for (let j = 0; j < last; j += 1) {
         const j1 = (j + 1) % n;
         const a = k * n + j, b = k * n + j1, c = (k + 1) * n + j1, d = (k + 1) * n + j;
+        indices.push(a, b, c, a, c, d);
+      }
+    }
+  }
+  // Hard-edge variant of ringQuads: each ring holds 2*bands vertices (the two ends of every band kept
+  // apart), so the normals the native builder accumulates never cross a band boundary.  Band e of ring k
+  // owns vertices k*2*bands + 2e and + 2e + 1; winding matches ringQuads.
+  function ringQuadsSplit(indices, rings, bands) {
+    for (let k = 0; k < rings - 1; k += 1) {
+      for (let e = 0; e < bands; e += 1) {
+        const a = k * 2 * bands + 2 * e, b = a + 1;
+        const d = (k + 1) * 2 * bands + 2 * e, c = d + 1;
         indices.push(a, b, c, a, c, d);
       }
     }
@@ -3230,12 +3291,14 @@
   }
 
   // ---- Shared procedural-geometry algorithms -------------------------------------------------
-  // This block is copied verbatim into compiler-0.3.mjs (budget + degeneracy checks) and
-  // ssdl-builtins.js (the real generators).  Both copies are pinned to the same reference vectors in
-  // src/ssdl/fixtures/geometry-vectors/*.json, so an edit to one copy without the other turns a test
-  // red instead of letting the compiler accept what the runtime refuses (or the other way round).
+  // SINGLE SOURCE: src/ssdl/shared/geometry-algorithms.js.  Do not edit this block in place -- edit
+  // that file and rerun `node src/ssdl/tools/generate_geometry_algorithms.mjs`, which splices it into
+  // compiler-0.3.mjs (budget + degeneracy checks) and ssdl-builtins.js (the real generators) between
+  // these two marker comments.  Both copies are pinned to the same reference vectors in
+  // src/ssdl/fixtures/geometry-vectors/*.json, so a hand edit to one copy turns a test red instead of
+  // letting the compiler accept what the runtime refuses (or the other way round).
   // Everything here is deterministic: no Math.random, no Date, no locale.
-  const GEOMETRY_ALGORITHMS_VERSION = "SSDLGeometryAlgorithms/1";
+  const GEOMETRY_ALGORITHMS_VERSION = "SSDLGeometryAlgorithms/2";
   function geometryFailure(code, message) {
     return Object.assign(new Error(message), { code });
   }
@@ -3500,58 +3563,435 @@
     return { point: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t], tangent };
   }
   /**
-   * Roof planning shared by the compiler (face counts) and the runtime (mesh).  `footprint` is a
-   * convex quadrilateral as [x, y, z] (any winding; normalised to counter-clockwise, z of the first
-   * point is the eave height).  Returns the faces as polygons of [x, y, z] wound counter-clockwise seen
-   * from outside, plus the eave ring the runtime skirts when the roof has a thickness.
+   * Straight skeleton of a simple polygon (Felkel-Obdrzalek wavefront), the shape a hip roof takes.
+   * `ring` is [[x, y], ...], counter-clockwise, 3..64 points, no holes and no self-intersections.
+   * Every edge is pushed inward at unit speed; two kinds of event stop a stretch of wavefront: an EDGE
+   * event, where two neighbouring bisectors meet and the edge between them vanishes, and a SPLIT event,
+   * where a reflex corner runs into an edge across the polygon and cuts it in two.
+   * Returns { vertices: [[x, y, t], ...], faces: [[vertexIndex, ...], ...] }: `t` is the distance the
+   * wavefront travelled to reach that vertex (so a roof of pitch p lifts it by t * tan(p)), the first
+   * `ring.length` vertices are the footprint corners at t = 0, and face i is the roof plane over edge
+   * i (ring[i] -> ring[i + 1]), wound counter-clockwise seen from above.
+   * Numerically this refuses rather than guesses: a wavefront that cannot be advanced, or a face that
+   * does not close, throws `mesh_invalid` naming the edge to simplify.
    */
-  function roofFaces(footprint, style, pitchDegrees, ridge, overhang) {
-    if (footprint.length !== 4) throw geometryFailure("mesh_invalid", "footprint must be exactly 4 points (a convex quadrilateral); split other outlines into quadrilaterals or use Sweep/Loft");
-    const z0 = footprint[0][2];
-    let ring = footprint.map((point) => [point[0], point[1]]);
-    if (ringSignedArea(ring) < 0) ring = ring.slice().reverse();
-    for (let index = 0; index < 4; index += 1) {
-      const a = ring[index], b = ring[(index + 1) % 4], c = ring[(index + 2) % 4];
-      const cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
-      if (cross <= 1e-9) throw geometryFailure("mesh_invalid", `footprint is not a convex quadrilateral at point ${(index + 1) % 4}`);
+  function straightSkeleton(ring) {
+    const n = ring.length;
+    if (n < 3 || n > 64) throw geometryFailure("mesh_invalid", `footprint must hold 3..64 points, got ${n}`);
+    let scale = 0;
+    for (const point of ring) scale = Math.max(scale, Math.abs(point[0]), Math.abs(point[1]));
+    scale = scale || 1;
+    const EPS = 1e-9 * scale;
+    const TOUCH = 1e-7 * scale;
+    const crossing = ringSelfIntersection(ring, true);
+    if (crossing) throw geometryFailure("mesh_invalid", `footprint edge ${crossing[0]} crosses edge ${crossing[1]}; a roof needs a simple outline`);
+    const direction = [], normal = [], offset = [];
+    for (let index = 0; index < n; index += 1) {
+      const a = ring[index], b = ring[(index + 1) % n];
+      const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy);
+      if (!(length > EPS)) throw geometryFailure("mesh_degenerate", `footprint point ${(index + 1) % n} repeats point ${index}`);
+      direction.push([dx / length, dy / length]);
+      normal.push([-dy / length, dx / length]);   // inward for a counter-clockwise ring
+      offset.push(0);
     }
-    if (overhang > 0) ring = offsetRing(ring, -overhang).ring;
-    const length = (index) => Math.hypot(ring[(index + 1) % 4][0] - ring[index][0], ring[(index + 1) % 4][1] - ring[index][1]);
-    const alignment = (index, axis) => { const dx = ring[(index + 1) % 4][0] - ring[index][0], dy = ring[(index + 1) % 4][1] - ring[index][1]; return Math.abs(axis === "x" ? dx : dy) / Math.hypot(dx, dy); };
-    let longPairIsEven;
-    if (ridge === "x" || ridge === "y") longPairIsEven = alignment(0, ridge) + alignment(2, ridge) >= alignment(1, ridge) + alignment(3, ridge);
-    else longPairIsEven = length(0) + length(2) >= length(1) + length(3);
-    const p = (longPairIsEven ? [0, 1, 2, 3] : [1, 2, 3, 0]).map((index) => [ring[index][0], ring[index][1], z0]);
-    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, z0];
-    const m1 = mid(p[1], p[2]), m3 = mid(p[3], p[0]);
-    const span = (Math.hypot(p[2][0] - p[1][0], p[2][1] - p[1][1]) + Math.hypot(p[0][0] - p[3][0], p[0][1] - p[3][1])) / 2;
-    const slope = Math.tan(pitchDegrees * Math.PI / 180);
-    const lift = (point, rise) => [point[0], point[1], point[2] + rise];
-    let faces;
-    if (style === "gable") {
-      const rise = slope * span / 2;
-      const r1 = lift(m1, rise), r3 = lift(m3, rise);
-      faces = [[p[0], p[1], r1, r3], [p[2], p[3], r3, r1], [p[1], p[2], r1], [p[3], p[0], r3]];
-    } else if (style === "hip") {
-      const rise = slope * span / 2;
-      const ridgeLength = Math.hypot(m1[0] - m3[0], m1[1] - m3[1]);
-      if (ridgeLength <= span + 1e-9) {
-        const apex = lift(mid(m1, m3), rise);
-        faces = [[p[0], p[1], apex], [p[1], p[2], apex], [p[2], p[3], apex], [p[3], p[0], apex]];
-      } else {
-        const d = [(m1[0] - m3[0]) / ridgeLength, (m1[1] - m3[1]) / ridgeLength];
-        const r1 = lift([m1[0] - d[0] * span / 2, m1[1] - d[1] * span / 2, z0], rise);
-        const r3 = lift([m3[0] + d[0] * span / 2, m3[1] + d[1] * span / 2, z0], rise);
-        faces = [[p[0], p[1], r1, r3], [p[2], p[3], r3, r1], [p[1], p[2], r1], [p[3], p[0], r3]];
+    for (let index = 0; index < n; index += 1) offset[index] = ring[index][0] * normal[index][0] + ring[index][1] * normal[index][1];
+    // Vertices are deduplicated on a 1e-9 * scale lattice so that events that land on the same point
+    // (a symmetric footprint fires several at once) become one skeleton vertex instead of a cluster.
+    const vertices = [], seen = new Map();
+    const addVertex = (x, y, t) => {
+      const key = `${Math.round(x / EPS)},${Math.round(y / EPS)},${Math.round(t / EPS)}`;
+      if (seen.has(key)) return seen.get(key);
+      seen.set(key, vertices.length);
+      vertices.push([x, y, t]);
+      return vertices.length - 1;
+    };
+    for (let index = 0; index < n; index += 1) addVertex(ring[index][0], ring[index][1], 0);
+    const arcs = [];
+    // The bisector of two wavefront edges moves so that it stays at distance t from both.  Two edges
+    // that face each other head-on (a rectangle's long sides once the short ones are gone) have no such
+    // direction: their lines have already met, and everything left of the loop ends at this instant.
+    // That node is kept, standing still and flagged degenerate, so the ridge between the two ends of a
+    // vanished two-gon is still emitted; a degenerate node that survives into a LATER event means the
+    // wavefront is inconsistent and the whole footprint is refused.
+    const bisector = (previousEdge, nextEdge, where) => {
+      const a = normal[previousEdge], b = normal[nextEdge];
+      const dot = a[0] * b[0] + a[1] * b[1];
+      if (1 + dot < 1e-9) {
+        if (where !== null) throw geometryFailure("mesh_invalid", `the footprint doubles back on itself at ${where}; simplify it or split it into two roofs`);
+        return null;
       }
-    } else if (style === "shed") {
-      const rise = slope * span;
-      const h2 = lift(p[2], rise), h3 = lift(p[3], rise);
-      faces = [[p[0], p[1], h2, h3], [p[2], p[3], h3, h2], [p[1], p[2], h2], [p[3], p[0], h3]];
-    } else {
-      throw geometryFailure("mesh_invalid", 'style must be "gable", "hip" or "shed"');
+      return [(a[0] + b[0]) / (1 + dot), (a[1] + b[1]) / (1 + dot)];
+    };
+    let counter = 0;
+    const makeNode = (previousEdge, nextEdge, position, time, birth) => {
+      const moving = bisector(previousEdge, nextEdge, birth < n ? `point ${birth}` : null);
+      const velocity = moving || [0, 0];
+      return {
+        id: counter += 1, alive: true, degenerate: !moving, previousEdge, nextEdge, birth, time,
+        velocity, origin: [position[0] - velocity[0] * time, position[1] - velocity[1] * time],
+        previous: null, next: null,
+      };
+    };
+    const at = (node, time) => [node.origin[0] + node.velocity[0] * time, node.origin[1] + node.velocity[1] * time];
+    const nodes = [];
+    for (let index = 0; index < n; index += 1) {
+      const node = makeNode((index + n - 1) % n, index, ring[index], 0, index);
+      nodes.push(node);
     }
-    return { faces, eave: p };
+    for (let index = 0; index < n; index += 1) {
+      nodes[index].previous = nodes[(index + n - 1) % n];
+      nodes[index].next = nodes[(index + 1) % n];
+    }
+    const isReflex = (node) => {
+      const a = direction[node.previousEdge], b = direction[node.nextEdge];
+      return a[0] * b[1] - a[1] * b[0] < -1e-12;
+    };
+    // Two bisectors meet where their difference cancels the gap between their t = 0 origins; a residual
+    // means they never meet (parallel edges walking side by side), not that they meet at infinity.
+    const edgeEventTime = (a, b) => {
+      const dv = [a.velocity[0] - b.velocity[0], a.velocity[1] - b.velocity[1]];
+      const dq = [b.origin[0] - a.origin[0], b.origin[1] - a.origin[1]];
+      const denominator = dv[0] * dv[0] + dv[1] * dv[1];
+      if (denominator < 1e-18) return null;
+      const time = (dq[0] * dv[0] + dq[1] * dv[1]) / denominator;
+      const residual = Math.hypot(dq[0] - dv[0] * time, dq[1] - dv[1] * time);
+      if (residual > 1e-6 * scale) return null;
+      return time;
+    };
+    const alive = () => nodes.filter((node) => node.alive);
+    // `clock` is the time of the last event processed.  Events are accepted from a node's own birth time
+    // onward, not strictly after it: a symmetric footprint fires several events at the same instant, and
+    // a node born by the first of them still has to take part in the rest.  The clock keeps that from
+    // reopening an event that already passed.
+    let clock = 0;
+    const nextEvent = () => {
+      let best = null;
+      const consider = (candidate) => { if (candidate && (!best || candidate.time < best.time - EPS)) best = candidate; };
+      for (const node of alive()) {
+        const time = edgeEventTime(node, node.next);
+        if (time !== null && time > clock - EPS && time > node.time - EPS && time > node.next.time - EPS) {
+          consider({ kind: "edge", time, node, other: node.next });
+        }
+        if (node.degenerate || !isReflex(node)) continue;
+        for (const owner of alive()) {
+          const edge = owner.nextEdge;
+          if (edge === node.previousEdge || edge === node.nextEdge) continue;
+          const speed = node.velocity[0] * normal[edge][0] + node.velocity[1] * normal[edge][1];
+          if (Math.abs(speed - 1) < 1e-12) continue;
+          const hitTime = (offset[edge] - (node.origin[0] * normal[edge][0] + node.origin[1] * normal[edge][1])) / (speed - 1);
+          if (!(hitTime > clock - EPS) || !(hitTime > node.time - EPS) || !Number.isFinite(hitTime)) continue;
+          if (hitTime <= owner.time - EPS || hitTime <= owner.next.time - EPS) continue;
+          const hit = at(node, hitTime), from = at(owner, hitTime), to = at(owner.next, hitTime);
+          const span = Math.hypot(to[0] - from[0], to[1] - from[1]);
+          if (!(span > EPS)) continue;
+          const along = ((hit[0] - from[0]) * (to[0] - from[0]) + (hit[1] - from[1]) * (to[1] - from[1])) / span;
+          if (along < -EPS || along > span + EPS) continue;
+          consider({ kind: "split", time: hitTime, node, owner });
+        }
+      }
+      return best;
+    };
+    const kill = (node, vertex) => {
+      node.alive = false;
+      if (node.birth !== vertex) arcs.push({ a: node.birth, b: vertex, faces: [node.previousEdge, node.nextEdge] });
+    };
+    const loopOf = (node) => {
+      const list = [node];
+      for (let walk = node.next; walk !== node; walk = walk.next) {
+        list.push(walk);
+        if (list.length > 4 * n + 8) throw geometryFailure("mesh_invalid", "the footprint's wavefront did not close; simplify it or split it into two roofs");
+      }
+      return list;
+    };
+    // Everything left of a loop dies at once when the loop has shrunk to nothing: either it closed on a
+    // single point (the last two bisectors meeting), or two of its edges now lie on top of each other
+    // (the degenerate node above).  Each node dies where it stands, and the segment between two
+    // neighbours that died apart is a ridge -- an arc of the edge they shared, which no single node's
+    // death would emit.
+    const collapseLoop = (node, time) => {
+      const loop = loopOf(node);
+      const deaths = loop.map((member) => {
+        const point = at(member, time);
+        return addVertex(point[0], point[1], time);
+      });
+      loop.forEach((member, index) => kill(member, deaths[index]));
+      for (let index = 0; index < loop.length; index += 1) {
+        const a = deaths[index], b = deaths[(index + 1) % loop.length];
+        if (a !== b) arcs.push({ a, b, faces: [loop[index].nextEdge] });
+      }
+    };
+    const mergeNodes = (first, second, time, point) => {
+      const vertex = addVertex(point[0], point[1], time);
+      kill(first, vertex);
+      kill(second, vertex);
+      const merged = makeNode(first.previousEdge, second.nextEdge, point, time, vertex);
+      merged.previous = first.previous;
+      merged.next = second.next;
+      first.previous.next = merged;
+      second.next.previous = merged;
+      nodes.push(merged);
+      return merged;
+    };
+    // A degenerate node stands where its two edges have already met, so the wavefront on ONE side of it
+    // is a segment with no width left: it annihilates with the nearer neighbour along that segment right
+    // away, at the same time, and the segment between them becomes a ridge arc.  (Taking the whole loop
+    // down instead would be wrong: an I-shaped footprint finishes its bar this way while its web is
+    // still shrinking.)
+    const settle = (node, time) => {
+      let current = node;
+      let steps = 0;
+      while (current && current.alive) {
+        if ((steps += 1) > 4 * n + 16) throw geometryFailure("mesh_invalid", "the footprint's wavefront never settled; simplify it or split it into two roofs");
+        const loop = loopOf(current);
+        if (loop.length <= 2) {
+          const meeting = loop.length === 2 && !current.degenerate && !loop[1].degenerate ? edgeEventTime(loop[0], loop[1]) : null;
+          collapseLoop(current, meeting !== null && meeting > time ? meeting : time);
+          return;
+        }
+        if (!current.degenerate) return;
+        const here = at(current, time), before = at(current.previous, time), after = at(current.next, time);
+        const backwards = Math.hypot(here[0] - before[0], here[1] - before[1]);
+        const forwards = Math.hypot(here[0] - after[0], here[1] - after[1]);
+        if (Math.abs(forwards - backwards) < TOUCH && loop.length >= 5) {
+          // Both neighbours sit at the far end of the strip (a waist consumed from both sides at once):
+          // annihilate the three of them together, or the two that were left behind walk on in parallel
+          // and the roof plane over the waist wraps around the wrong side of it.
+          const previous = current.previous, next = current.next;
+          const vertex = addVertex(after[0], after[1], time);
+          kill(current, vertex);
+          kill(previous, vertex);
+          kill(next, vertex);
+          const merged = makeNode(previous.previousEdge, next.nextEdge, after, time, vertex);
+          merged.previous = previous.previous;
+          merged.next = next.next;
+          previous.previous.next = merged;
+          next.next.previous = merged;
+          nodes.push(merged);
+          current = merged;
+          continue;
+        }
+        current = forwards <= backwards
+          ? mergeNodes(current, current.next, time, after)
+          : mergeNodes(current.previous, current, time, before);
+      }
+    };
+    let guard = 0;
+    for (;;) {
+      if ((guard += 1) > 8 * n + 64) throw geometryFailure("mesh_invalid", "the footprint's wavefront never settled; simplify it or split it into two roofs");
+      const event = nextEvent();
+      if (!event) break;
+      clock = event.time;
+      const stalled = alive().find((node) => node.degenerate && node.time < event.time - EPS);
+      if (stalled) throw geometryFailure("mesh_invalid", `the wavefront of the footprint stalled at edge ${stalled.nextEdge}; simplify the footprint near that edge or split it into two roofs`);
+      if (event.kind === "edge") {
+        const { node, other } = event;
+        settle(mergeNodes(node, other, event.time, at(node, event.time)), event.time);
+      } else {
+        const { node, owner } = event;
+        const point = at(node, event.time);
+        // A reflex corner that lands exactly on an END of the edge it splits has met the wavefront node
+        // there, not the edge's interior: both die (a "vertex event"), and the loop still parts in two.
+        // Treating it as an ordinary split leaves that node walking on alone through a region that is
+        // already consumed, which shows up as a roof plane wrapped around the wrong side of a waist.
+        const front = at(owner, event.time), back = at(owner.next, event.time);
+        const touching = Math.hypot(point[0] - back[0], point[1] - back[1]) < TOUCH ? owner.next
+          : Math.hypot(point[0] - front[0], point[1] - front[1]) < TOUCH ? owner : null;
+        // Meeting its own neighbour is not a split at all: the edge between them is simply gone.
+        if (touching === node.next) { settle(mergeNodes(node, node.next, event.time, point), event.time); continue; }
+        if (touching === node.previous) { settle(mergeNodes(node.previous, node, event.time, point), event.time); continue; }
+        const vertex = addVertex(point[0], point[1], event.time);
+        kill(node, vertex);
+        if (touching) kill(touching, vertex);
+        const after = touching ? touching.next : owner.next;
+        const before = touching ? touching.previous : owner;
+        const leftEdge = touching ? touching.nextEdge : owner.nextEdge;
+        const rightEdge = touching ? touching.previousEdge : owner.nextEdge;
+        const left = makeNode(node.previousEdge, leftEdge, point, event.time, vertex);
+        const right = makeNode(rightEdge, node.nextEdge, point, event.time, vertex);
+        left.previous = node.previous;
+        left.next = after;
+        node.previous.next = left;
+        after.previous = left;
+        right.previous = before;
+        right.next = node.next;
+        before.next = right;
+        node.next.previous = right;
+        nodes.push(left, right);
+        settle(left, event.time);
+        settle(right, event.time);
+      }
+    }
+    const stranded = alive();
+    if (stranded.length) {
+      throw geometryFailure("mesh_invalid", `the wavefront of the footprint stalled at edge ${stranded[0].nextEdge}; simplify the footprint near that edge or split it into two roofs`);
+    }
+    const faceArcs = Array.from({ length: n }, () => []);
+    for (const arc of arcs) {
+      if (arc.a === arc.b) continue;
+      for (const face of arc.faces) faceArcs[face].push(arc);
+    }
+    const faces = [];
+    for (let index = 0; index < n; index += 1) {
+      const start = (index + 1) % n;
+      const polygon = [index, start];
+      const used = new Set();
+      let current = start;
+      while (current !== index) {
+        const step = faceArcs[index].findIndex((arc, position) => !used.has(position) && (arc.a === current || arc.b === current));
+        if (step === -1) throw geometryFailure("mesh_invalid", `the roof plane over edge ${index} does not close; simplify the footprint near that edge or split it into two roofs`);
+        used.add(step);
+        const arc = faceArcs[index][step];
+        current = arc.a === current ? arc.b : arc.a;
+        if (current !== index) polygon.push(current);
+        if (polygon.length > 4 * n + 8) throw geometryFailure("mesh_invalid", `the roof plane over edge ${index} does not close; simplify the footprint near that edge or split it into two roofs`);
+      }
+      if (polygon.length < 3) throw geometryFailure("mesh_invalid", `the roof plane over edge ${index} collapsed; simplify the footprint near that edge or split it into two roofs`);
+      faces.push(polygon);
+    }
+    return { vertices, faces };
+  }
+  /**
+   * Directed edges of a face set that are used once (their reverse never appears): the eaves and rakes
+   * a roof slab skirts.  The runtime builds the skirt from exactly this rule; the compiler counts it.
+   */
+  function roofBoundaryEdges(faces) {
+    const key = (a, b) => `${a[0]},${a[1]},${a[2]}|${b[0]},${b[1]},${b[2]}`;
+    const directed = new Set();
+    for (const face of faces) for (let index = 0; index < face.length; index += 1) directed.add(key(face[index], face[(index + 1) % face.length]));
+    let count = 0;
+    for (const face of faces) {
+      for (let index = 0; index < face.length; index += 1) {
+        if (!directed.has(key(face[(index + 1) % face.length], face[index]))) count += 1;
+      }
+    }
+    return count;
+  }
+  /**
+   * Roof planning shared by the compiler (face counts) and the runtime (mesh).  `footprint` is a simple
+   * polygon of 3..64 [x, y, z] points (any winding; normalised to counter-clockwise, z of the first
+   * point is the eave height).  A convex quadrilateral keeps the closed-form planning it has always had
+   * (`ridge` picks the ridge direction); every other outline is planned from its straight skeleton, and
+   * there `gables` (edge indices, edge i = point i -> point i + 1) and `lowEdge` take over from `ridge`.
+   * Returns the faces as polygons of [x, y, z] wound counter-clockwise seen from outside, the eave ring
+   * the runtime skirts when the roof has a thickness, and `lane` ("quad" or "polygon") so the runtime
+   * keeps the quadrilateral's triangulation and UVs byte for byte while polygons get their own.
+   */
+  function roofFaces(footprint, style, pitchDegrees, ridge, overhang, gables, lowEdge) {
+    if (!Array.isArray(footprint) || footprint.length < 3 || footprint.length > 64) {
+      throw geometryFailure("mesh_invalid", `footprint must hold 3..64 points forming a simple polygon, got ${Array.isArray(footprint) ? footprint.length : "none"}`);
+    }
+    if (style !== "gable" && style !== "hip" && style !== "shed") throw geometryFailure("mesh_invalid", 'style must be "gable", "hip" or "shed"');
+    const z0 = footprint[0][2];
+    const given = footprint.map((point) => [point[0], point[1]]);
+    const reversed = ringSignedArea(given) < 0;
+    let ring = reversed ? given.slice().reverse() : given;
+    const count = ring.length;
+    // Edge indices are authored against the footprint AS WRITTEN, so a clockwise outline that we turn
+    // around has to carry its gables / lowEdge with it: edge i becomes edge n - 2 - i.
+    const authoredEdge = (index) => reversed ? (count - 2 - index + count) % count : index;
+    const convexQuad = count === 4 && ring.every((_unused, index) => {
+      const a = ring[index], b = ring[(index + 1) % 4], c = ring[(index + 2) % 4];
+      return (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]) > 1e-9;
+    });
+    const slope = Math.tan(pitchDegrees * Math.PI / 180);
+    if (convexQuad) {
+      if (gables !== undefined && gables !== null) throw geometryFailure("mesh_invalid", "gables is for polygon roofs; a convex quadrilateral picks its gable ends from ridge");
+      if (lowEdge !== undefined && lowEdge !== null) throw geometryFailure("mesh_invalid", "lowEdge is for polygon roofs; a convex quadrilateral picks its low edge from ridge");
+      if (overhang > 0) ring = offsetRing(ring, -overhang).ring;
+      const length = (index) => Math.hypot(ring[(index + 1) % 4][0] - ring[index][0], ring[(index + 1) % 4][1] - ring[index][1]);
+      const alignment = (index, axis) => { const dx = ring[(index + 1) % 4][0] - ring[index][0], dy = ring[(index + 1) % 4][1] - ring[index][1]; return Math.abs(axis === "x" ? dx : dy) / Math.hypot(dx, dy); };
+      let longPairIsEven;
+      if (ridge === "x" || ridge === "y") longPairIsEven = alignment(0, ridge) + alignment(2, ridge) >= alignment(1, ridge) + alignment(3, ridge);
+      else longPairIsEven = length(0) + length(2) >= length(1) + length(3);
+      const p = (longPairIsEven ? [0, 1, 2, 3] : [1, 2, 3, 0]).map((index) => [ring[index][0], ring[index][1], z0]);
+      const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, z0];
+      const m1 = mid(p[1], p[2]), m3 = mid(p[3], p[0]);
+      const span = (Math.hypot(p[2][0] - p[1][0], p[2][1] - p[1][1]) + Math.hypot(p[0][0] - p[3][0], p[0][1] - p[3][1])) / 2;
+      const lift = (point, rise) => [point[0], point[1], point[2] + rise];
+      let faces;
+      if (style === "gable") {
+        const rise = slope * span / 2;
+        const r1 = lift(m1, rise), r3 = lift(m3, rise);
+        faces = [[p[0], p[1], r1, r3], [p[2], p[3], r3, r1], [p[1], p[2], r1], [p[3], p[0], r3]];
+      } else if (style === "hip") {
+        const rise = slope * span / 2;
+        const ridgeLength = Math.hypot(m1[0] - m3[0], m1[1] - m3[1]);
+        if (ridgeLength <= span + 1e-9) {
+          const apex = lift(mid(m1, m3), rise);
+          faces = [[p[0], p[1], apex], [p[1], p[2], apex], [p[2], p[3], apex], [p[3], p[0], apex]];
+        } else {
+          const d = [(m1[0] - m3[0]) / ridgeLength, (m1[1] - m3[1]) / ridgeLength];
+          const r1 = lift([m1[0] - d[0] * span / 2, m1[1] - d[1] * span / 2, z0], rise);
+          const r3 = lift([m3[0] + d[0] * span / 2, m3[1] + d[1] * span / 2, z0], rise);
+          faces = [[p[0], p[1], r1, r3], [p[2], p[3], r3, r1], [p[1], p[2], r1], [p[3], p[0], r3]];
+        }
+      } else {
+        const rise = slope * span;
+        const h2 = lift(p[2], rise), h3 = lift(p[3], rise);
+        faces = [[p[0], p[1], h2, h3], [p[2], p[3], h3, h2], [p[1], p[2], h2], [p[3], p[0], h3]];
+      }
+      return { faces, eave: p, lane: "quad" };
+    }
+    if (ridge !== undefined && ridge !== null && ridge !== "auto") {
+      throw geometryFailure("mesh_invalid", "polygon roofs derive the ridge from the skeleton; use gables (for gable) or lowEdge (for shed) instead of ridge");
+    }
+    if (overhang > 0) {
+      const inset = offsetRing(ring, -overhang);
+      if (inset.flipped !== -1) throw geometryFailure("mesh_invalid", `an overhang of ${overhang} turns edge ${authoredEdge(inset.flipped)} inside out; use a smaller overhang`);
+      ring = inset.ring;
+    }
+    const eave = ring.map((point) => [point[0], point[1], z0]);
+    if (style === "shed") {
+      const low = lowEdge === undefined || lowEdge === null ? 0 : lowEdge;
+      if (!Number.isInteger(low) || low < 0 || low >= count) throw geometryFailure("mesh_invalid", `lowEdge must be an edge index in 0..${count - 1}`);
+      const index = reversed ? (count - 2 - low + count) % count : low;
+      const a = ring[index], b = ring[(index + 1) % count];
+      const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (!(length > 0)) throw geometryFailure("mesh_degenerate", `footprint edge ${low} has zero length`);
+      const inward = [-(b[1] - a[1]) / length, (b[0] - a[0]) / length];
+      const face = ring.map((point) => {
+        const distance = (point[0] - a[0]) * inward[0] + (point[1] - a[1]) * inward[1];
+        return [point[0], point[1], z0 + Math.max(0, distance) * slope];
+      });
+      return { faces: [face], eave, lane: "polygon" };
+    }
+    const skeleton = straightSkeleton(ring);
+    const points = skeleton.vertices.map(([x, y, t]) => [x, y, z0 + t * slope]);
+    let polygons = skeleton.faces.map((face) => face.slice());
+    if (style === "gable") {
+      const triangleApex = (face) => (face.length === 3 && face[2] >= count ? face[2] : -1);
+      let wanted;
+      if (gables === undefined || gables === null) {
+        wanted = polygons.map((face, index) => (triangleApex(face) !== -1 ? index : -1)).filter((index) => index !== -1);
+        if (!wanted.length) throw geometryFailure("mesh_invalid", "no edge of this footprint ends in a triangle, so none of them can be a gable; use style \"hip\", or name the gable edges explicitly");
+      } else {
+        if (!Array.isArray(gables) || !gables.length) throw geometryFailure("mesh_invalid", "gables must list at least one edge index");
+        wanted = gables.map((value) => {
+          if (!Number.isInteger(value) || value < 0 || value >= count) throw geometryFailure("mesh_invalid", `gables entry ${value} is not an edge index in 0..${count - 1}`);
+          const index = reversed ? (count - 2 - value + count) % count : value;
+          if (triangleApex(polygons[index]) === -1) {
+            const usable = polygons.map((face, position) => (triangleApex(face) !== -1 ? authoredEdge(position) : -1)).filter((position) => position !== -1).sort((a, b) => a - b);
+            throw geometryFailure("mesh_invalid", `edge ${value} does not end in a triangle, so it cannot be a gable; the gable edges of this footprint are ${usable.length ? usable.join(", ") : "none"}`);
+          }
+          return index;
+        });
+      }
+      const claimed = new Map();
+      for (const index of wanted) {
+        const apex = triangleApex(polygons[index]);
+        if (claimed.has(apex)) throw geometryFailure("mesh_invalid", `edges ${authoredEdge(claimed.get(apex))} and ${authoredEdge(index)} would both pull the same skeleton point onto their wall; gable only one of them`);
+        claimed.set(apex, index);
+      }
+      // Laycock & Day: slide the ridge end onto the middle of its edge, keeping its height.  The two
+      // neighbouring planes follow it (they share the moved vertex), and the gabled edge's own plane
+      // becomes the vertical wall it is in a real gable -- the same four-face shape the quad lane emits.
+      for (const [apex, index] of claimed) {
+        const a = ring[index], b = ring[(index + 1) % count];
+        points[apex] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, points[apex][2]];
+      }
+    }
+    const faces = polygons.map((face) => face.map((index) => points[index].slice()));
+    return { faces, eave, lane: "polygon" };
   }
   /** Stair flight outline in the (x, z) plane, counter-clockwise with x right and z up. */
   function stairsOutline(steps, rise, run, landing) {
@@ -3567,7 +4007,7 @@
   const GEOMETRY_ALGORITHMS = Object.freeze({
     version: GEOMETRY_ALGORITHMS_VERSION, catmullRomResample, ringSignedArea, segmentsIntersect, ringSelfIntersection,
     earcutRings, offsetRing, latticeHash, valueNoise2, fbm2, resampleClosedRing, polylineLengths, polylineSample,
-    roofFaces, stairsOutline,
+    roofFaces, straightSkeleton, roofBoundaryEdges, stairsOutline,
   });
   // ---- end shared procedural-geometry algorithms --------------------------------------------
 
@@ -3741,9 +4181,10 @@
   }
 
   function sweepMesh(params) {
-    meshParams("Sweep", params, ["profile", "path", "closedProfile", "cap", "twist", "scaleEnd", "smooth", "samples"]);
+    meshParams("Sweep", params, ["profile", "path", "closedProfile", "cap", "twist", "scaleEnd", "smooth", "samples", "flat"]);
     const closedProfile = meshBoolean(params.closedProfile, "Sweep.params.closedProfile", true);
     const cap = meshBoolean(params.cap, "Sweep.params.cap", false);
+    const flat = meshBoolean(params.flat, "Sweep.params.flat", false);
     invariant(!cap || closedProfile, "Sweep.params.cap needs a closed profile");
     const twist = params.twist === undefined ? 0 : finite(params.twist, "Sweep.params.twist");
     const scaleEnd = params.scaleEnd === undefined ? 1 : meshNumber(params.scaleEnd, "Sweep.params.scaleEnd", 0, 10, true);
@@ -3759,7 +4200,10 @@
     }
     const path = smoothedControlPoints("Sweep", params, meshPoints(params.path, "Sweep.params.path", 2), false);
     const P = profile.length, L = path.length;
-    meshBudget("Sweep", P * L + (cap ? 2 * P : 0));
+    // flat gives every profile EDGE its own vertex band (2 vertices per edge per ring) so the native
+    // normal accumulation stops averaging across the corners; the path direction stays smooth.
+    const bands = closedProfile ? P : P - 1, ringSize = flat ? 2 * bands : P;
+    meshBudget("Sweep", ringSize * L + (cap ? 2 * P : 0));
     const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
     const cross = (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
     const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
@@ -3786,14 +4230,25 @@
       const axisA = { x: -normal.x, y: -normal.y, z: -normal.z }, axisB = binormal;
       const angle = twist * pathV[i] * Math.PI / 180, scale = 1 + (scaleEnd - 1) * pathV[i];
       const cosine = Math.cos(angle), sine = Math.sin(angle);
-      for (let j = 0; j < P; j += 1) {
+      const place = (j, u) => {
         const a = (profile[j][0] * cosine - profile[j][1] * sine) * scale;
         const b = (profile[j][0] * sine + profile[j][1] * cosine) * scale;
         positions.push({ x: path[i].x + axisA.x * a + axisB.x * b, y: path[i].y + axisA.y * a + axisB.y * b, z: path[i].z + axisA.z * a + axisB.z * b });
-        uvs.push({ u: profileU[j], v: pathV[i] });
+        uvs.push({ u, v: pathV[i] });
+      };
+      if (flat) {
+        // The band that wraps past the last profile point ends at u = 1, not back at 0: a u that ran
+        // backwards there would flip the tangent frame of that one band.
+        for (let e = 0; e < bands; e += 1) {
+          place(e, profileU[e]);
+          place((e + 1) % P, e + 1 === P ? 1 : profileU[e + 1]);
+        }
+      } else {
+        for (let j = 0; j < P; j += 1) place(j, profileU[j]);
       }
     }
-    ringQuads(indices, L, P, closedProfile);
+    if (flat) ringQuadsSplit(indices, L, bands);
+    else ringQuads(indices, L, P, closedProfile);
     flipWinding(indices);
     if (cap) {
       const triangles = GEOMETRY_ALGORITHMS.earcutRings(profile, []);
@@ -3802,7 +4257,7 @@
       const capRing = (start, reversed) => {
         const base = positions.length;
         for (let j = 0; j < P; j += 1) {
-          positions.push(positions[start + j]);
+          positions.push(positions[start + (flat ? 2 * j : j)]);
           uvs.push({ u: (profile[j][0] - minA) / spanA, v: (profile[j][1] - minB) / spanB });
         }
         for (let index = 0; index < triangles.length; index += 3) {
@@ -3813,7 +4268,7 @@
       // A counter-clockwise profile (x right, z up, looking along the path) faces back along -T as
       // triangulated, so the start cap keeps the ear order and the end cap reverses it.
       capRing(0, false);
-      capRing((L - 1) * P, true);
+      capRing((L - 1) * ringSize, true);
     }
     return meshFinish(positions, uvs, indices);
   }
@@ -3883,29 +4338,72 @@
   }
 
   function roofMesh(params) {
-    meshParams("Roof", params, ["footprint", "style", "pitch", "ridge", "overhang", "thickness"]);
-    const footprint = meshPoints(params.footprint, "Roof.params.footprint", 4).map((point) => [point.x, point.y, point.z]);
-    invariant(footprint.length === 4, "Roof.params.footprint must be exactly 4 points (a convex quadrilateral)");
+    meshParams("Roof", params, ["footprint", "style", "pitch", "ridge", "overhang", "thickness", "gables", "lowEdge"]);
+    const footprint = meshPoints(params.footprint, "Roof.params.footprint", 3).map((point) => [point.x, point.y, point.z]);
+    invariant(footprint.length <= 64, "Roof.params.footprint must hold 3..64 points");
     const style = meshChoice(params.style, "Roof.params.style", ["gable", "hip", "shed"], undefined);
     invariant(style !== undefined, "Roof.params.style is required");
     const pitch = meshNumber(params.pitch, "Roof.params.pitch", 0, 85, true);
     const ridge = meshChoice(params.ridge, "Roof.params.ridge", ["auto", "x", "y"], "auto");
     const overhang = params.overhang === undefined ? 0 : meshNumber(params.overhang, "Roof.params.overhang", 0, Infinity);
     const thickness = params.thickness === undefined ? 0 : meshNumber(params.thickness, "Roof.params.thickness", 0, Infinity);
-    const { faces } = GEOMETRY_ALGORITHMS.roofFaces(footprint, style, pitch, ridge, overhang);
+    let gables;
+    if (params.gables !== undefined) {
+      invariant(Array.isArray(params.gables) && params.gables.length > 0, "Roof.params.gables must list at least one edge index");
+      gables = params.gables.map((value, index) => meshInteger(value, `Roof.params.gables[${index}]`, 0, 63));
+    }
+    const lowEdge = params.lowEdge === undefined ? undefined : meshInteger(params.lowEdge, "Roof.params.lowEdge", 0, 63);
+    const { faces, lane } = GEOMETRY_ALGORITHMS.roofFaces(footprint, style, pitch, ridge, overhang, gables, lowEdge);
     const positions = [], uvs = [], indices = [];
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const face of faces) for (const [x, y] of face) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
     const spanX = maxX - minX || 1, spanY = maxY - minY || 1;
+    // The quadrilateral lane keeps the UVs it froze in 2026-09-14 (the whole roof unwrapped over its
+    // bounding box) and its fan triangulation.  A skeleton face can be concave (the inner corner of an
+    // L) and can stand vertically (a gable wall), so polygons are unwrapped in their OWN plane and
+    // triangulated by ear clipping there; a bounding-box unwrap would stretch and a fan would fold.
+    const faceUv = (face) => {
+      let nx = 0, ny = 0, nz = 0;
+      for (let index = 0; index < face.length; index += 1) {
+        const a = face[index], b = face[(index + 1) % face.length];
+        nx += (a[1] - b[1]) * (a[2] + b[2]);
+        ny += (a[2] - b[2]) * (a[0] + b[0]);
+        nz += (a[0] - b[0]) * (a[1] + b[1]);
+      }
+      const normalLength = Math.hypot(nx, ny, nz) || 1;
+      const normal = [nx / normalLength, ny / normalLength, nz / normalLength];
+      const origin = face[0];
+      let axis = [face[1][0] - origin[0], face[1][1] - origin[1], face[1][2] - origin[2]];
+      const axisLength = Math.hypot(...axis) || 1;
+      axis = axis.map((value) => value / axisLength);
+      const other = [normal[1] * axis[2] - normal[2] * axis[1], normal[2] * axis[0] - normal[0] * axis[2], normal[0] * axis[1] - normal[1] * axis[0]];
+      const local = face.map((point) => {
+        const d = [point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]];
+        return [d[0] * axis[0] + d[1] * axis[1] + d[2] * axis[2], d[0] * other[0] + d[1] * other[1] + d[2] * other[2]];
+      });
+      const lowU = Math.min(...local.map((point) => point[0])), highU = Math.max(...local.map((point) => point[0]));
+      const lowV = Math.min(...local.map((point) => point[1])), highV = Math.max(...local.map((point) => point[1]));
+      const rangeU = highU - lowU || 1, rangeV = highV - lowV || 1;
+      return { local, uv: local.map(([u, v]) => ({ u: (u - lowU) / rangeU, v: (v - lowV) / rangeV })) };
+    };
     const pushFace = (face, lower, reversed) => {
       const base = positions.length;
-      for (const [x, y, z] of face) {
+      const planar = lane === "quad" ? null : faceUv(face);
+      face.forEach(([x, y, z], index) => {
         positions.push({ x, y, z: z - lower });
-        uvs.push({ u: (x - minX) / spanX, v: (y - minY) / spanY });
+        uvs.push(planar ? planar.uv[index] : { u: (x - minX) / spanX, v: (y - minY) / spanY });
+      });
+      if (!planar || face.length === 3) {
+        for (let index = 1; index + 1 < face.length; index += 1) {
+          if (reversed) indices.push(base, base + index + 1, base + index);
+          else indices.push(base, base + index, base + index + 1);
+        }
+        return;
       }
-      for (let index = 1; index + 1 < face.length; index += 1) {
-        if (reversed) indices.push(base, base + index + 1, base + index);
-        else indices.push(base, base + index, base + index + 1);
+      const triangles = GEOMETRY_ALGORITHMS.earcutRings(planar.local, []);
+      for (let index = 0; index < triangles.length; index += 3) {
+        if (reversed) indices.push(base + triangles[index], base + triangles[index + 2], base + triangles[index + 1]);
+        else indices.push(base + triangles[index], base + triangles[index + 1], base + triangles[index + 2]);
       }
     };
     for (const face of faces) pushFace(face, 0, false);
@@ -4000,15 +4498,19 @@
   }
 
   function latheMesh(params) {
-    meshParams("Lathe", params, ["profile", "segments", "closed", "smooth", "samples"]);
+    meshParams("Lathe", params, ["profile", "segments", "closed", "smooth", "samples", "flat"]);
     const profile = smoothedControlPoints("Lathe", params, meshPoints(params.profile, "Lathe.params.profile", 2), false);
     const segments = meshInteger(params.segments, "Lathe.params.segments", 3, 256);
+    const flat = meshBoolean(params.flat, "Lathe.params.flat", false);
     invariant(profile.every((point) => point.x >= 0), "Lathe.params.profile radius (x) must be >= 0");
     invariant(params.closed === undefined || typeof params.closed === "boolean", "Lathe.params.closed must be boolean");
-    meshBudget("Lathe", profile.length * segments + 2);
+    // flat duplicates every interior profile point so a band's normals never average with its
+    // neighbour's: the steps and the cylinder sections meet at a hard edge, the circle stays smooth.
+    const ringCount = flat ? 2 * (profile.length - 1) : profile.length;
+    meshBudget("Lathe", ringCount * segments + 2);
     const positions = [], uvs = [], indices = [];
     const profileV = normalizedArcFractions(profile, false, ["x", "z"]);
-    for (let index = 0; index < profile.length; index += 1) {
+    const pushRing = (index) => {
       const point = profile[index];
       const uDegenerate = point.x === 0;
       for (let j = 0; j < segments; j += 1) {
@@ -4016,14 +4518,26 @@
         positions.push({ x: point.x * Math.cos(angle), y: point.x * Math.sin(angle), z: point.z });
         uvs.push({ u: uDegenerate ? 0 : j / segments, v: profileV[index] });
       }
+    };
+    if (flat) {
+      for (let index = 0; index + 1 < profile.length; index += 1) { pushRing(index); pushRing(index + 1); }
+      for (let band = 0; band + 1 < profile.length; band += 1) {
+        const base = band * 2 * segments;
+        for (let j = 0; j < segments; j += 1) {
+          const j1 = (j + 1) % segments;
+          indices.push(base + j, base + j1, base + segments + j1, base + j, base + segments + j1, base + segments + j);
+        }
+      }
+    } else {
+      for (let index = 0; index < profile.length; index += 1) pushRing(index);
+      ringQuads(indices, profile.length, segments, true);
     }
-    ringQuads(indices, profile.length, segments, true);
     if (params.closed) {
       const first = profile[0], last = profile[profile.length - 1];
       if (first.x > 0) ringCap(positions, uvs, indices, 0, segments,
         { x: 0, y: 0, z: first.z }, first.z > last.z, ringUvMean(uvs, 0, segments));
       if (last.x > 0) {
-        const start = (profile.length - 1) * segments;
+        const start = (ringCount - 1) * segments;
         ringCap(positions, uvs, indices, start, segments,
           { x: 0, y: 0, z: last.z }, last.z >= first.z, ringUvMean(uvs, start, segments));
       }
@@ -4282,6 +4796,92 @@
     });
   }
 
+  // Labels are rasterised HERE, in the page, not by the engine.  The browser already has a full
+  // font stack, so CJK and emoji come out as glyphs with no font file shipped and no font licence
+  // to clear, and any styling Canvas 2D can draw is available rather than the engine's eleven
+  // members.  The bitmap goes to Label3D's image lane, which puts it on the same camera-facing
+  // billboard the text lane used, so anchoring, lineToGround and distance behaviour are unchanged.
+  const LABEL_BITMAP_PADDING = 6;
+  // Label3D::setImageWidth/Height silently ignore anything past 1024, so a wider bitmap would
+  // lose the size the author asked for and fall back to the PNG's natural pixels.
+  const LABEL_BITMAP_MAX_EDGE = 1024;
+
+  function labelFontSpec(style) {
+    const size = style.font_size ?? 28;
+    return `${style.italic ? "italic " : ""}${style.bold ? "bold " : ""}${size}px ` +
+      `system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif`;
+  }
+
+  function labelCssColor(color, fallback) {
+    if (!color) return fallback;
+    const to8 = (value) => Math.max(0, Math.min(255, Math.round((value / 65535) * 255)));
+    return `rgba(${to8(color.r_u16)}, ${to8(color.g_u16)}, ${to8(color.b_u16)}, ${(color.a_u16 / 65535).toFixed(4)})`;
+  }
+
+  // The engine multiplies image_width/image_height by the VIEWER's device pixel ratio, which is not
+  // always the browser's: Qt/WASM has reported 2 where window.devicePixelRatio says 1, and every
+  // label then came out at twice the size the author asked for.  So sizes go over the wire in the
+  // engine's units (CSS px / viewerDpr), while the bitmap itself is drawn at the browser's ratio so
+  // it stays crisp.  capabilities() is asked rather than assumed.
+  function labelViewerDpr(runtime) {
+    try {
+      const raw = runtime.labelFacade.capabilities();
+      const capabilities = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const value = Number(capabilities?.device_pixel_ratio);
+      return Number.isFinite(value) && value > 0 ? value : 1;
+    } catch {
+      return 1;
+    }
+  }
+
+  function labelBitmap(text, style, viewerDpr = 1) {
+    invariant(typeof document !== "undefined" && typeof document.createElement === "function",
+      "Label needs a browser document to rasterise its text");
+    const dpr = Math.max(1, Math.min(4, (typeof devicePixelRatio === "number" ? devicePixelRatio : 1)));
+    const lines = String(text).split("\n");
+    const measure = document.createElement("canvas").getContext("2d");
+    measure.font = labelFontSpec(style);
+    const fontSize = style.font_size ?? 28;
+    const lineHeight = Math.ceil(fontSize * 1.25);
+    const textWidth = Math.max(1, ...lines.map((line) => Math.ceil(measure.measureText(line).width)));
+    const cssWidth = Math.min(LABEL_BITMAP_MAX_EDGE, textWidth + LABEL_BITMAP_PADDING * 2);
+    const cssHeight = Math.min(LABEL_BITMAP_MAX_EDGE, lineHeight * lines.length + LABEL_BITMAP_PADDING * 2);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(cssWidth * dpr);
+    canvas.height = Math.round(cssHeight * dpr);
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    const background = labelCssColor(style.background_color, null);
+    if (background) {
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, cssWidth, cssHeight);
+    }
+    ctx.font = labelFontSpec(style);
+    ctx.textBaseline = "top";
+    ctx.textAlign = "left";
+    const stroke = labelCssColor(style.stroke_color, null);
+    const fill = labelCssColor(style.font_color, "rgba(255, 255, 255, 1)");
+    lines.forEach((line, index) => {
+      const y = LABEL_BITMAP_PADDING + index * lineHeight;
+      if (stroke) {
+        ctx.lineWidth = Math.max(2, Math.round(fontSize / 8));
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = stroke;
+        ctx.strokeText(line, LABEL_BITMAP_PADDING, y);
+      }
+      ctx.fillStyle = fill;
+      ctx.fillText(line, LABEL_BITMAP_PADDING, y);
+      if (style.underline) {
+        const width = ctx.measureText(line).width;
+        ctx.fillRect(LABEL_BITMAP_PADDING, y + lineHeight - 2, width, Math.max(1, Math.round(fontSize / 16)));
+      }
+    });
+    return { image: canvas.toDataURL("image/png"),
+             image_width: Math.max(1, Math.round(cssWidth / viewerDpr)),
+             image_height: Math.max(1, Math.round(cssHeight / viewerDpr)) };
+  }
+
   class Label {
     constructor(runtime, spec) {
       invariant(spec && typeof spec === "object", "Label needs a spec");
@@ -4307,14 +4907,14 @@
       this.visible = spec.visible !== false;
       this.disposed = false;
       const style = labelStyle(spec);
-      const receipt = nativeResult(runtime.labelFacade.create(JSON.stringify({
-        schema_version: "LabelSpec/v1",
-        id,
-        text: this.text,
-        anchor: this.anchor,
-        visible: this.visible,
-        style,
-      })), "LabelFacade.create");
+      this.style = style;
+      // line_to_ground is the one style member the bitmap does NOT carry: it draws the drop line
+      // from the billboard to the terrain, which is the engine's job on either lane.
+      this.viewerDpr = labelViewerDpr(runtime);
+      const request = { schema_version: "LabelSpec/v1", id, anchor: this.anchor, visible: this.visible,
+                        ...labelBitmap(this.text, style, this.viewerDpr) };
+      if (style.line_to_ground !== undefined) request.style = { line_to_ground: style.line_to_ground };
+      const receipt = nativeResult(runtime.labelFacade.create(JSON.stringify(request)), "LabelFacade.create");
       this.handle = receipt.label_handle;
       runtime.labels.set(id, this);
       runtime.registerLogicalSlot(this, "text", this.text);
@@ -4333,7 +4933,8 @@
     }
 
     applyText(value) {
-      const receipt = this.patch({ text: value });
+      // Re-rasterise: the engine holds a picture, not a string, so a text change is a new bitmap.
+      const receipt = this.patch(labelBitmap(value, this.style, this.viewerDpr));
       this.text = value;
       return receipt;
     }
@@ -4866,6 +5467,147 @@
       y: -Math.cos(lon) * east + Math.sin(lat) * Math.sin(lon) * north - Math.cos(lat) * Math.sin(lon) * up,
       z: -Math.cos(lat) * north - Math.sin(lat) * up,
     };
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Geometry readback: sizes and boxes MEASURED from what the engine holds, never echoed from the
+  // source.  Frames are kept as 3x3 (rotation * scale) + translation so a non-uniform scale above a
+  // rotated child composes exactly as the engine's Matrix4 chain does; the TRS triple is only
+  // decomposed at the end for the reader.
+  // ECEF comes from geodeticToEcef (declared with the camera helpers below; function declarations hoist).
+  // Rotation ENU -> ECEF at lon/lat (row-major; columns are east, north, up).  The transpose of the
+  // basis sunDirectionFromAnchor applies, so the two cannot disagree about which way north is.
+  function enuBasis(lon, lat) {
+    const rad = Math.PI / 180;
+    const sinLat = Math.sin(lat * rad), cosLat = Math.cos(lat * rad);
+    const sinLon = Math.sin(lon * rad), cosLon = Math.cos(lon * rad);
+    return [
+      [-sinLon, -sinLat * cosLon, cosLat * cosLon],
+      [cosLon, -sinLat * sinLon, cosLat * sinLon],
+      [0, cosLat, sinLat],
+    ];
+  }
+
+  function mat3Transpose(m) {
+    return [[m[0][0], m[1][0], m[2][0]], [m[0][1], m[1][1], m[2][1]], [m[0][2], m[1][2], m[2][2]]];
+  }
+  function mat3Multiply(a, b) {
+    const out = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    for (let i = 0; i < 3; i += 1) for (let j = 0; j < 3; j += 1) out[i][j] = a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j];
+    return out;
+  }
+  function mat3Apply(m, p) {
+    return {
+      x: m[0][0] * p.x + m[0][1] * p.y + m[0][2] * p.z,
+      y: m[1][0] * p.x + m[1][1] * p.y + m[1][2] * p.z,
+      z: m[2][0] * p.x + m[2][1] * p.y + m[2][2] * p.z,
+    };
+  }
+  function mat3FromQuaternion(q) {
+    const { x, y, z, w } = q;
+    return [
+      [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+      [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+      [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+    ];
+  }
+  function quaternionFromMat3(m) {
+    const trace = m[0][0] + m[1][1] + m[2][2];
+    let q;
+    if (trace > 0) {
+      const s = Math.sqrt(trace + 1) * 2;
+      q = { w: 0.25 * s, x: (m[2][1] - m[1][2]) / s, y: (m[0][2] - m[2][0]) / s, z: (m[1][0] - m[0][1]) / s };
+    } else if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) {
+      const s = Math.sqrt(1 + m[0][0] - m[1][1] - m[2][2]) * 2;
+      q = { w: (m[2][1] - m[1][2]) / s, x: 0.25 * s, y: (m[0][1] + m[1][0]) / s, z: (m[0][2] + m[2][0]) / s };
+    } else if (m[1][1] > m[2][2]) {
+      const s = Math.sqrt(1 + m[1][1] - m[0][0] - m[2][2]) * 2;
+      q = { w: (m[0][2] - m[2][0]) / s, x: (m[0][1] + m[1][0]) / s, y: 0.25 * s, z: (m[1][2] + m[2][1]) / s };
+    } else {
+      const s = Math.sqrt(1 + m[2][2] - m[0][0] - m[1][1]) * 2;
+      q = { w: (m[1][0] - m[0][1]) / s, x: (m[0][2] + m[2][0]) / s, y: (m[1][2] + m[2][1]) / s, z: 0.25 * s };
+    }
+    const length = Math.hypot(q.x, q.y, q.z, q.w) || 1;
+    return { x: q.x / length, y: q.y / length, z: q.z / length, w: q.w / length };
+  }
+
+  const identityAffine = () => ({ r: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], t: { x: 0, y: 0, z: 0 } });
+  function affineFromTransform(transform) {
+    const position = vector3(transform?.position, { x: 0, y: 0, z: 0 }, "transform.position");
+    const scale = vector3(transform?.scale, { x: 1, y: 1, z: 1 }, "transform.scale");
+    const rotation = transform?.rotation ? quaternion(transform.rotation, "transform.rotation") : { x: 0, y: 0, z: 0, w: 1 };
+    const r = mat3FromQuaternion(rotation);
+    const s = [scale.x, scale.y, scale.z];
+    return { r: r.map((row) => row.map((value, column) => value * s[column])), t: position };
+  }
+  function affineMultiply(a, b) {
+    const t = mat3Apply(a.r, b.t);
+    return { r: mat3Multiply(a.r, b.r), t: { x: t.x + a.t.x, y: t.y + a.t.y, z: t.z + a.t.z } };
+  }
+  function affineApply(a, p) {
+    const q = mat3Apply(a.r, p);
+    return { x: q.x + a.t.x, y: q.y + a.t.y, z: q.z + a.t.z };
+  }
+  function affineDecompose(a) {
+    const scale = [0, 1, 2].map((column) => Math.hypot(a.r[0][column], a.r[1][column], a.r[2][column]));
+    const rotation = a.r.map((row) => row.map((value, column) => scale[column] > 0 ? value / scale[column] : 0));
+    return {
+      position: { ...a.t },
+      rotation: quaternionFromMat3(rotation),
+      scale: { x: scale[0], y: scale[1], z: scale[2] },
+      axis_aligned: rotation.every((row) => row.every((value) => Math.abs(value) < 1e-9 || Math.abs(Math.abs(value) - 1) < 1e-9)),
+    };
+  }
+  // Frame of a GeoAnchor's ENU metres expressed in the project anchor's ENU metres: both go through
+  // ECEF, so a scene that mixes anchors still measures every node in one box.
+  function enuFrameAffine(fromAnchor, toAnchor) {
+    const fromBasis = mat3Transpose(enuBasis(fromAnchor.lon, fromAnchor.lat));
+    const toBasis = enuBasis(toAnchor.lon, toAnchor.lat);
+    const fromOrigin = geodeticToEcef(fromAnchor.lon, fromAnchor.lat, fromAnchor.height);
+    const toOrigin = geodeticToEcef(toAnchor.lon, toAnchor.lat, toAnchor.height);
+    return {
+      r: mat3Multiply(fromBasis, toBasis),
+      t: mat3Apply(fromBasis, { x: toOrigin.x - fromOrigin.x, y: toOrigin.y - fromOrigin.y, z: toOrigin.z - fromOrigin.z }),
+    };
+  }
+  function emptyBounds() { return { min: { x: Infinity, y: Infinity, z: Infinity }, max: { x: -Infinity, y: -Infinity, z: -Infinity } }; }
+  function extendBounds(bounds, p) {
+    for (const axis of ["x", "y", "z"]) {
+      if (p[axis] < bounds.min[axis]) bounds.min[axis] = p[axis];
+      if (p[axis] > bounds.max[axis]) bounds.max[axis] = p[axis];
+    }
+    return bounds;
+  }
+  function boundsValid(bounds) {
+    return Boolean(bounds) && ["x", "y", "z"].every((axis) => Number.isFinite(bounds.min?.[axis]) && Number.isFinite(bounds.max?.[axis]) && bounds.min[axis] <= bounds.max[axis]);
+  }
+  function boundsCorners(bounds) {
+    const out = [];
+    for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) out.push({ x, y, z });
+    return out;
+  }
+  function transformBounds(affine, bounds) {
+    const out = emptyBounds();
+    for (const corner of boundsCorners(bounds)) extendBounds(out, affineApply(affine, corner));
+    return out;
+  }
+  const round3 = (value) => Number.isFinite(value) ? Number(value.toFixed(3)) + 0 : value; // + 0 folds -0
+  const roundVec = (v) => ({ x: round3(v.x), y: round3(v.y), z: round3(v.z) });
+  function describeBounds(bounds) {
+    if (!boundsValid(bounds)) return null;
+    return {
+      min: roundVec(bounds.min), max: roundVec(bounds.max),
+      center: roundVec({ x: (bounds.min.x + bounds.max.x) / 2, y: (bounds.min.y + bounds.max.y) / 2, z: (bounds.min.z + bounds.max.z) / 2 }),
+      size: roundVec({ x: bounds.max.x - bounds.min.x, y: bounds.max.y - bounds.min.y, z: bounds.max.z - bounds.min.z }),
+    };
+  }
+  function boundsOverlap(a, b, tolerance) {
+    const size = {};
+    for (const axis of ["x", "y", "z"]) {
+      size[axis] = Math.min(a.max[axis], b.max[axis]) - Math.max(a.min[axis], b.min[axis]);
+      if (!(size[axis] > tolerance)) return null;
+    }
+    return size;
   }
 
   function environmentMemberValueDescriptor(type, property) {
@@ -6565,13 +7307,86 @@
     }
   }
 
+  const IDENTITY_FRAME = Object.freeze({
+    position: Object.freeze({ x: 0, y: 0, z: 0 }),
+    rotation: Object.freeze({ x: 0, y: 0, z: 0, w: 1 }),
+    scale: Object.freeze({ x: 1, y: 1, z: 1 }),
+  });
+
+  /**
+   * The world transform of the node an `Instances` batch was written inside, plus the chain that
+   * produced it.  Every other SSDL node inherits its parent; a batch is handed to the native side
+   * as rows in ONE frame, so the chain has to be folded into the rows instead -- otherwise a batch
+   * nested in a moved Group silently stays behind while its siblings travel (the failure this
+   * function exists to end).  The fold is a SNAPSHOT: `instanceFrameBatches` marks the chain so a
+   * later write, Binding or animation on those transforms is refused rather than silently ignored.
+   */
+  function instanceParentFrame(runtime, parent) {
+    const chain = [];
+    let node = parent && typeof parent === "object" ? parent : null;
+    while (node && !(node instanceof Scene)) {
+      invariant(!(node instanceof GeoAnchor),
+        `Instances cannot sit inside GeoAnchor '${node.id}': a geodetic anchor is a different coordinate world from the local metres an instance row carries`);
+      invariant((node instanceof Group || node instanceof SceneObject) && node.runtime === runtime,
+        "Instances.parent must be a live Group or geometry node from the same runtime");
+      invariant(!node.disposed, `Instances cannot sit inside disposed '${node.id}'`);
+      chain.push(node);
+      node = node.parentNode || null;
+    }
+    let frame = IDENTITY_FRAME;
+    for (let index = chain.length - 1; index >= 0; index -= 1) {
+      const local = chain[index].transform;
+      // position, rotation and scale is all a row has: a rotation underneath a non-uniform scale
+      // is a shear, and there is nowhere to put one.
+      invariant(uniformScale(frame.scale) || identityRotation(local.rotation),
+        `Instances cannot follow '${chain[index].id}': a rotation under a non-uniform parent scale is a shear, which an instance row cannot carry`);
+      frame = {
+        position: (() => {
+          const scaled = { x: frame.scale.x * local.position.x, y: frame.scale.y * local.position.y, z: frame.scale.z * local.position.z };
+          const turned = rotateVector(frame.rotation, scaled);
+          return { x: frame.position.x + turned.x, y: frame.position.y + turned.y, z: frame.position.z + turned.z };
+        })(),
+        rotation: quaternionProduct(frame.rotation, local.rotation),
+        scale: { x: frame.scale.x * local.scale.x, y: frame.scale.y * local.scale.y, z: frame.scale.z * local.scale.z },
+      };
+    }
+    const identity = frame === IDENTITY_FRAME
+      || (unitScale(frame.scale) && identityRotation(frame.rotation)
+        && frame.position.x === 0 && frame.position.y === 0 && frame.position.z === 0);
+    return { frame, chain, identity };
+  }
+
+  // One instance row, moved from its parent's metres into the scene's.
+  function bakeInstanceRow(frame, row, field) {
+    const scaled = { x: frame.scale.x * row.position.x, y: frame.scale.y * row.position.y, z: frame.scale.z * row.position.z };
+    const turned = rotateVector(frame.rotation, scaled);
+    const rotation = row.rotation ? quaternionProduct(frame.rotation, row.rotation) : frame.rotation;
+    const scale = row.scale
+      ? { x: frame.scale.x * row.scale.x, y: frame.scale.y * row.scale.y, z: frame.scale.z * row.scale.z }
+      : frame.scale;
+    for (const axis of ["x", "y", "z"]) {
+      invariant(scale[axis] > 0 && scale[axis] <= PREFAB_MAX_INSTANCE_SCALE,
+        `${field} scaled by its parent chain to ${scale[axis].toFixed(3)} on ${axis}, outside (0, ${PREFAB_MAX_INSTANCE_SCALE}]`);
+    }
+    invariant(uniformScale(frame.scale) || identityRotation(rotation),
+      `${field} is rotated under a non-uniform parent scale, which an instance row cannot carry`);
+    return {
+      position: { x: frame.position.x + turned.x, y: frame.position.y + turned.y, z: frame.position.z + turned.z },
+      ...(identityRotation(rotation) ? {} : { rotation }),
+      ...(unitScale(scale) ? {} : { scale }),
+    };
+  }
+
   class Instances {
     constructor(runtime, spec) {
       invariant(spec && typeof spec === "object", "Instances needs a spec");
       const allowed = new Set(["id", "key", "prefab", "placement", "positions", "origin", "spacing",
         "columns", "count", "seed", "rotations", "rotations_z", "rotation_z",
         "scales", "scales_uniform", "scale",
-        "center", "radius", "startAngle", "faceCenter", "path", "step", "alignToPath", "smooth", "samples"]);
+        "center", "radius", "startAngle", "faceCenter", "path", "step", "alignToPath", "smooth", "samples",
+        // Injected by the installer from the enclosing node, never written by an author: the
+        // catalog has no `parent` member for Instances.
+        "parent"]);
       const unknown = Object.keys(spec).find((name) => !allowed.has(name));
       invariant(!unknown, `member_unsupported: Instances.${unknown}`);
       const id = spec.id || spec.key;
@@ -6582,6 +7397,9 @@
       invariant(prefab instanceof Prefab && !prefab.disposed && prefab.runtime === runtime,
         "Instances.prefab must be a live Prefab from the same runtime");
       const capability = requirePrefabFacadeV2(runtime, "Instances");
+      // Where the batch was written.  Identity (a batch straight under Scene) keeps the request
+      // byte for byte what it always was; anything else is folded into the rows below.
+      const parentFrame = instanceParentFrame(runtime, spec.parent);
       const placement = spec.placement ?? (spec.positions !== undefined ? "explicit" : "grid");
       invariant(["explicit", "grid", "ring", "along_path"].includes(placement),
         'Instances.placement must be "explicit", "grid", "ring" or "along_path"');
@@ -6599,8 +7417,11 @@
       let positions = null;
       let autoYaw = null;
       if (placement === "explicit") {
-        invariant(Array.isArray(spec.positions) && spec.positions.length > 0,
-          "Instances.positions must be a non-empty list of [x, y, z] for explicit placement");
+        // An empty list is a DYNAMIC batch: the Prefab, its material and its budget are declared
+        // statically and the rows arrive later through api.instances.set(). It is the only way to
+        // add and remove instances without recompiling, and it draws nothing until the first set().
+        invariant(Array.isArray(spec.positions),
+          "Instances.positions must be a list of [x, y, z] for explicit placement ([] declares a dynamic batch)");
         // vector3_list is the one member the compiler hands over undecoded: decode() only reshapes
         // vector3/quaternion into { x, y, z }, so explicit positions arrive as [[x, y, z], ...] --
         // exactly what the invariant above promises.  Reading them as objects made every explicit batch
@@ -6732,7 +7553,7 @@
       // So a posed grid is expanded here with the identical formula the native grid
       // branch uses (row-major, integer division by columns); the batch still reports
       // placement "grid", because that is what the author wrote.
-      if (gridRequest && (rotations || scales)) {
+      if (gridRequest && (rotations || scales || !parentFrame.identity)) {
         positions = Array.from({ length: count }, (_unused, index) => ({
           x: gridRequest.origin.x + (index % gridRequest.columns) * gridRequest.spacing.x,
           y: gridRequest.origin.y + Math.floor(index / gridRequest.columns) * gridRequest.spacing.y,
@@ -6740,14 +7561,20 @@
         }));
         gridRequest = null;
       }
-      const placementRequest = gridRequest ?? {
-        kind: "explicit",
-        transforms: positions.map((position, index) => ({
-          position,
-          ...(rotations ? { rotation: rotations[index] } : {}),
-          ...(scales ? { scale: scales[index] } : {}),
-        })),
-      };
+      const rows = gridRequest ? null : positions.map((position, index) => ({
+        position,
+        ...(rotations ? { rotation: rotations[index] } : {}),
+        ...(scales ? { scale: scales[index] } : {}),
+      }));
+      const framed = rows && !parentFrame.identity
+        ? rows.map((row, index) => bakeInstanceRow(parentFrame.frame, row, `Instances row ${index}`))
+        : rows;
+      // A parent rotation turns every row, so the capability the engine publishes has to be
+      // checked against what is actually on the wire, not only against what the author typed.
+      if (framed && framed.some((row) => row.rotation && !identityRotation(row.rotation))) {
+        requirePrefabInstanceRotation(capability);
+      }
+      const placementRequest = gridRequest ?? { kind: "explicit", transforms: framed };
 
       const request = {
         count,
@@ -6761,20 +7588,103 @@
         allow_clamp: false,
         instance_tags: [],
       };
-      const receipt = nativeResult(capability.facade.instantiate(prefab.handle, runtime.scene,
-        JSON.stringify(request)), "PrefabFacade.instantiate");
-      invariant(typeof receipt.batch_handle === "string" && receipt.batch_handle.length > 0,
-        "PrefabFacade.instantiate returned no batch_handle");
+      const dynamic = placement === "explicit" && count === 0;
+      let receipt = null;
+      if (!dynamic) {
+        receipt = nativeResult(capability.facade.instantiate(prefab.handle, runtime.scene,
+          JSON.stringify(request)), "PrefabFacade.instantiate");
+        invariant(typeof receipt.batch_handle === "string" && receipt.batch_handle.length > 0,
+          "PrefabFacade.instantiate returned no batch_handle");
+      }
       this.runtime = runtime;
       this.id = id;
       this.prefab = prefab;
-      this.handle = receipt.batch_handle;
+      this.handle = receipt ? receipt.batch_handle : null;
+      this.boundsUnion = receipt?.bounds_union ?? null;
       this.count = count;
+      this.seed = seed;
+      this.dynamic = dynamic;
       this.placement = placement;
       this.disposed = false;
+      this.parentFrame = parentFrame.identity ? null : parentFrame.frame;
+      this.frameChain = parentFrame.chain;
+      // Rows are create-only, so the fold above is a snapshot.  Marking the chain is what turns a
+      // later move of that Group into a refusal instead of a batch that quietly stays behind.
+      for (const node of parentFrame.chain) (node.instanceFrameBatches ||= new Set()).add(id);
       prefab.batches.push(this);
       prefab.instanceCount += count;
       runtime.instanceBatches.set(id, this);
+    }
+
+    /**
+     * Rewrite a dynamic batch's rows. The native side has no "update these transforms" call, so the
+     * batch is released and instantiated again; the Prefab, the material and the budget do not move.
+     */
+    setRows(rows) {
+      invariant(!this.disposed, "Instances is disposed");
+      invariant(this.dynamic,
+        `Instances '${this.id}' has a fixed placement; declare it as 'placement: "explicit"; positions: []' to rewrite its rows at runtime`);
+      invariant(rows && typeof rows === "object" && !Array.isArray(rows),
+        "instances.set needs { positions, rotations_z?, scales_uniform? }");
+      const capability = requirePrefabFacadeV2(this.runtime, "Instances");
+      const unknown = Object.keys(rows).find((name) => !["positions", "rotations_z", "scales_uniform"].includes(name));
+      invariant(!unknown, `member_unsupported: instances.set rows.${unknown}`);
+      invariant(Array.isArray(rows.positions), "instances.set rows.positions must be a list of [x, y, z]");
+      const positions = rows.positions.map((position, index) => meshPoint(position, `rows.positions[${index}]`));
+      const count = positions.length;
+      invariant(count <= PREFAB_MAX_INSTANCES_PER_BATCH,
+        `instances.set would place ${count} rows (limit ${PREFAB_MAX_INSTANCES_PER_BATCH} per batch); split them across more batches`);
+      invariant(this.prefab.instanceCount - this.count + count <= PREFAB_MAX_INSTANCES_PER_PREFAB,
+        `Prefab '${this.prefab.id}' is limited to ${PREFAB_MAX_INSTANCES_PER_PREFAB} instances`);
+      let rotations = null;
+      if (rows.rotations_z !== undefined) {
+        invariant(Array.isArray(rows.rotations_z) && rows.rotations_z.length === count,
+          `rows.rotations_z must hold exactly ${count} degree values, one per row`);
+        rotations = rows.rotations_z.map((value, index) => quaternionZ(finite(value, `rows.rotations_z[${index}]`)));
+      }
+      let scales = null;
+      if (rows.scales_uniform !== undefined) {
+        invariant(Array.isArray(rows.scales_uniform) && rows.scales_uniform.length === count,
+          `rows.scales_uniform must hold exactly ${count} numbers, one per row`);
+        scales = rows.scales_uniform.map((value, index) =>
+          instanceScale(finite(value, `rows.scales_uniform[${index}]`), `rows.scales_uniform[${index}]`));
+      }
+      const pending = positions.map((position, index) => ({
+        position,
+        ...(rotations ? { rotation: rotations[index] } : {}),
+        ...(scales ? { scale: scales[index] } : {}),
+      }));
+      // The same fold the constructor did: a dynamic batch declared inside a Group takes its rows
+      // in that Group's metres too, or set() would teleport the batch on its first call.
+      const framed = this.parentFrame
+        ? pending.map((row, index) => bakeInstanceRow(this.parentFrame, row, `rows[${index}]`))
+        : pending;
+      if (framed.some((row) => row.rotation && !identityRotation(row.rotation))) {
+        requirePrefabInstanceRotation(capability);
+      }
+      if (this.handle && !this.prefab.disposed) {
+        nativeResult(capability.facade.releaseInstances(this.prefab.handle, JSON.stringify({
+          batch_handle: this.handle, instance_ids: [],
+        })), "PrefabFacade.releaseInstances");
+      }
+      this.prefab.instanceCount -= this.count;
+      this.handle = null;
+      this.boundsUnion = null;
+      this.count = 0;
+      if (!count) return { ok: true, count: 0 };
+      const next = nativeResult(capability.facade.instantiate(this.prefab.handle, this.runtime.scene, JSON.stringify({
+        count, seed: this.seed,
+        placement: { kind: "explicit", transforms: framed },
+        anchor: { lon: this.runtime.anchor.lon, lat: this.runtime.anchor.lat, height: this.runtime.anchor.height },
+        budget: {}, allow_clamp: false, instance_tags: [],
+      })), "PrefabFacade.instantiate");
+      invariant(typeof next.batch_handle === "string" && next.batch_handle.length > 0,
+        "PrefabFacade.instantiate returned no batch_handle");
+      this.handle = next.batch_handle;
+      this.boundsUnion = next.bounds_union ?? null;
+      this.count = count;
+      this.prefab.instanceCount += count;
+      return { ok: true, count };
     }
 
     snapshot() {
@@ -6792,9 +7702,11 @@
       if (this.disposed) return { ok: true, removed: false, idempotent: true };
       this.disposed = true;
       this.runtime.instanceBatches.delete(this.id);
+      // The chain is only frozen for as long as a batch is baked into it.
+      for (const node of this.frameChain || []) node.instanceFrameBatches?.delete(this.id);
       this.prefab.instanceCount -= this.count;
       const facade = this.runtime.prefabFacade;
-      if (facade && typeof facade.releaseInstances === "function" && !this.prefab.disposed) {
+      if (this.handle && facade && typeof facade.releaseInstances === "function" && !this.prefab.disposed) {
         return nativeResult(facade.releaseInstances(this.prefab.handle, JSON.stringify({
           batch_handle: this.handle,
           instance_ids: [],
@@ -7856,6 +8768,19 @@
       && target.runtime === runtime && !target.disposed;
   }
 
+  // InteractionFacade.pick answers in the engine's WORLD frame (earth-centred metres), not in the
+  // anchor's local metres that every SSDL position is written in.  Handing that straight to an author
+  // gives numbers in the millions that look like a bug and place anything built from them a continent
+  // away, so the local frame is computed here with the exact inverse of the transform that puts a
+  // node into the world.  `point` keeps the world value it has always had; `localPoint` is the one
+  // an SSDL expression or api.scene.spawn can use.
+  function worldToLocal(runtime, point) {
+    if (!point) return null;
+    const geodetic = ecefToGeodetic(point);
+    const local = geodeticToEnu(runtime.anchor, geodetic.longitude, geodetic.latitude, geodetic.height);
+    return Object.freeze({ x: local.x, y: local.y, z: local.z });
+  }
+
   function interactionSnapshot(runtime, root, event) {
     invariant(runtime.interactionFacade, "InteractionFacade/v1 is unavailable");
     const screen = eventScreenPoint(root, event);
@@ -7872,6 +8797,7 @@
       sequence: picked.sequence,
       screen: Object.freeze({ ...screen }),
       point: readonlyPoint(picked.point),
+      localPoint: worldToLocal(runtime, picked.point),
       normal: readonlyPoint(picked.normal),
       distance: picked.distance,
       button: Number.isInteger(event.button) ? event.button : 0,
@@ -8123,6 +9049,131 @@
     }
   }
 
+  // The pointer is the input a builder needs and picking alone cannot give: where the cursor is on
+  // the ground RIGHT NOW, whether the button is down, and how far the wheel turned. Every readable
+  // member is a scalar or a boolean because that is what an SSDL expression can consume -- a vector
+  // member would be readable in the catalog and unusable in a binding, and "no hit" is `hit: false`
+  // rather than a NaN the language has no way to test.
+  const POINTER_READABLE = Object.freeze({
+    pressed: "boolean", hit: "boolean", screenX: "real", screenY: "real",
+    hitX: "length", hitY: "length", hitZ: "length", wheelDelta: "real",
+  });
+
+  class PointerHandler {
+    constructor(runtime, spec) {
+      invariant(spec && spec.root && typeof spec.root.addEventListener === "function", "PointerHandler.root is required");
+      const unsupported = Object.keys(spec).find((name) =>
+        !["id", "key", "root", "enabled", "button", "onMoved", "onDragged", "onPressed", "onReleased", "onWheel"].includes(name));
+      invariant(!unsupported, `member_unsupported: PointerHandler.${unsupported}`);
+      invariant(runtime.interactionFacade, "InteractionFacade/v1 is unavailable");
+      invariant(spec.enabled === undefined || typeof spec.enabled === "boolean", "PointerHandler.enabled must be boolean");
+      const button = spec.button === undefined ? 0 : spec.button;
+      invariant(Number.isInteger(button) && button >= 0 && button <= 4, "PointerHandler.button must be an integer in 0..4 (0 = left)");
+      for (const signal of ["onMoved", "onDragged", "onPressed", "onReleased", "onWheel"]) {
+        invariant(spec[signal] === undefined || typeof spec[signal] === "function", `PointerHandler.${signal} must be a function`);
+      }
+      this.runtime = runtime;
+      this.id = spec.id || null;
+      this.component_type = "PointerHandler";
+      runtime.assertReferenceIdAvailable(this.id);
+      this.root = spec.root;
+      this.button = button;
+      this.enabled = spec.enabled !== false;
+      this.disposed = false;
+      this.state = { pressed: false, hit: false, screenX: 0, screenY: 0, hitX: 0, hitY: 0, hitZ: 0, wheelDelta: 0 };
+      for (const signal of ["onMoved", "onDragged", "onPressed", "onReleased", "onWheel"]) this[signal] = spec[signal] || (() => {});
+      const update = (snapshot, extra = {}) => {
+        const next = {
+          ...this.state, ...extra,
+          hit: Boolean(snapshot.hit),
+          screenX: snapshot.screen.x, screenY: snapshot.screen.y,
+          hitX: snapshot.localPoint?.x ?? this.state.hitX,
+          hitY: snapshot.localPoint?.y ?? this.state.hitY,
+          hitZ: snapshot.localPoint?.z ?? this.state.hitZ,
+        };
+        for (const [property, value] of Object.entries(next)) {
+          if (this.state[property] === value) continue;
+          this.state[property] = value;
+          this.runtime.writeLogical(this, property, value, { write: false, explicit: false });
+        }
+        return next;
+      };
+      this.moveListener = (event) => {
+        if (this.disposed || !this.enabled) return;
+        const snapshot = interactionSnapshot(runtime, this.root, event);
+        update(snapshot);
+        this.onMoved(snapshot);
+        if (this.state.pressed) this.onDragged(snapshot);
+      };
+      this.downListener = (event) => {
+        if (this.disposed || !this.enabled || (Number.isInteger(event.button) && event.button !== this.button)) return;
+        const snapshot = interactionSnapshot(runtime, this.root, event);
+        update(snapshot, { pressed: true });
+        this.onPressed(snapshot);
+      };
+      this.upListener = (event) => {
+        if (this.disposed || !this.state.pressed) return;
+        if (Number.isInteger(event.button) && event.button !== this.button) return;
+        const snapshot = interactionSnapshot(runtime, this.root, event);
+        update(snapshot, { pressed: false });
+        this.onReleased(snapshot);
+      };
+      // Losing the pointer outside the canvas never delivers pointerup, which would leave a drag
+      // latched on -- the same failure KeyHandler guards against with blur.
+      this.cancelListener = () => {
+        if (this.disposed || !this.state.pressed) return;
+        this.state.pressed = false;
+        this.runtime.writeLogical(this, "pressed", false, { write: false, explicit: false });
+        this.onReleased(Object.freeze({ hit: false, cancelled: true }));
+      };
+      this.wheelListener = (event) => {
+        if (this.disposed || !this.enabled) return;
+        if (typeof event.preventDefault === "function") event.preventDefault();
+        const snapshot = interactionSnapshot(runtime, this.root, event);
+        const delta = Number.isFinite(event.deltaY) ? event.deltaY : 0;
+        update(snapshot, { wheelDelta: delta });
+        this.onWheel(Object.freeze({ ...snapshot, wheelDelta: delta }));
+      };
+      this.root.addEventListener("pointermove", this.moveListener, true);
+      this.root.addEventListener("pointerdown", this.downListener, true);
+      this.root.addEventListener("pointerup", this.upListener, true);
+      this.root.addEventListener("pointercancel", this.cancelListener, true);
+      this.root.addEventListener("pointerleave", this.cancelListener, true);
+      this.root.addEventListener("wheel", this.wheelListener, { capture: true, passive: false });
+      runtime.pointerHandlers.add(this);
+      runtime.registerLogicalSlot(this, "enabled", this.enabled);
+      for (const property of Object.keys(POINTER_READABLE)) {
+        runtime.registerLogicalSlot(this, property, this.state[property], { explicit: false });
+      }
+    }
+
+    setEnabled(value) {
+      invariant(!this.disposed, "PointerHandler is disposed");
+      invariant(typeof value === "boolean", "PointerHandler.enabled must be boolean");
+      if (this.enabled === value) return { ok: true, changed: false, enabled: value };
+      return this.runtime.writeLogical(this, "enabled", value);
+    }
+
+    applyEnabled(value) {
+      this.enabled = value;
+      return { ok: true, changed: true, enabled: value };
+    }
+
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      this.enabled = false;
+      this.root.removeEventListener("pointermove", this.moveListener, true);
+      this.root.removeEventListener("pointerdown", this.downListener, true);
+      this.root.removeEventListener("pointerup", this.upListener, true);
+      this.root.removeEventListener("pointercancel", this.cancelListener, true);
+      this.root.removeEventListener("pointerleave", this.cancelListener, true);
+      this.root.removeEventListener("wheel", this.wheelListener, { capture: true });
+      this.runtime.pointerHandlers.delete(this);
+      this.runtime.disposeOwnerSlots(this);
+    }
+  }
+
   // Page-shell actions are intentionally separate from SSDL TapHandler. They
   // operate on DOM data attributes and never claim to be a 3D picking event.
   class ActionHandler {
@@ -8273,8 +9324,19 @@
     if (owner instanceof State && property === "when") {
       return boolean((value) => owner.applyWhen(value));
     }
-    if ((owner instanceof TapHandler || owner instanceof HoverHandler || owner instanceof KeyHandler) && property === "enabled") {
+    if ((owner instanceof TapHandler || owner instanceof HoverHandler || owner instanceof KeyHandler
+      || owner instanceof PointerHandler) && property === "enabled") {
       return boolean((value) => owner.applyEnabled(value));
+    }
+    if (owner instanceof PointerHandler && POINTER_READABLE[property]) {
+      const kind = POINTER_READABLE[property];
+      const base = kind === "boolean" ? boolean(() => {}) : scalar(kind === "length" ? "m" : "scalar", 1e6, () => {});
+      return {
+        ...base,
+        write: () => { throw codedError("member_readonly", `member_readonly: PointerHandler.${property}`); },
+        writable: false,
+        read: () => owner.state[property],
+      };
     }
     if (owner instanceof KeyHandler && property === "pressed") {
       return {
@@ -8477,6 +9539,7 @@
       this.tapHandlers = new Set();
       this.hoverHandlers = new Set();
       this.keyHandlers = new Set();
+      this.pointerHandlers = new Set();
       this.actionHandlers = new Set();
       this.listeners = new Map();
       this.targetDependents = new WeakMap();
@@ -8661,6 +9724,7 @@
     }
 
     assertLogicalWritable(owner, property) {
+      assertFrameNotFrozen(owner, property, "cannot write");
       const slot = this.ensureLogicalSlot(owner, property);
       if (slot.binding?.when && !slot.binding.disposed) {
         throw codedError("property_bound",
@@ -9097,6 +10161,29 @@
     createTapHandler(spec) { return new TapHandler(this, spec); }
     createHoverHandler(spec) { return new HoverHandler(this, spec); }
     createKeyHandler(spec) { return new KeyHandler(this, spec); }
+    createPointerHandler(spec) { return new PointerHandler(this, spec); }
+
+    /**
+     * Screen point -> world point, the same pick PointerHandler reads. Host JS needs it to place
+     * something where the player clicked without waiting for an SSDL signal to come back to it.
+     */
+    pickRay(screenX, screenY) {
+      invariant(this.interactionFacade, "InteractionFacade/v1 is unavailable");
+      invariant(Number.isFinite(screenX) && Number.isFinite(screenY), "input.ray needs finite screen coordinates");
+      const picked = nativeResult(this.interactionFacade.pick(this.scene, Math.round(screenX), Math.round(screenY)),
+        "InteractionFacade.pick");
+      return Object.freeze({
+        hit: Boolean(picked.hit),
+        // `point` is the anchor's LOCAL metres, the frame every SSDL position is written in;
+        // `worldPoint` is the engine's own earth-centred value, kept for anyone who needs it.
+        point: worldToLocal(this, picked.point),
+        worldPoint: picked.point ? Object.freeze({ x: picked.point.x, y: picked.point.y, z: picked.point.z }) : null,
+        normal: picked.normal ? Object.freeze({ x: picked.normal.x, y: picked.normal.y, z: picked.normal.z }) : null,
+        distance: picked.distance ?? null,
+        target: this.ownerId([...this.objects.values(), ...this.models.values()]
+          .find((item) => item.handle === picked.node_handle) || null),
+      });
+    }
     createTimer(spec) { return new Timer(this, spec); }
     createActionHandler(spec) { return new ActionHandler(this, spec); }
     readProperty(target, property) { return readNativeProperty(this, target, property); }
@@ -9147,6 +10234,209 @@
         geojson: of("GeoJsonLayer"),
         errors: this.geoErrors.slice(),
         note: globe ? null : "no Globe node: the engine's default terrain and lighting are in force and the sphere carries no imagery",
+      };
+    }
+
+    /**
+     * Sizes and boxes of every geometry node, MEASURED from what the engine holds: the local mesh box
+     * from GeometryFacade.describe, the world frame composed from SceneGraphFacade.describe (so a
+     * binding or animation that moved a node is reflected), a Model's native world box turned back
+     * into local metres, an Instances batch's native union.  Groups report the union of their
+     * descendants; the scene reports the union of everything, what touches z = 0, and (opt-in) which
+     * boxes intersect.  A Box is centred on its position, so "box at z: 0" reads back as half buried.
+     */
+    geometryRead(options = {}) {
+      invariant(options && typeof options === "object" && !Array.isArray(options), "geometryRead options must be an object");
+      const unknown = Object.keys(options).find((name) => !["ids", "overlaps", "tolerance_m", "detail"].includes(name));
+      invariant(!unknown, `member_unsupported: geometryRead.${unknown}`);
+      invariant(typeof this.sceneGraphFacade.describe === "function",
+        "this runtime's SceneGraphFacade has no describe(); geometry readback needs SceneGraphFacade/v2");
+      invariant(options.detail === undefined || ["full", "brief"].includes(options.detail),
+        'geometryRead.detail must be "full" or "brief"');
+      invariant(options.overlaps === undefined || typeof options.overlaps === "boolean", "geometryRead.overlaps must be boolean");
+      const brief = options.detail === "brief";
+      const tolerance = options.tolerance_m === undefined ? 0.01 : finite(options.tolerance_m, "geometryRead.tolerance_m");
+      invariant(tolerance >= 0, "geometryRead.tolerance_m must be >= 0");
+      invariant(options.ids === undefined || (Array.isArray(options.ids) && options.ids.length > 0
+        && options.ids.every((id) => typeof id === "string" && id.length > 0)), "geometryRead.ids must be a non-empty list of node ids");
+      const selected = options.ids ? new Set(options.ids) : null;
+
+      const graph = nativeResult(this.sceneGraphFacade.describe(JSON.stringify({})), "SceneGraphFacade.describe");
+      invariant(Array.isArray(graph.nodes), "SceneGraphFacade.describe returned no nodes");
+      const byHandle = new Map(graph.nodes.map((node) => [node.node, node]));
+      const idOfHandle = new Map();
+      for (const [id, item] of this.objects) idOfHandle.set(item.handle, id);
+      for (const [id, item] of this.groups) idOfHandle.set(item.handle, id);
+      for (const [id, item] of this.models) if (typeof item.handle === "string") idOfHandle.set(item.handle, id);
+      // Each root the chain can end at: the scene locator (identity) or a GeoAnchor (its ENU metres
+      // rotated and shifted into the project anchor's).
+      const roots = new Map([[this.locatorHandle, { frame: "scene", affine: identityAffine() }]]);
+      for (const item of this.groups.values()) {
+        if (item.component_type !== "GeoAnchor") continue;
+        roots.set(item.handle, { frame: item.id, affine: enuFrameAffine(this.anchor,
+          { lon: item.anchor.longitude, lat: item.anchor.latitude, height: item.anchor.altitude }) });
+      }
+      const worldCache = new Map();
+      const worldOf = (handle, guard = 0) => {
+        if (worldCache.has(handle)) return worldCache.get(handle);
+        invariant(guard < 64, `scene graph parent chain of '${handle}' does not terminate`);
+        const node = byHandle.get(handle);
+        invariant(node, `SceneGraphFacade.describe holds no node '${handle}'`);
+        const local = affineFromTransform(node.local_transform || {});
+        let result;
+        if (node.parent && byHandle.has(node.parent)) {
+          const parent = worldOf(node.parent, guard + 1);
+          result = { affine: affineMultiply(parent.affine, local), frame: parent.frame, root: parent.root, chain: [...parent.chain, node.parent] };
+        } else {
+          const root = roots.get(handle) || { frame: "unrooted", affine: identityAffine() };
+          result = { affine: affineMultiply(root.affine, local), frame: root.frame, root: handle, chain: [] };
+        }
+        worldCache.set(handle, result);
+        return result;
+      };
+      const parentIdOf = (handle) => {
+        const parent = byHandle.get(handle)?.parent;
+        return parent ? idOfHandle.get(parent) ?? null : null;
+      };
+      const ancestorsOf = (handle) => worldOf(handle).chain.map((item) => idOfHandle.get(item)).filter((id) => id !== undefined);
+      const groundOf = (bounds) => Math.abs(bounds.min.z) <= tolerance ? "on" : bounds.min.z < 0 ? "buried" : "above";
+      const entryBase = (id, type, handle) => {
+        const world = worldOf(handle);
+        const pose = affineDecompose(world.affine);
+        const node = byHandle.get(handle);
+        return {
+          entry: {
+            id, type, handle, parent: parentIdOf(handle), frame: world.frame, visible: node.visible !== false,
+            ...(brief ? {} : { local: node.local_transform ?? null, ancestors: ancestorsOf(handle) }),
+            world: { position: roundVec(pose.position), rotation: pose.rotation, scale: roundVec(pose.scale) },
+          },
+          world, pose,
+        };
+      };
+
+      const nodes = [];
+      const unmeasured = [];
+      const measured = []; // { id, bounds } for unions, ground and overlaps
+      for (const [id, item] of this.objects) {
+        if (item.disposed || (selected && !selected.has(id))) continue;
+        if (!byHandle.has(item.handle)) { unmeasured.push({ id, type: item.spec.component_type, reason: "not in the scene graph" }); continue; }
+        const { entry, world, pose } = entryBase(id, item.spec.component_type || "SceneObject", item.handle);
+        entry.kind = item.spec.kind || "box";
+        let receipt;
+        try { receipt = item.describe(); }
+        catch (error) { unmeasured.push({ id, type: entry.type, reason: error.message }); nodes.push(entry); continue; }
+        if (!boundsValid(receipt.bounds)) { unmeasured.push({ id, type: entry.type, reason: "GeometryFacade.describe reports no bounds (older engine)" }); nodes.push(entry); continue; }
+        const localBounds = receipt.bounds;
+        const worldBounds = transformBounds(world.affine, localBounds);
+        const localSize = { x: localBounds.max.x - localBounds.min.x, y: localBounds.max.y - localBounds.min.y, z: localBounds.max.z - localBounds.min.z };
+        entry.dimensions = roundVec({ x: localSize.x * pose.scale.x, y: localSize.y * pose.scale.y, z: localSize.z * pose.scale.z });
+        entry.world_bounds = { ...describeBounds(worldBounds), tight: pose.axis_aligned };
+        entry.ground = groundOf(worldBounds);
+        if (!brief) {
+          entry.local_bounds = describeBounds(localBounds);
+          entry.mesh = {
+            vertex_count: receipt.vertex_count ?? null, triangle_count: receipt.triangle_count ?? null,
+            closed: receipt.topology?.closed ?? null, manifold: receipt.topology?.manifold ?? null,
+            degenerate_triangle_count: receipt.topology?.degenerate_triangle_count ?? null,
+            ...(receipt.area_m2 !== undefined ? { area_m2: round3(receipt.area_m2), volume_m3: round3(receipt.volume_m3) } : {}),
+          };
+        }
+        nodes.push(entry);
+        measured.push({ id, bounds: worldBounds, handle: item.handle });
+      }
+      // A Model's native box is already in world (ECEF) space: bring its corners back into the project
+      // anchor's ENU metres.  The box is axis-aligned in ECEF, so the result is a conservative envelope.
+      const ecefToLocal = { r: mat3Transpose(enuBasis(this.anchor.lon, this.anchor.lat)), t: { x: 0, y: 0, z: 0 } };
+      const origin = geodeticToEcef(this.anchor.lon, this.anchor.lat, this.anchor.height);
+      for (const [id, item] of this.models) {
+        if (item.disposed || (selected && !selected.has(id))) continue;
+        if (typeof item.handle !== "string" || !byHandle.has(item.handle)) { unmeasured.push({ id, type: "Model", reason: `model state '${item.receipt?.state || "preparing"}'; not in the scene graph yet` }); continue; }
+        const { entry, world } = entryBase(id, "Model", item.handle);
+        entry.kind = "model";
+        let receipt;
+        try { receipt = item.describe(); }
+        catch (error) { unmeasured.push({ id, type: "Model", reason: error.message }); nodes.push(entry); continue; }
+        entry.model_state = receipt.model?.state ?? receipt.state ?? null;
+        if (!boundsValid(receipt.world_bounds)) { unmeasured.push({ id, type: "Model", reason: `model state '${entry.model_state}': no native bounds yet` }); nodes.push(entry); continue; }
+        const worldBounds = emptyBounds();
+        for (const corner of boundsCorners(receipt.world_bounds)) {
+          extendBounds(worldBounds, affineApply(ecefToLocal, { x: corner.x - origin.x, y: corner.y - origin.y, z: corner.z - origin.z }));
+        }
+        entry.world_bounds = { ...describeBounds(worldBounds), tight: false, note: "envelope of the native ECEF box; the true extent is smaller" };
+        entry.dimensions = null;
+        entry.ground = groundOf(worldBounds);
+        if (!brief) entry.mesh = { vertex_count: receipt.vertex_count ?? null, triangle_count: receipt.triangle_count ?? null };
+        void world;
+        nodes.push(entry);
+        measured.push({ id, bounds: worldBounds, handle: item.handle });
+      }
+
+      const groups = [];
+      for (const [id, item] of this.groups) {
+        if (item.disposed || (selected && !selected.has(id))) continue;
+        if (!byHandle.has(item.handle)) { unmeasured.push({ id, type: item.component_type, reason: "not in the scene graph" }); continue; }
+        const { entry } = entryBase(id, item.component_type, item.handle);
+        const union = emptyBounds();
+        const members = [];
+        for (const child of measured) {
+          if (!worldOf(child.handle).chain.includes(item.handle)) continue;
+          extendBounds(union, child.bounds.min); extendBounds(union, child.bounds.max);
+          members.push(child.id);
+        }
+        entry.descendants = members.length;
+        entry.world_bounds = members.length ? { ...describeBounds(union), tight: false } : null;
+        if (item.component_type === "GeoAnchor") entry.anchor = { ...item.anchor };
+        groups.push(entry);
+      }
+
+      const instances = [];
+      for (const [id, item] of this.instanceBatches) {
+        if (item.disposed || (selected && !selected.has(id))) continue;
+        const bounds = item.boundsUnion;
+        instances.push({ id, type: "Instances", prefab: item.prefab.id, count: item.count, frame: "scene",
+          world_bounds: boundsValid(bounds) ? { ...describeBounds(bounds), tight: false } : null,
+          ...(boundsValid(bounds) ? { ground: groundOf(bounds) } : {}),
+          ...(item.count && !boundsValid(bounds) ? { note: "the native batch receipt carried no bounds_union" } : {}) });
+      }
+
+      const sceneUnion = emptyBounds();
+      for (const child of measured) { extendBounds(sceneUnion, child.bounds.min); extendBounds(sceneUnion, child.bounds.max); }
+      for (const batch of instances) if (batch.world_bounds) { extendBounds(sceneUnion, batch.world_bounds.min); extendBounds(sceneUnion, batch.world_bounds.max); }
+      const ground = { tolerance_m: tolerance, on: [], buried: [], above: [] };
+      for (const child of measured) {
+        const state = groundOf(child.bounds);
+        ground[state].push(state === "on" ? child.id : { id: child.id, [state === "buried" ? "depth_m" : "gap_m"]: round3(Math.abs(child.bounds.min.z)) });
+      }
+
+      let overlaps = null;
+      if (options.overlaps) {
+        overlaps = { pairs: [], pair_count: 0, tolerance_m: tolerance };
+        if (measured.length > 400) overlaps.note = `overlap check skipped: ${measured.length} boxes (limit 400); pass ids to narrow it`;
+        else {
+          for (let i = 0; i < measured.length; i += 1) for (let j = i + 1; j < measured.length; j += 1) {
+            const size = boundsOverlap(measured[i].bounds, measured[j].bounds, tolerance);
+            if (size) overlaps.pairs.push({ a: measured[i].id, b: measured[j].id, size: roundVec(size), volume_m3: round3(size.x * size.y * size.z) });
+          }
+          overlaps.pair_count = overlaps.pairs.length;
+          overlaps.pairs.sort((left, right) => right.volume_m3 - left.volume_m3);
+          if (overlaps.pairs.length > 50) { overlaps.pairs.length = 50; overlaps.note = "only the 50 largest overlaps are listed"; }
+        }
+      }
+
+      const skipped = {};
+      for (const [type, size] of [["Label", this.labels.size], ["Globe/ImageryLayer/Tileset/GeoJsonLayer", this.geoComponents?.size ?? 0]]) if (size) skipped[type] = size;
+      return {
+        schema_version: "SSWorldGeometryReadback/1",
+        anchor: { ...this.anchor },
+        frame: "local metres at the project anchor: x east, y north, z up; rotations are xyzw quaternions",
+        selection: selected ? [...selected] : null,
+        nodes, groups, instances,
+        scene: { measured: measured.length, world_bounds: measured.length || instances.some((batch) => batch.world_bounds) ? describeBounds(sceneUnion) : null },
+        ground,
+        ...(overlaps ? { overlaps } : {}),
+        unmeasured,
+        skipped,
+        note: "Box/Sphere/Cylinder/Cone/Capsule are centred on their position (a Box of height h at z: 0 is buried h/2); world_bounds.tight=false means the box is an envelope of a rotated or composite node",
       };
     }
 
@@ -9201,6 +10491,7 @@
       for (const handler of [...this.tapHandlers]) handler.dispose();
       for (const handler of [...this.hoverHandlers]) handler.dispose();
       for (const handler of [...this.keyHandlers]) handler.dispose();
+      for (const handler of [...this.pointerHandlers]) handler.dispose();
       for (const handler of [...this.actionHandlers]) handler.dispose();
       for (const controller of [...this.stateControllers.values()]) controller.dispose();
       for (const behavior of [...this.behaviors]) behavior.dispose();

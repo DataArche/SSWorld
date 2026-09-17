@@ -1,5 +1,9 @@
 Scene {
   id: main
+  // The page's time slider writes these; Environment solves the sun (timeScale 0 stops the clock).
+  property real timeOfDay: 14
+  property string sceneDateTime: "2026-06-21T14:00:00+08:00"
+  Environment { id: sky; dateTime: main.sceneDateTime; timeScale: 0 }
   // Camera in local metres around the anchor (x east, y north, z up); lookAt derives heading/pitch.
   CameraView { id: startView; position: [60, -80, 40]; lookAt: [0, 0, 12]; fov: 50 }
   Camera { id: mainCamera; initialView: startView }

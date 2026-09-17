@@ -5,6 +5,15 @@ import parser from "../generated/parser-0.3.cjs";
 const POSIX = path.posix;
 const ID = /^[A-Za-z_][A-Za-z0-9_-]{0,127}$/;
 
+// Reserved ids for a spawnable component's compiled fragment. The grammar's Identifier rule has no
+// "-", so no author id can ever collide with these three.
+export const FRAGMENT_PARAMS_ID = "fragment-params";
+export const FRAGMENT_ROOT_ID = "fragment-root";
+// A fragment's `property` types: the create-time parameters. radians and url are left out on
+// purpose -- degrees is the authored angle unit everywhere else, and a url parameter would make a
+// fragment reach for an asset the project never declared.
+export const FRAGMENT_PARAMETER_TYPES = Object.freeze(["real", "bool", "string", "length", "degrees", "duration"]);
+
 function fail(code, ast, detail = code) {
   const error = Object.assign(new Error(detail), { code });
   const start = ast?.location?.start || { line: 1, column: 1 };
@@ -288,6 +297,9 @@ export function expandSourceProject(project, catalog) {
     const params = new Map(environment.params);
     for (const [name, declaration] of templateDeclarations) {
       const supplied = invocationFields.get(name)?.value;
+      // A fragment invocation binds every declared property to a read of the reserved parameter node
+      // instead of to its default, so the compiled fragment keeps the slot and spawn fills it in.
+      if (raw.fragment_parameters) { params.set(name, clone(raw.fragment_parameters.get(name))); continue; }
       if (!supplied && !declaration.value) fail("parameter_unassigned", declaration);
       params.set(name, supplied
         ? transformExpression(supplied, environment)
@@ -340,10 +352,70 @@ export function expandSourceProject(project, catalog) {
   }
 
   const entryDoc = docs.get(entry);
+  const entryRootId = idValue(fields(entryDoc.document.root).get("id"));
   const entryIds = new Map();
   collectIds(entryDoc.document.root, "", entryIds);
   for (const [local] of entryIds) entryIds.set(local, local);
   const root = expandNode(entryDoc.document.root, entryDoc, { ids: entryIds, params: new Map() });
+
+  // Spawnable components: each one is expanded a second time, on its own, with every declared
+  // property bound to a read of the reserved parameter node. The result is a self-contained Scene
+  // the compiler turns into a fragment IR -- the same expansion path a static instance takes, so a
+  // fragment and a static instance of one component cannot disagree about what the component is.
+  const fragments = [];
+  for (const doc of [...docs.values()].sort((a, b) => Buffer.compare(Buffer.from(a.file), Buffer.from(b.file)))) {
+    const pragmas = doc.document.pragmas || [];
+    if (!pragmas.some((item) => item.name === "spawnable")) continue;
+    const template = doc.document.root;
+    if (doc.file === entry) {
+      fail("spawnable_invalid", pragmas[0], "the entry scene cannot be spawnable; put the part in its own PascalCase component file");
+    }
+    const name = POSIX.basename(doc.file, ".ssdl");
+    if (!/^[A-Z][A-Za-z0-9_]*$/.test(name)) {
+      fail("spawnable_invalid", pragmas[0], `a spawnable component's file must be PascalCase ('${name}.ssdl' is not), because api.scene.spawn names it by that file name`);
+    }
+    if (template.type !== "Group") {
+      fail("spawnable_invalid", template, `a spawnable component's root must be Group (this one is ${template.type}); the root Group is the single locator spawn positions, hides and releases`);
+    }
+    const parameters = [];
+    const fragmentParameters = new Map();
+    for (const [property, declaration] of declarations(template)) {
+      if (!FRAGMENT_PARAMETER_TYPES.includes(declaration.type)) {
+        fail("spawnable_invalid", declaration, `a spawnable component's property must be one of ${FRAGMENT_PARAMETER_TYPES.join(" / ")} ('${property}' is ${declaration.type})`);
+      }
+      if (declaration.required || !declaration.value) {
+        fail("spawnable_invalid", declaration, `spawnable property '${property}' needs a default value: the default is what the fragment's budget and mesh limits are checked against at compile time`);
+      }
+      parameters.push({ name: property, type: declaration.type, default_ast: clone(declaration.value) });
+      fragmentParameters.set(property, { kind: "reference", segments: [FRAGMENT_PARAMS_ID, property],
+        file: doc.file, location: declaration.location });
+    }
+    const invocation = {
+      kind: "node", type: name, file: doc.file, location: template.location,
+      fragment_parameters: fragmentParameters,
+      members: [{ kind: "property", name: "id", file: doc.file, location: template.location,
+        value: { kind: "identifier", value: FRAGMENT_ROOT_ID, file: doc.file, location: template.location } }],
+    };
+    const mark = expansionEntries.length;
+    const expanded = expandNode(invocation, doc, { ids: new Map(), params: new Map() });
+    const entries = expansionEntries.splice(mark);
+    // The wrapper Scene carries the ENTRY scene's id and its declarations, so a fragment's bindings
+    // can read the scene's logical properties by the same node id the installed graph uses; the
+    // fragment IR drops the declarations again (the scene, not the fragment, owns those values).
+    fragments.push({
+      name, file: doc.file, parameters,
+      expansion_entries: entries,
+      document: { imports: [], root: {
+        kind: "node", type: "Scene", file: doc.file, location: template.location,
+        members: [
+          { kind: "property", name: "id", file: doc.file, location: template.location,
+            value: { kind: "identifier", value: entryRootId, file: entryDoc.file, location: entryDoc.document.root.location } },
+          ...entryDoc.document.root.members.filter((item) => item.kind === "declaration").map(clone),
+          expanded,
+        ],
+      } },
+    });
+  }
   const inventory = [...docs.values()].sort((a, b) => Buffer.compare(Buffer.from(a.file), Buffer.from(b.file))).map((doc) => ({
     path: doc.file,
     content: doc.content,
@@ -363,6 +435,7 @@ export function expandSourceProject(project, catalog) {
   if (project.source_digest !== sourceDigest) fail("source_digest_mismatch");
   return {
     document: { imports: [], root },
+    fragments,
     asset_refs: assetRefs,
     source_files: inventory.map(({ path: file, content }) => ({ file, content })),
     source_digest: sourceDigest,

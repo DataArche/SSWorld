@@ -19,6 +19,7 @@ export const INSTRUCTIONS = `SSWorld: author 3D geographic scenes with the SSDL 
 Workflow: ssworld_catalog (index, or components: [...] with detail 'compact' for several contracts at once) -> ssworld_project_create -> ssworld_source_read (mode 'metadata' for digests/sizes, 'node' for one node, offset/limit for ranges) -> ssworld_source_patch / ssworld_source_batch (atomic multi-edit, optional compile+rollback) / ssworld_source_write -> ssworld_compile (real diagnostics + budget usage) -> ssworld_scene_inspect (hierarchy, extent, requested camera) -> ssworld_preview (URL to open in a WebGPU browser) -> ssworld_capture_frame (screenshot + stats + receipt binding the frame to source/IR digests + requested vs effective camera + runtime errors mapped to scene.ssdl:line).
 Assets: copy glb models (and png/jpg textures) into <project>/assets/ and reference them by project-relative path (Model { source: "assets/name.glb" }); ssworld_compile discovers them (usage.assets) and rejects oversize files (asset_budget). Compile success means the scene is well-formed, not that it looks right; open the preview, then call ssworld_capture_frame and look at the image before reporting. Every result carries next: {action, reason, ...} naming the next step; 'open_webgpu_viewer' means the client must open next.url in a visible WebGPU browser tab (a client capability, not an SSWorld tool). reference_match stays not_evaluated unless a comparison was actually run.
 Conventions: local metres, x east / y north / z up around the project anchor; geometry rotation quaternions are [x, y, z, w], environment component rotation is Euler degrees; CameraView takes position/lookAt in local metres (or longitude/latitude/height), fov in HORIZONTAL degrees (the vertical fov follows the aspect); ${CLIP_PLANE_POLICY}. Scene logic: 'property real score: 0' on the Scene root, handler assignments with arithmetic, comparisons (>=, <=, ===, !==) in bindings, and 'Iface.method(arg: expr)' host calls declared in host_interfaces.json + implemented in logic.mjs; ssworld_catalog.logic documents the surface, ssworld_capture_frame returns the live values as 'logic'; ssworld_logic_read / ssworld_logic_write read and set declared properties on the open page in one transaction (States are derived and cannot be written), and ssworld_capture_frame { await: {state|property, ...} } waits for a game state before shooting instead of editing initial values.
+Measure, do not squint: ssworld_geometry_read returns every node's dimensions, world box, ground contact (a Box is centred on its position, so z: 0 buries half of it) and optional overlaps as numbers read back from the engine; ssworld_environment_read and ssworld_geo_read do the same for the sun/sky and the geographic layers. Use them before a screenshot when the question is a size, a position or a collision.
 Runtime evidence: a binding whose value the target refuses rolls its whole batch back and freezes the affected values; the page reports it as runtime.errors kind 'binding_error' (mapped to scene.ssdl:line) and logic.bindings.invalid, so check runtime.errors before judging a frame. Several browsers may have the same page open (desktop preview pane + automation browser): ssworld_preview lists them as page.clients, every capture receipt names the answering receipt.client, and capture/logic tools accept client: "<id>" to pick one.`;
 
 const log = (line) => process.stderr.write(`[ssworld-mcp] ${line}\n`);
@@ -464,6 +465,56 @@ const TOOLS = [
             ? "read back from the engine; imagery draws in the order listed (native_index 0 is the base map)"
             : "this scene declares no geographic layers, so the globe is the engine's plain default sphere",
         next: next("judge_geography", "compare the read-back values with the scene source, then ssworld_capture_frame to see the result") };
+    },
+  },
+  {
+    name: "ssworld_geometry_read",
+    description: "MEASURE the scene instead of eyeballing a screenshot: for every geometry node and Model the engine holds, its dimensions (object axes, metres), world position/rotation/scale composed through the live scene graph (so bindings and animations count), the axis-aligned world box (min/max/center/size, tight or an envelope), whether its bottom sits on / below / above z = 0, and the mesh facts the engine measured (vertex/triangle counts, closed, manifold, area_m2 / volume_m3). Groups and GeoAnchors report the union of their descendants, Instances their native union, the scene its whole extent. Pass overlaps: true to list intersecting boxes (with the overlap volume) and ids: [...] to narrow to a few nodes; detail: 'brief' drops local transforms and mesh facts. A Box/Sphere/Cylinder is centred on its position, so a box at z: 0 reads back as half buried. Requires the preview page to be open; a page whose index.html predates this probe answers page_probe_unavailable and names the handler to paste in.",
+    inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" },
+      ids: { type: "array", minItems: 1, maxItems: 200, items: { type: "string" }, description: "Node ids to measure (geometry, Model, Group, GeoAnchor, Instances); default: every node." },
+      overlaps: { type: "boolean", description: "Also list pairs of intersecting world boxes (largest overlap volume first, at most 50; skipped above 400 boxes)." },
+      tolerance_m: { type: "number", minimum: 0, description: "Ground contact and overlap tolerance in metres; default 0.01." },
+      detail: { type: "string", enum: ["full", "brief"], description: "brief drops local transforms, ancestors and mesh facts." },
+      client: { type: "string", description: "Page client id; default: most recent visible page." },
+      timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, description: "Default 10000." } }, additionalProperties: false },
+    annotations: { title: "Measure scene geometry", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    run: async ({ project, ids, overlaps, tolerance_m, detail, client, timeout_ms }) => {
+      const directory = projectDir(project);
+      const page = await requirePage(project, client);
+      const params = { ...(ids ? { ids } : {}), ...(overlaps !== undefined ? { overlaps } : {}), ...(tolerance_m !== undefined ? { tolerance_m } : {}), ...(detail ? { detail } : {}) };
+      const reply = await pageCommand(project, "geometry_read", params, { timeoutMs: timeout_ms || 10000, client: page.client?.id });
+      if (!reply.ok) throw commandFailure(reply, "retry_geometry_read");
+      const result = reply.result;
+      if (!result.ok) {
+        // index.html is project-owned, so an older page simply does not know the command.
+        if (/unknown command geometry_read/.test(result.error || "")) {
+          throw Object.assign(new Error("this project's index.html predates the geometry probe"), { code: "page_probe_unavailable",
+            extra: { fix: "add one line to the runCommand switch in index.html (ssworld_source_patch works on it): `if (command.kind === \"geometry_read\") return { id: command.id, ok: true, geometry: currentBridge.runtime.geometryRead(command.params || {}), status: pageStatus() };`",
+              next: next("patch_page", "the page is project-owned and is not rewritten automatically") } });
+        }
+        throw Object.assign(new Error(result.error), { code: result.code || "geometry_read_failed",
+          extra: { runtime: moduleRuntime(directory, result.status), next: next(/member_unsupported|must be/.test(result.error || "") ? "fix_call" : "wait_or_reload", result.error, { blocking: true }) } });
+      }
+      const geometry = result.geometry;
+      const runtime = moduleRuntime(directory, result.status);
+      const buried = geometry.ground?.buried || [];
+      const pairs = geometry.overlaps?.pairs || [];
+      const unmeasured = geometry.unmeasured || [];
+      const measured = geometry.scene?.measured ?? 0;
+      const verdict = !runtime.loaded ? `the scene module is not mounted (state '${runtime.state}'), so nothing here is your scene`
+        : !measured && !geometry.instances?.length ? (geometry.selection ? `none of ${geometry.selection.join(", ")} is a measurable node (geometry, Model, Group, GeoAnchor or Instances)` : "the scene holds no measurable geometry yet")
+        : buried.length ? `${buried.length} node(s) sit below z = 0 (${buried.slice(0, 5).map((item) => `${item.id} by ${item.depth_m} m`).join(", ")}${buried.length > 5 ? ", ..." : ""}); a Box/Sphere/Cylinder is centred on its position, so put a box of height h at z: h/2 unless the burial is intended`
+        : pairs.length ? `${geometry.overlaps.pair_count} pair(s) of boxes intersect; the largest is ${pairs[0].a} x ${pairs[0].b} (${pairs[0].volume_m3} m3 of overlap)`
+        : `${measured} node(s) measured from the engine; compare dimensions and world_bounds with what the scene meant before changing anything`;
+      return { ok: true, project, client: reply.page?.client ?? null, loaded: runtime.loaded, runtime,
+        anchor: geometry.anchor, frame: geometry.frame, selection: geometry.selection,
+        nodes: geometry.nodes, groups: geometry.groups, instances: geometry.instances,
+        scene: geometry.scene, ground: geometry.ground, ...(geometry.overlaps ? { overlaps: geometry.overlaps } : {}),
+        unmeasured, skipped: geometry.skipped, note: geometry.note, verdict,
+        next: !runtime.loaded ? next("wait_or_reload", `runtime state '${runtime.state}': ${runtime.hint || "the scene module is not mounted"}`, { blocking: true })
+          : buried.length || pairs.length ? next("fix_source", verdict)
+          : unmeasured.length ? next("judge_geometry", `${unmeasured.length} node(s) could not be measured (${unmeasured.slice(0, 3).map((item) => `${item.id}: ${item.reason}`).join("; ")}); judge the rest against the source`)
+          : next("judge_geometry", "compare the measured sizes and boxes with the intent, then ssworld_capture_frame to see the result") };
     },
   },
   {

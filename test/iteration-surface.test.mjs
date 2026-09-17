@@ -88,4 +88,7 @@ test("the environment probe is a tool of its own and the capture tool takes deta
   const environment = TOOLS.find((tool) => tool.name === "ssworld_environment_read");
   assert.equal(environment.annotations.readOnlyHint, true);
   assert.match(environment.description, /azimuth\/elevation/);
+  const geometry = TOOLS.find((tool) => tool.name === "ssworld_geometry_read");
+  assert.equal(geometry.annotations.readOnlyHint, true, "measuring must be a read");
+  assert.equal(geometry.inputSchema.properties.overlaps.type, "boolean");
 });

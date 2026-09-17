@@ -15,6 +15,11 @@ function loadCompiler() {
   return compilerPromise;
 }
 
+// Instance rows are counted with the compiler's own placement resolver, so the receipt cannot
+// disagree with the runtime.  It is loaded here rather than lazily because budgetUsage() is
+// synchronous and is also reached from inspect(), which never compiles anything.
+const { checkInstances } = await loadCompiler();
+
 const hash = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
 
 /** Hash an asset stream so large image files never need to reside in memory as one Buffer. */
@@ -274,9 +279,16 @@ function isNativeObjectNode(node) {
 }
 
 function instanceRowCount(node) {
-  const positions = nodeProperty(node, "positions");
+  const props = Object.fromEntries((node.properties || []).map((item) => [item.property, item.value]));
+  // `count` is absent from every along_path batch spaced by `step`, and from ring / grid only when
+  // the author wrote something the compiler already refused.  Reading the property alone reported 0
+  // rows for a batch the runtime then filled with instances, which is exactly the receipt-versus-
+  // runtime disagreement authors kept hitting.  checkInstances is the same resolver the compiler and
+  // the runtime use, so the three numbers are one number.
+  try { return checkInstances(props).count; } catch { /* invalid batch: fall back to what is written */ }
+  const positions = props.positions;
   if (Array.isArray(positions)) return positions.length;
-  const count = nodeProperty(node, "count");
+  const count = props.count;
   return Number.isSafeInteger(count) && count > 0 ? count : 0;
 }
 
@@ -446,6 +458,10 @@ export async function compileProject(directory, { name, budgets } = {}) {
     catalog_digest: hybrid.catalog_digest, compiler_profile: hybrid.compiler_profile,
     source_digest: project.source_digest, source_files: project.files.map((file) => file.path),
     node_count: Array.isArray(result.scene_ir?.nodes) ? result.scene_ir.nodes.length : undefined,
+    // Components marked `pragma spawnable`: compiled, priced, and installed only when host JS asks
+    // for one. They are NOT in node_count or usage -- nothing mounts them.
+    ...(generated.fragments ? { spawnable: Object.entries(generated.fragments).map(([name, item]) => ({
+      name, source_file: item.source_file, parameters: item.parameters, cost_per_copy: item.budget })) } : {}),
     usage: { ...usage, mesh: meshUsage(result.scene_ir, MESH_GENERATORS, MESH_MAX_VERTICES), assets,
       ...(geojson.layers.length ? { geojson: geojson.layers } : {}) },
     logic: logicSummary(result.scene_ir),

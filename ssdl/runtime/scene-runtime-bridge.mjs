@@ -1,4 +1,5 @@
 import { installComponents } from './scene-component-installer.mjs';
+import { FragmentDirector } from './scene-fragment-installer.mjs';
 
 function invariant(condition, message, code = "scene_runtime_invalid") {
   if (condition) return;
@@ -148,6 +149,9 @@ class InstalledGraph {
   async dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    // Spawned fragments are owned by the generation, not by the page: releasing the graph releases
+    // them, in the reverse order they were installed, before the scene's own nodes go.
+    try { this.bridge.director?.disposeAll(); } catch (_) {}
     for (const component of [...this.owned].reverse()) {
       try { component?.dispose?.({ restore: false }); } catch (_) {}
     }
@@ -179,6 +183,11 @@ export class SceneRuntimeBridge {
     // scene's host_interfaces contract when the graph is installed, never evaluated as code.
     this.hostInterfaces = options.hostInterfaces || null;
     this.hostCallErrors = [];
+    // The budget ledger api.scene.spawn() checks against: the manifest's numbers, resolved by the
+    // page. Absent, spawning is unlimited and only the engine's own ceilings still apply.
+    this.budgets = options.budgets || {};
+    this.globals = options.globals || globalThis;
+    this.director = null;
     // Binding failures the runtime reports (a binding whose value the target refused, or a flush that
     // threw): kept per generation so pages and tools can show why a batch rolled back instead of
     // silently freezing. options.onBindingError receives each enriched entry as it happens.
@@ -264,7 +273,13 @@ export class SceneRuntimeBridge {
     const invalid = this.invalidBindings();
     return { scope_id: this.scopeId, generation: this.generation, properties, states, host_call_errors: this.hostCallErrors.slice(),
       bindings: { total: typeof this.runtime.bindings?.size === "number" ? this.runtime.bindings.size : null, invalid },
-      binding_errors: this.bindingErrors.slice() };
+      binding_errors: this.bindingErrors.slice(),
+      // What host JS has spawned into this generation, priced against the same ledger the static
+      // scene is priced against. A hot reload's replay failures land here too, which is the only
+      // place an author sees that one of their buildings did not come back.
+      dynamic: this.director ? { ...this.director.usage(),
+        spawned: this.director.list().map((item) => ({ handle: item.handle, name: item.name, tag: item.tag, queued: item.queued })),
+        spawn_failures: this.director.replayFailures.slice(-20) } : null };
   }
 
   /** Writes one declared scene property through the event transaction (rejected values leave the scene untouched). */
@@ -289,12 +304,17 @@ export class SceneRuntimeBridge {
   }
 
   #installBindings(graph, bindingIR) {
-    for (const item of bindingIR.bindings) {
+    return this.installFragmentBindings(graph, bindingIR.bindings);
+  }
+
+  /** The same binding construction, against any graph scope: the mounted one, or one spawned fragment. */
+  installFragmentBindings(graph, bindings) {
+    for (const item of bindings) {
       for (const dependency of [...(item.dependencies || []), ...(item.when_dependencies || [])]) {
         this.runtime.ensureLogicalSlot(graph.get(dependency.node), dependency.property);
       }
     }
-    for (const item of bindingIR.bindings) {
+    for (const item of bindings) {
       const binding = graph.ownBinding(item.id, this.runtime.createBinding({
         id: item.id,
         target: graph.get(item.target.node),
@@ -313,7 +333,7 @@ export class SceneRuntimeBridge {
     }
   }
 
-  async installGraph(sceneIR, bindingIR, { metadata } = {}) {
+  async installGraph(sceneIR, bindingIR, { metadata, fragments, usage } = {}) {
     invariant(sceneIR?.ir_version === "SceneIR/5", "SceneRuntimeBridge requires SceneIR/5");
     invariant(bindingIR?.schema_version === "BindingIR/2", "SceneRuntimeBridge requires BindingIR/2");
     invariant(sceneIR.scope_id === bindingIR.scope_id, "SceneIR and BindingIR scope mismatch");
@@ -321,6 +341,8 @@ export class SceneRuntimeBridge {
       "scene_graph_already_installed");
     const graph = new InstalledGraph(this, sceneIR, bindingIR, metadata);
     this.graph = graph;
+    this.director = new FragmentDirector(this, { fragments: fragments || {}, usage: usage || {},
+      budgets: this.budgets, globals: this.globals });
     const root = sceneIR.nodes.find((node) => node.type === "Scene");
     invariant(root, "SceneIR/5 root Scene is missing");
     this.assertHostInterfaces(sceneIR.host_interfaces);

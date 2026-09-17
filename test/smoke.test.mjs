@@ -52,7 +52,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const list = await client.request("tools/list", {});
   const names = list.result.tools.map((tool) => tool.name);
   assert.deepEqual(names, ["ssworld_catalog", "ssworld_project_list", "ssworld_project_create", "ssworld_source_read",
-    "ssworld_source_write", "ssworld_source_patch", "ssworld_source_batch", "ssworld_compile", "ssworld_scene_inspect", "ssworld_preview", "ssworld_capture_frame", "ssworld_logic_read", "ssworld_logic_write", "ssworld_environment_read", "ssworld_geo_read", "ssworld_engine_status"]);
+    "ssworld_source_write", "ssworld_source_patch", "ssworld_source_batch", "ssworld_compile", "ssworld_scene_inspect", "ssworld_preview", "ssworld_capture_frame", "ssworld_logic_read", "ssworld_logic_write", "ssworld_environment_read", "ssworld_geo_read", "ssworld_geometry_read", "ssworld_engine_status"]);
   for (const tool of list.result.tools) assert.equal(tool.rich, undefined, `${tool.name} leaks internal flags`);
   for (const tool of list.result.tools) assert.equal(tool.inputSchema.type, "object", tool.name);
 
@@ -79,8 +79,11 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.ok(catalog.body.logic.expressions.operators.includes(">="));
   assert.match(catalog.body.logic.host_interfaces.implementation, /createHostInterfaces/);
   const label = await client.call("ssworld_catalog", { component: "Label" });
-  assert.equal(label.body.runtime_supported, false);
-  assert.match(label.body.runtime_note, /SDF font/);
+  assert.notEqual(label.body.runtime_supported, false);
+  // The note has to say where the text is drawn, because that is what an author has to predict:
+  // the page rasterises it, so no font file is shipped and a size is CSS pixels, not metres.
+  assert.match(label.body.runtime_note, /rasterised in the page/);
+  assert.match(label.body.runtime_note, /no font file/);
   const box = await client.call("ssworld_catalog", { component: "Box" });
   assert.ok(box.body.contract.properties || box.body.contract, "component contract");
   const unknown = await client.call("ssworld_catalog", { component: "Nope" });
@@ -275,16 +278,13 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.match(skyCompile.body.message, /scene\.ssdl:2:.*type_mismatch/);
   assert.equal(skyCompile.body.next.action, "fix_source");
   assert.equal(skyCompile.body.next.line, 2);
-  // Runtime facts promoted to compile-time diagnostics: Label needs a font the package does not ship,
-  // and Group animations are limited to transform/visible (material animations name the child geometry).
+  // Label compiles: the page rasterises the text with Canvas 2D and hands the engine a bitmap.
+  // Group animations stay limited to transform/visible below.
   const labelScene = "Scene { id: main\n Label { id: sign; text: \"hi\"; anchor.longitude: 114; anchor.latitude: 22 }\n}";
   const labelWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: labelScene, expected_digest: skyWrite.body.digest });
   assert.equal(labelWrite.isError, false, JSON.stringify(labelWrite.body));
   const labelCompile = await client.call("ssworld_compile", { project: "demo" });
-  assert.equal(labelCompile.isError, true);
-  assert.equal(labelCompile.body.diagnostic.code, "runtime_unsupported");
-  assert.equal(labelCompile.body.diagnostic.node, "sign");
-  assert.match(labelCompile.body.message, /SDF font/);
+  assert.equal(labelCompile.isError, false, JSON.stringify(labelCompile.body));
   const groupScene = "Scene { id: main\n Group { id: g; position: [0, 0, 0]; Box { id: b; width: 1; depth: 1; height: 1 } }\n Vector3dAnimation { target: g; property: \"position\"; from: [0, 0, 0]; to: [1, 0, 0]; duration: 100 }\n}";
   const groupWrite = await client.call("ssworld_source_write", { project: "demo", file: "scene.ssdl", content: groupScene, expected_digest: labelWrite.body.digest });
   const groupCompile = await client.call("ssworld_compile", { project: "demo" });

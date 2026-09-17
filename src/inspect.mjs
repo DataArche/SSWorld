@@ -161,11 +161,43 @@ export function inspectScene(directory, { subtree = null, top = 12 } = {}) {
   return {
     ok: true, root: describe(root), node_count: nodes.length,
     budget,
+    ...(subtree ? {} : { dynamic: dynamicSection(directory, budget) }),
     child_subtrees: direct.slice(0, top), ...(direct.length > top ? { child_subtrees_omitted: direct.length - top } : {}),
     leaf_children: { count: directNodes.length - direct.length, by_type: leafTypes },
     largest_subtrees: largest, by_file: byFile, bounds,
     requested_camera: requestedCamera(ir, readAnchor(directory)),
     render_stats: { draw_calls: "unavailable", triangles: "unavailable", gpu_memory: "unavailable", reason: "not measured by this runtime; node counts above are compile-time facts" },
+  };
+}
+
+/**
+ * The spawnable half of the scene: what host JS can build at runtime, what one copy costs, and how
+ * many more the scene's own budget still has room for. `budget` above is the STATIC scene; a spawn
+ * is checked against static + already spawned + this fragment, so "headroom" is what is left after
+ * the static half, not a promise that nothing else has taken it.
+ */
+function dynamicSection(directory, budget) {
+  let manifest = null;
+  try { manifest = JSON.parse(readFileSync(path.join(directory, "showcase.generated.manifest.json"), "utf8")); } catch {}
+  const fragments = manifest?.fragments || {};
+  const names = Object.keys(fragments).sort();
+  if (!names.length) {
+    return { spawnable: [], note: "no component is marked `pragma spawnable`, so nothing in this project can be created at runtime" };
+  }
+  return {
+    spawnable: names.map((name) => {
+      const fragment = fragments[name];
+      const headroom = Object.entries(fragment.budget)
+        .filter(([key, cost]) => cost > 0 && Number.isSafeInteger(budget[key]?.limit))
+        .map(([key, cost]) => ({ key, copies: Math.max(0, Math.floor((budget[key].limit - budget[key].used) / cost)) }))
+        .sort((a, b) => a.copies - b.copies);
+      return {
+        name, source_file: fragment.source_file, parameters: fragment.parameters,
+        cost_per_copy: fragment.budget,
+        ...(headroom.length ? { copies_left: headroom[0].copies, limited_by: headroom[0].key } : {}),
+      };
+    }),
+    note: "api.scene.spawn(name, params, { at, heading, parent, tag }) in logic.mjs; ssworld_logic_read reports what a running page has actually spawned",
   };
 }
 
