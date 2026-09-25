@@ -1,0 +1,41 @@
+{
+  "schema_version": "SceneModuleManifest/1",
+  "scene_module_version": 1,
+  "name": "SkylineGarden0919",
+  "entry": "scene.mjs",
+  "execution_profiles": [
+    "trusted-local",
+    "agent-mcp"
+  ],
+  "resource_root": ".",
+  "scene_ir_version": 5,
+  "binding_ir_version": 2,
+  "compiler_profile": "SSDL/QML-Subset/0.3",
+  "compiler_profile_digest": "sha256:743f3aa004c95ad92ba6be1d78be744730fc8fd66c35349f08cdf74ce4d913ad",
+  "scene_ir_digest": "sha256:4d89804f9f9e6ae100b67e1472681c13e9274a31c95910f535e7910fda1dc365",
+  "binding_ir_digest": "sha256:e204e78a7bfa83dd37a6b0cb96fbb88e291bee61eef538a160702150262fa3f9",
+  "module_digest": "sha256:ba6a0044abac0ea0f33c0f2dcc74de0c11d5191a0a3f262178626158dfba22cc",
+  "budgets": {
+    "native_objects": 4096,
+    "materials": 4096,
+    "textures": 32,
+    "prefabs": 1024,
+    "instances": 524288,
+    "bindings": 4096,
+    "handlers": 2048,
+    "timers": 256,
+    "timelines": 256,
+    "locators": 1024,
+    "particles": 50000
+  },
+  "catalog_digest": "sha256:77c77cf0ba617ccd33821fa0575700514180e9fa20ddfebb6ac6b1767620f59c",
+  "runtime_abi_digest": "sha256:0cb21cde9091cf7fb9788d301194ff85ef81e62432b0bea578e3168298a5b4c0",
+  "anchor": {
+    "lon": 114.055,
+    "lat": 22.533,
+    "height": 20
+  },
+  "source_digest": "sha256:c0a8f58bf1bca1b13d6a6bbcf9bd9afba028d601bc4d8dfd93829cb709eb77ba",
+  "compiled_at": "2026-09-20T07:21:46.142Z",
+  "host_interfaces_digest": "sha256:f3b6840fc6fba83939f50c547340ccc66a4aeb7e6f6ef35b6c46d18b2ee2a26f"
+}

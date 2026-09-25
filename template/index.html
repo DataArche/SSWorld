@@ -155,7 +155,14 @@
     // heartbeat the preview server keeps per project (POST /__ssworld/sync). Commands queued by
     // ssworld_capture_frame arrive in the sync response and their results go back on the next sync.
     const errors = [];
-    const client = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    // A viewer_url from ssworld_preview carries ?session=<id>; folding it into the client id lets that
+    // MCP session tell its own page from any other browser showing the same project.
+    const session = new URLSearchParams(location.search).get("session");
+    const client = `${session && /^[0-9a-f]{8}$/.test(session) ? `${session}.` : ""}${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    // Published so a driver can address THIS page: the preview server otherwise answers with the most
+    // recently synced visible page, which is whichever browser the author happens to have open, and a
+    // probe then reads a window it never drove.
+    window.SSWorldPreviewClient = client;
     let pendingResults = [];
     function noteError(kind, message) {
       const text = String(message).slice(0, 500);
@@ -176,6 +183,8 @@
         generation: ui.generation.textContent,
         last_batch: ui.batch.textContent,
         hint: ui.hint.textContent,
+        // What the author is shown regardless of the page's own styling.
+        banner: banner.state(),
         status_line: document.getElementById("status").textContent,
         engine_ready: Boolean(window.GlobalViewer),
         errors: errors.slice(),
@@ -319,6 +328,30 @@
       }
     }
 
+    // After a clock jump the sky light capture and the ambient it feeds keep converging for tens of seconds
+    // (measured: mean luma 26 -> 2 over ~30 s after day -> night), so a frame shot right away shows the dusk
+    // it came from.  Sample small frames once a second and return once the last five samples (four seconds)
+    // span less than tolerance -- a window, not neighbour deltas, so a slow drift is not taken for rest.
+    // A scene still moving at the deadline is reported, not refused.
+    async function awaitStableLuma(spec, S) {
+      const budget = Math.min(Math.max(Number(spec.timeout_ms) || 30000, 1000), 60000);
+      const tolerance = Math.max(Number(spec.tolerance) || 0.3, 0.01);
+      const started = Date.now();
+      const samples = [];
+      for (;;) {
+        const outcome = await awaitNativeFuture(S.saveImage2Base64(160, 90, "PNG"), 4000, (pointer) => readByteArrayText(S, pointer));
+        if (outcome.value && outcome.value.startsWith("iVBOR")) {
+          const luma = Number((await pixelStats(`data:image/png;base64,${outcome.value}`)).mean_luma.toFixed(2));
+          samples.push(luma);
+          const recent = samples.slice(-5);
+          if (recent.length === 5 && Math.max(...recent) - Math.min(...recent) < tolerance) return { stable: true, waited_ms: Date.now() - started, tolerance, samples: samples.slice(-20) };
+        }
+        if (Date.now() - started >= budget) return { stable: false, waited_ms: Date.now() - started, tolerance, samples: samples.slice(-20),
+          reason: samples.length ? `mean luma still spanned ${tolerance} or more over the last 4 s after ${budget} ms` : "no sample frame could be read" };
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+
     async function captureFrame(params = {}) {
       const S = engineConfig;
       if (!window.GlobalViewer || typeof S?.saveImage2Base64 !== "function" || !S?.ByteArray?.fromPtr) throw new Error("engine is not ready for capture");
@@ -326,6 +359,7 @@
       const height = Math.min(Math.max(Math.trunc(params.height) || Math.round(width * 9 / 16), 64), 4096);
       const awaited = params.await && typeof params.await === "object" ? await awaitLogic(params.await, params.await.timeout_ms) : null;
       if (params.settle_ms) await new Promise((resolve) => setTimeout(resolve, Math.min(params.settle_ms, 10000)));
+      const stabilised = params.stable && typeof params.stable === "object" ? await awaitStableLuma(params.stable, S) : null;
       let last = "capture produced no image";
       // The readback of a large scene takes much longer than a small one; the caller's timeout_ms is
       // the budget for it, and attempts stop when that budget is gone rather than after a fixed count.
@@ -341,14 +375,36 @@
         if (!outcome.value || !outcome.value.startsWith("iVBOR")) { last = "saveImage2Base64 did not return a PNG"; continue; }
         const stats = await pixelStats(`data:image/png;base64,${outcome.value}`);
         if (stats.distinct_colors < 2) { last = "captured frame has no pixel variation yet"; continue; }
-        return { png_base64: outcome.value, stats, camera: cameraState(), status: pageStatus(), ...(awaited ? { awaited } : {}) };
+        return { png_base64: outcome.value, stats, camera: cameraState(), status: pageStatus(), ...(awaited ? { awaited } : {}), ...(stabilised ? { stabilised } : {}) };
       }
       throw new Error(last);
     }
 
     function readLogic() {
       if (!window.SSWorld?.logical) throw Object.assign(new Error(`scene logic is not loaded (runtime state '${document.body.dataset.runtime}')`), { code: "logic_unavailable" });
-      return window.SSWorld.logical.read();
+      const logic = window.SSWorld.logical.read();
+      const particles = readParticles();
+      return particles.length ? { ...logic, particles } : logic;
+    }
+
+    // A particle emitter has no logical value worth reading -- what an author actually needs to know is
+    // whether it is spawning at all, and whether it hit its own cap.  The engine writes those three
+    // numbers back every frame, so this is a measurement, not an echo of the source.
+    function readParticles() {
+      const runtime = currentBridge?.runtime;
+      if (!runtime?.particleEmitters) return [];
+      const rows = [];
+      for (const [id, emitter] of runtime.particleEmitters) {
+        const row = { id, handle: emitter.handle ?? null, sprite: emitter.sprite ? emitter.sprite.id : null };
+        try {
+          const receipt = emitter.describe();
+          row.stats = receipt.stats ?? null;
+          row.emitting = receipt.values?.emitting ?? null;
+          row.max_particles = receipt.values?.maxParticles ?? null;
+        } catch (error) { row.stats = null; row.read_error = error.message; }
+        rows.push(row);
+      }
+      return rows;
     }
 
     // Set declared scene properties in one event transaction (same path as window.SSWorld.logical.write).
@@ -410,7 +466,25 @@
           if (typeof native.intensity === "function") { try { sun.intensity = native.intensity(); } catch (_) {} }
         }
       } catch (error) { sun = { readable: false, reason: error.message }; }
-      return { schema_version: "SSWorldEnvironmentReadback/1", anchor, engine_sun: sun, components };
+      // Post-process volumes are not environment components -- they live in their own facade, whose
+      // describe() is the only place the COMPOSED result shows up: `settings` is what this volume
+      // asked for, `effective_settings` is what the native volume ended up holding after the
+      // baseline and every volume's blend weight were folded in.  Reading the authored copy alone
+      // would pass even if nothing reached the engine.
+      const post_process = [];
+      for (const [id, volume] of runtime.postProcessVolumes || []) {
+        const entry = { id, type: "PostProcessVolume", handle: volume.handle ?? null,
+          authored: { ...(volume.authorValues || {}), settings: { ...(volume.authorSettings || {}) } } };
+        try {
+          const receipt = volume.describe();
+          entry.engine_values = { enabled: receipt.enabled, unbound: receipt.unbound, priority: receipt.priority,
+            blend_weight: receipt.blend_weight, settings: receipt.settings,
+            effective_settings: receipt.effective_settings, override_presence: receipt.override_presence,
+            native_present: receipt.native_present };
+        } catch (error) { entry.engine_values = null; entry.read_error = error.message; }
+        post_process.push(entry);
+      }
+      return { schema_version: "SSWorldEnvironmentReadback/1", anchor, engine_sun: sun, components, post_process };
     }
 
     // What the ENGINE holds for the geographic layers: whether the terrain arrived, how far the scene's
@@ -494,12 +568,42 @@
       return new Uint8Array(await assetCache.get(cacheKey));
     }
 
+    // Load failures used to reach the author only through #hint, which a project's own styles (or a
+    // redesigned panel) can hide, leaving an earth with no scene and no reason. The banner lives in a closed
+    // shadow root on <html>, and its host carries inline !important styles, which no stylesheet rule --
+    // !important included -- outranks; it is re-attached if the scene's DOM code removes it.
+    const banner = (() => {
+      const hostElement = document.createElement("ssworld-error-banner");
+      hostElement.setAttribute("style", "all: initial !important; display: none !important; position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 2147483647 !important; pointer-events: auto !important;");
+      const root = hostElement.attachShadow({ mode: "closed" });
+      root.innerHTML = `<style>
+        :host { all: initial; }
+        div { box-sizing: border-box; display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 10px 14px; max-height: 40vh; overflow: auto;
+          background: #7f1d1d; color: #fff; font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+        p { flex: 1; margin: 0; }
+        button { all: unset; cursor: pointer; padding: 0 6px; font: 18px/1 sans-serif; color: #fff; }
+      </style><div role="alert"><p></p><button type="button" aria-label="dismiss">×</button></div>`;
+      const text = root.querySelector("p");
+      const show = (display) => hostElement.style.setProperty("display", display, "important");
+      root.querySelector("button").addEventListener("click", () => show("none"));
+      return {
+        show(message) {
+          text.textContent = message;
+          if (!hostElement.isConnected) document.documentElement.appendChild(hostElement);
+          show("block");
+        },
+        clear() { show("none"); },
+        state: () => ({ shown: hostElement.isConnected && hostElement.style.getPropertyValue("display") === "block", text: text.textContent || null }),
+      };
+    })();
+
     function showFailure(error) {
       noteError("scene_module", error.message);
       console.error(error, error.sceneModuleReceipt || "");
       const retained = window.SSWorld?.ok === true;
       document.body.dataset.runtime = retained ? "ready" : "failed";
       ui.hint.textContent = error.message;
+      banner.show(`${retained ? "Hot reload failed, the previous generation is still running" : "Scene failed to load"}: ${error.message}`);
       document.getElementById("status").textContent = retained
         ? "Hot reload failed · the previous generation is still running"
         : "Initial load failed";
@@ -548,6 +652,7 @@
             dispose: () => host.disposeScope("ssworld-project"),
           };
           document.getElementById("status").textContent = "SSEngine WebGPU · hot reload ready";
+          banner.clear();
         } catch (error) {
           showFailure(error);
         }
@@ -608,6 +713,16 @@
           // rather than as a thrown error; ssworld_capture_frame maps them back to the node.
           builtinRuntime.on("geoerror", (entry) => noteError("geo_error",
             `${entry.id}.${entry.type}: ${entry.code}: ${entry.message}`));
+          // Textures upload in the background; one that still fails after the runtime's retries leaves its
+          // consumers untextured (a particle sprite becomes bare quads), so it is shown, not just logged.
+          builtinRuntime.on("asseterror", (entry) => {
+            const text = `${entry.code}: ${entry.message} [used by ${entry.consumers.join(", ") || "?"}]`;
+            noteError("asset_error", text);
+            ui.hint.textContent = `${text} (reload the page after the file settles)`;
+            banner.show(`Texture failed: ${text} (reload the page after the file settles)`);
+          });
+          builtinRuntime.on("assetretry", (entry) => console.warn(
+            `texture '${entry.texture}' (${entry.asset}) attempt ${entry.attempt} failed, retrying in ${entry.retry_in_ms} ms: ${entry.message}`));
           currentBridge = runtime;
           return {
             runtime,

@@ -1,0 +1,677 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "parcel-01",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.001347473,
+              0.00116781
+            ],
+            [
+              0.001886462,
+              0.00116781
+            ],
+            [
+              0.001886462,
+              0.001886462
+            ],
+            [
+              0.001347473,
+              0.001886462
+            ],
+            [
+              0.001347473,
+              0.00116781
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-01",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "residential",
+        "building_ids": [
+          "building-01"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-02",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.001347473,
+              0.00296444
+            ],
+            [
+              0.001886462,
+              0.00296444
+            ],
+            [
+              0.001886462,
+              0.003683093
+            ],
+            [
+              0.001347473,
+              0.003683093
+            ],
+            [
+              0.001347473,
+              0.00296444
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-02",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "commercial",
+        "building_ids": [
+          "building-02"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-03",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.001347473,
+              0.004761071
+            ],
+            [
+              0.001886462,
+              0.004761071
+            ],
+            [
+              0.001886462,
+              0.005479723
+            ],
+            [
+              0.001347473,
+              0.005479723
+            ],
+            [
+              0.001347473,
+              0.004761071
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-03",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "mixed",
+        "building_ids": [
+          "building-03"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-04",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.001347473,
+              0.006557702
+            ],
+            [
+              0.001886462,
+              0.006557702
+            ],
+            [
+              0.001886462,
+              0.007276354
+            ],
+            [
+              0.001347473,
+              0.007276354
+            ],
+            [
+              0.001347473,
+              0.006557702
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-04",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "residential",
+        "building_ids": [
+          "building-04"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-05",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.00350343,
+              0.00116781
+            ],
+            [
+              0.004042419,
+              0.00116781
+            ],
+            [
+              0.004042419,
+              0.001886462
+            ],
+            [
+              0.00350343,
+              0.001886462
+            ],
+            [
+              0.00350343,
+              0.00116781
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-05",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "residential",
+        "building_ids": [
+          "building-05"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-06",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.00350343,
+              0.00296444
+            ],
+            [
+              0.004042419,
+              0.00296444
+            ],
+            [
+              0.004042419,
+              0.003683093
+            ],
+            [
+              0.00350343,
+              0.003683093
+            ],
+            [
+              0.00350343,
+              0.00296444
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-06",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "commercial",
+        "building_ids": [
+          "building-06"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-07",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.00350343,
+              0.004761071
+            ],
+            [
+              0.004042419,
+              0.004761071
+            ],
+            [
+              0.004042419,
+              0.005479723
+            ],
+            [
+              0.00350343,
+              0.005479723
+            ],
+            [
+              0.00350343,
+              0.004761071
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-07",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "mixed",
+        "building_ids": [
+          "building-07"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-08",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.00350343,
+              0.006557702
+            ],
+            [
+              0.004042419,
+              0.006557702
+            ],
+            [
+              0.004042419,
+              0.007276354
+            ],
+            [
+              0.00350343,
+              0.007276354
+            ],
+            [
+              0.00350343,
+              0.006557702
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-08",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "residential",
+        "building_ids": [
+          "building-08"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-09",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.004940734,
+              0.00116781
+            ],
+            [
+              0.005479723,
+              0.00116781
+            ],
+            [
+              0.005479723,
+              0.001886462
+            ],
+            [
+              0.004940734,
+              0.001886462
+            ],
+            [
+              0.004940734,
+              0.00116781
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-09",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "residential",
+        "building_ids": [
+          "building-09"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-10",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.004940734,
+              0.00296444
+            ],
+            [
+              0.005479723,
+              0.00296444
+            ],
+            [
+              0.005479723,
+              0.003683093
+            ],
+            [
+              0.004940734,
+              0.003683093
+            ],
+            [
+              0.004940734,
+              0.00296444
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-10",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "commercial",
+        "building_ids": [
+          "building-10"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-11",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.004940734,
+              0.004761071
+            ],
+            [
+              0.005479723,
+              0.004761071
+            ],
+            [
+              0.005479723,
+              0.005479723
+            ],
+            [
+              0.004940734,
+              0.005479723
+            ],
+            [
+              0.004940734,
+              0.004761071
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-11",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "mixed",
+        "building_ids": [
+          "building-11"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-12",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.004940734,
+              0.006557702
+            ],
+            [
+              0.005479723,
+              0.006557702
+            ],
+            [
+              0.005479723,
+              0.007276354
+            ],
+            [
+              0.004940734,
+              0.007276354
+            ],
+            [
+              0.004940734,
+              0.006557702
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-12",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "residential",
+        "building_ids": [
+          "building-12"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-13",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.006737365,
+              0.00116781
+            ],
+            [
+              0.007276354,
+              0.00116781
+            ],
+            [
+              0.007276354,
+              0.001886462
+            ],
+            [
+              0.006737365,
+              0.001886462
+            ],
+            [
+              0.006737365,
+              0.00116781
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-13",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "residential",
+        "building_ids": [
+          "building-13"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-14",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.006737365,
+              0.00296444
+            ],
+            [
+              0.007276354,
+              0.00296444
+            ],
+            [
+              0.007276354,
+              0.003683093
+            ],
+            [
+              0.006737365,
+              0.003683093
+            ],
+            [
+              0.006737365,
+              0.00296444
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-14",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "commercial",
+        "building_ids": [
+          "building-14"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-15",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.006737365,
+              0.004761071
+            ],
+            [
+              0.007276354,
+              0.004761071
+            ],
+            [
+              0.007276354,
+              0.005479723
+            ],
+            [
+              0.006737365,
+              0.005479723
+            ],
+            [
+              0.006737365,
+              0.004761071
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-15",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "mixed",
+        "building_ids": [
+          "building-15"
+        ],
+        "cadastral": false
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "parcel-16",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.006737365,
+              0.006557702
+            ],
+            [
+              0.007276354,
+              0.006557702
+            ],
+            [
+              0.007276354,
+              0.007276354
+            ],
+            [
+              0.006737365,
+              0.007276354
+            ],
+            [
+              0.006737365,
+              0.006557702
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "parcel-16",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "land_use": "residential",
+        "building_ids": [
+          "building-16"
+        ],
+        "cadastral": false
+      }
+    }
+  ]
+}

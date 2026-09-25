@@ -1,0 +1,17 @@
+demand_id,origin_node,destination_node,departure_start_s,departure_end_s,count,unit,mode,synthetic
+od-01,exit-01,n-100-900,0,900,33,person,walk,True
+od-02,exit-02,n-100-900,0,900,36,person,walk,True
+od-03,exit-03,n-100-900,0,900,39,person,walk,True
+od-04,exit-04,n-100-900,0,900,42,person,walk,True
+od-05,exit-05,n-100-900,0,900,45,person,walk,True
+od-06,exit-06,n-100-900,0,900,48,person,walk,True
+od-07,exit-07,n-100-900,0,900,51,person,walk,True
+od-08,exit-08,n-100-900,0,900,54,person,walk,True
+od-09,exit-09,n-100-900,0,900,57,person,walk,True
+od-10,exit-10,n-100-900,0,900,60,person,walk,True
+od-11,exit-11,n-100-900,0,900,63,person,walk,True
+od-12,exit-12,n-100-900,0,900,66,person,walk,True
+od-13,exit-13,n-100-900,0,900,69,person,walk,True
+od-14,exit-14,n-100-900,0,900,72,person,walk,True
+od-15,exit-15,n-100-900,0,900,75,person,walk,True
+od-16,exit-16,n-100-900,0,900,78,person,walk,True

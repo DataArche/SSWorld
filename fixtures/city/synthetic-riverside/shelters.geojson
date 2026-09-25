@@ -1,0 +1,49 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "shelter-1",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.000898315,
+          0.008084838
+        ]
+      },
+      "properties": {
+        "id": "shelter-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "name": "假设避难点 1",
+        "node_id": "n-100-900",
+        "capacity_person": 600,
+        "entry_capacity_person_s": 2,
+        "synthetic_facility": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "shelter-2",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.000898315,
+          0.000898315
+        ]
+      },
+      "properties": {
+        "id": "shelter-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "name": "假设避难点 2",
+        "node_id": "n-100-100",
+        "capacity_person": 600,
+        "entry_capacity_person_s": 2,
+        "synthetic_facility": true
+      }
+    }
+  ]
+}

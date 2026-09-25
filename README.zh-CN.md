@@ -7,12 +7,12 @@
 
 **Agent 看不见自己渲染出了什么。SSWorld 把这个环闭上。**
 
-[![SkylineBoulevard](examples/SkylineBoulevard/preview.webp)](examples/SkylineBoulevard)
+[![GuanlanRoadTemplate0924](examples/GuanlanRoadTemplate0924/preview.webp)](examples/GuanlanRoadTemplate0924)
 
 一个 MCP 服务器,让任何支持 MCP 的 agent 应用(Claude Code、Codex、Hermes、Cursor …)用 **SSDL**
 ——一种类 QML 的场景描述语言——在 **SSEngine WebGPU** 运行时上写场景、编译、渲染,并且**回读**渲染结果。
-上面这张图就是 agent 写出来的场景,生成它的 42 KB Python 在
-[`examples/SkylineBoulevard`](examples/SkylineBoulevard)。
+上面这张图就是 agent 做出来的场景:按 OpenStreetMap 重建的深圳观澜 3.28 km² 真实路网,生成它的管线在
+[`examples/GuanlanRoadTemplate0924`](examples/GuanlanRoadTemplate0924)。
 
 ## 和"又一个场景生成器"的区别
 
@@ -28,14 +28,14 @@
 
 ## 案例
 
-| [SkylineBoulevard](examples/SkylineBoulevard) | [ShenzhenNorthStation](examples/ShenzhenNorthStation) | [DuskRange](examples/DuskRange) |
+| [GuanlanRoadTemplate0924](examples/GuanlanRoadTemplate0924) | [SkylineGarden0919](examples/SkylineGarden0919) | [DaxiongHall0924](examples/DaxiongHall0924) |
 |---|---|---|
-| [<img src="examples/SkylineBoulevard/preview.webp" width="280">](examples/SkylineBoulevard) | [<img src="examples/ShenzhenNorthStation/preview.webp" width="280">](examples/ShenzhenNorthStation) | [<img src="examples/DuskRange/preview.webp" width="280">](examples/DuskRange) |
-| 程序化生成的都会大道。42 KB 确定性 Python 生成 306 KB SSDL。 | 按国铁公开尺度重建的真实车站,对照航拍参考逐轮打磨。 | 可玩的 75 秒移动靶射击:键盘输入、命中计分、HUD、碰撞。 |
+| [<img src="examples/GuanlanRoadTemplate0924/preview.webp" width="280">](examples/GuanlanRoadTemplate0924) | [<img src="examples/SkylineGarden0919/preview.webp" width="280">](examples/SkylineGarden0919) | [<img src="examples/DaxiongHall0924/preview.webp" width="280">](examples/DaxiongHall0924) |
+| 用可复用管线从 OpenStreetMap 重建的真实街道;换一个范围就能生成另一处场地。 | 原创程序化城市:车流、信号灯、列车、公园活动、喷泉和昼夜循环。 | 重檐斗拱、汉白玉台基、香炉青烟的大雄宝殿,带电影化镜头巡游。 |
 
-三个案例都**只收手写源**——贴图和 `scene.ssdl` 由脚本重新生成——所以每个都不到 250 KB,
-且不含任何第三方素材。详见 [`examples/`](examples)。用到第三方模型的场景放在 showcase 仓库,
-并在那里附署名。
+三个案例都**只收手写源和生成器**——网格、贴图和 `.ssdl` 组件由脚本重新生成——所以每个都不到 400 KB。
+所有网格和贴图都是脚本生成的;唯一的外部输入是观澜路网,© OpenStreetMap contributors
+([ODbL](https://www.openstreetmap.org/copyright)),构建时抓取。详见 [`examples/`](examples)。
 
 ## 安装(一条命令)
 
@@ -147,7 +147,8 @@ wasm "memory access out of bounds"。所以大约 4000 节点以上的场景能�
   金属里反出来的天空。声明了 `Environment` 就把这个捕获强制打开并一直跑,于是环境光和这些反射跟着时钟走,
   而不是停在某一刻;`SkyLight.realTimeCapture: false` 写在旁边会被判 `sky_light_capture_owned`,不做静默忽略。
   捕获按五帧一轮分片(天空面、云、两趟给反射 mip 做的 GGX 预卷积、漫反射 SH),
-  所以天空突变时环境光和天空反射会慢约五帧跟上。引擎里这个捕获**默认开**,
+  但整帧画面收敛远比一轮慢:从白天跳到夜里后实测平均亮度在约 30 秒内从 26 降到 2,
+  所以改完时钟后截图要带 `stable: {}`(每秒采一张小图,等亮度不再变化再拍)。引擎里这个捕获**默认开**,
   所以裸写一个 `SkyLight` 就已经跟着太阳走;`realTimeCapture: false` 是作者主动冻住环境光的写法,
   而这正是 `Environment` 拿走的那一个。
 - **天气是 opt-in**:`cloudCoverage` 按 UDS 刻度(`0..3`,出厂 1.14),它同时加厚云层和高度雾
@@ -163,7 +164,7 @@ wasm "memory access out of bounds"。所以大约 4000 节点以上的场景能�
   不随追踪距离增长,射线被拉长上千倍后云噪声沿射线混叠,天空会出现竖直白色拉丝。已在编译期拒绝
   (`cloud_kilometres_expected`)。
 - **模型资产**:glb 和贴图放进 `<project>/assets/`,按项目相对路径引用。单个 glb 上限 32 MiB、
-  单张贴图 8 MiB、每项目 64 个资产。Model 自带材质,只有它的位置/旋转/缩放/可见性可动画。
+  单张贴图 8 MiB、每项目 256 个资产。Model 自带材质,只有它的位置/旋转/缩放/可见性可动画。
 - **场景逻辑**:在 `Scene` 根上声明属性,处理器赋值(一个处理器一个事务),绑定读取。
   宿主 JavaScript 只能通过 `host_interfaces.json` 声明的调用进入,对不上就是编译错误。
 - **绑定整批回滚**:任何一个被目标拒绝的值会让整批回滚、绑定转为无效,页面报 `binding_error`
@@ -178,6 +179,7 @@ ssworld-mcp                 # MCP stdio 服务器(agent 应用启动的就是它
 ssworld-mcp install [--client=claude,codex] [--no-engine]
 ssworld-mcp engine          # 下载 / 校验钉死版本的引擎
 ssworld-mcp preview [--port=8880]
+ssworld-mcp city [--reset] [--pause=S] [--no-play]   # 真实场地城市 demo:导入随包片区、起预览、按顺序演六步
 ssworld-mcp doctor
 ```
 

@@ -1,0 +1,3856 @@
+{
+  "nodes": [
+    {
+      "id": "n-100-100",
+      "x_m": 100,
+      "y_m": 100,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-100-300",
+      "x_m": 100,
+      "y_m": 300,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-100-500",
+      "x_m": 100,
+      "y_m": 500,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-100-700",
+      "x_m": 100,
+      "y_m": 700,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-100-900",
+      "x_m": 100,
+      "y_m": 900,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-300-100",
+      "x_m": 300,
+      "y_m": 100,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-300-300",
+      "x_m": 300,
+      "y_m": 300,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-300-500",
+      "x_m": 300,
+      "y_m": 500,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-300-700",
+      "x_m": 300,
+      "y_m": 700,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-300-900",
+      "x_m": 300,
+      "y_m": 900,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-400-100",
+      "x_m": 400,
+      "y_m": 100,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "n-400-300",
+      "x_m": 400,
+      "y_m": 300,
+      "z_m": 13,
+      "kind": "junction"
+    },
+    {
+      "id": "n-400-500",
+      "x_m": 400,
+      "y_m": 500,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "n-400-700",
+      "x_m": 400,
+      "y_m": 700,
+      "z_m": 13,
+      "kind": "junction"
+    },
+    {
+      "id": "n-400-900",
+      "x_m": 400,
+      "y_m": 900,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "n-600-100",
+      "x_m": 600,
+      "y_m": 100,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "n-600-300",
+      "x_m": 600,
+      "y_m": 300,
+      "z_m": 13,
+      "kind": "junction"
+    },
+    {
+      "id": "n-600-500",
+      "x_m": 600,
+      "y_m": 500,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "n-600-700",
+      "x_m": 600,
+      "y_m": 700,
+      "z_m": 13,
+      "kind": "junction"
+    },
+    {
+      "id": "n-600-900",
+      "x_m": 600,
+      "y_m": 900,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "n-700-100",
+      "x_m": 700,
+      "y_m": 100,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-700-300",
+      "x_m": 700,
+      "y_m": 300,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-700-500",
+      "x_m": 700,
+      "y_m": 500,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-700-700",
+      "x_m": 700,
+      "y_m": 700,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-700-900",
+      "x_m": 700,
+      "y_m": 900,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "n-900-100",
+      "x_m": 900,
+      "y_m": 100,
+      "z_m": 20.5,
+      "kind": "junction"
+    },
+    {
+      "id": "n-900-300",
+      "x_m": 900,
+      "y_m": 300,
+      "z_m": 20.5,
+      "kind": "junction"
+    },
+    {
+      "id": "n-900-500",
+      "x_m": 900,
+      "y_m": 500,
+      "z_m": 20.5,
+      "kind": "junction"
+    },
+    {
+      "id": "n-900-700",
+      "x_m": 900,
+      "y_m": 700,
+      "z_m": 20.5,
+      "kind": "junction"
+    },
+    {
+      "id": "n-900-900",
+      "x_m": 900,
+      "y_m": 900,
+      "z_m": 20.5,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-01",
+      "x_m": 180,
+      "y_m": 150,
+      "z_m": 12.2,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-01-a",
+      "x_m": 180,
+      "y_m": 130,
+      "z_m": 12.0,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-01-b",
+      "x_m": 180,
+      "y_m": 210,
+      "z_m": 12.0,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-01-south",
+      "x_m": 205,
+      "y_m": 150,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-01-north",
+      "x_m": 205,
+      "y_m": 210,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-02",
+      "x_m": 180,
+      "y_m": 350,
+      "z_m": 12.2,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-02-a",
+      "x_m": 180,
+      "y_m": 330,
+      "z_m": 12.0,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-02-b",
+      "x_m": 180,
+      "y_m": 410,
+      "z_m": 12.0,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-02-south",
+      "x_m": 205,
+      "y_m": 350,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-02-north",
+      "x_m": 205,
+      "y_m": 410,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-03",
+      "x_m": 180,
+      "y_m": 550,
+      "z_m": 12.2,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-03-a",
+      "x_m": 180,
+      "y_m": 530,
+      "z_m": 12.0,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-03-b",
+      "x_m": 180,
+      "y_m": 610,
+      "z_m": 12.0,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-03-south",
+      "x_m": 205,
+      "y_m": 550,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-03-north",
+      "x_m": 205,
+      "y_m": 610,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-04",
+      "x_m": 180,
+      "y_m": 750,
+      "z_m": 12.2,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-04-a",
+      "x_m": 180,
+      "y_m": 730,
+      "z_m": 12.0,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-04-b",
+      "x_m": 180,
+      "y_m": 810,
+      "z_m": 12.0,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-04-south",
+      "x_m": 205,
+      "y_m": 750,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-04-north",
+      "x_m": 205,
+      "y_m": 810,
+      "z_m": 12.0,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-05",
+      "x_m": 420,
+      "y_m": 150,
+      "z_m": 10.799999999999999,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-05-a",
+      "x_m": 420,
+      "y_m": 130,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-05-b",
+      "x_m": 420,
+      "y_m": 210,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-05-south",
+      "x_m": 445,
+      "y_m": 150,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-05-north",
+      "x_m": 445,
+      "y_m": 210,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-06",
+      "x_m": 420,
+      "y_m": 350,
+      "z_m": 10.799999999999999,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-06-a",
+      "x_m": 420,
+      "y_m": 330,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-06-b",
+      "x_m": 420,
+      "y_m": 410,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-06-south",
+      "x_m": 445,
+      "y_m": 350,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-06-north",
+      "x_m": 445,
+      "y_m": 410,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-07",
+      "x_m": 420,
+      "y_m": 550,
+      "z_m": 10.799999999999999,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-07-a",
+      "x_m": 420,
+      "y_m": 530,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-07-b",
+      "x_m": 420,
+      "y_m": 610,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-07-south",
+      "x_m": 445,
+      "y_m": 550,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-07-north",
+      "x_m": 445,
+      "y_m": 610,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-08",
+      "x_m": 420,
+      "y_m": 750,
+      "z_m": 10.799999999999999,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-08-a",
+      "x_m": 420,
+      "y_m": 730,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-08-b",
+      "x_m": 420,
+      "y_m": 810,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-08-south",
+      "x_m": 445,
+      "y_m": 750,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-08-north",
+      "x_m": 445,
+      "y_m": 810,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-09",
+      "x_m": 580,
+      "y_m": 150,
+      "z_m": 10.799999999999999,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-09-a",
+      "x_m": 580,
+      "y_m": 130,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-09-b",
+      "x_m": 580,
+      "y_m": 210,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-09-south",
+      "x_m": 605,
+      "y_m": 150,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-09-north",
+      "x_m": 605,
+      "y_m": 210,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-10",
+      "x_m": 580,
+      "y_m": 350,
+      "z_m": 10.799999999999999,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-10-a",
+      "x_m": 580,
+      "y_m": 330,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-10-b",
+      "x_m": 580,
+      "y_m": 410,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-10-south",
+      "x_m": 605,
+      "y_m": 350,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-10-north",
+      "x_m": 605,
+      "y_m": 410,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-11",
+      "x_m": 580,
+      "y_m": 550,
+      "z_m": 10.799999999999999,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-11-a",
+      "x_m": 580,
+      "y_m": 530,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-11-b",
+      "x_m": 580,
+      "y_m": 610,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-11-south",
+      "x_m": 605,
+      "y_m": 550,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-11-north",
+      "x_m": 605,
+      "y_m": 610,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-12",
+      "x_m": 580,
+      "y_m": 750,
+      "z_m": 10.799999999999999,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-12-a",
+      "x_m": 580,
+      "y_m": 730,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-12-b",
+      "x_m": 580,
+      "y_m": 810,
+      "z_m": 10.6,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-12-south",
+      "x_m": 605,
+      "y_m": 750,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-12-north",
+      "x_m": 605,
+      "y_m": 810,
+      "z_m": 10.6,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-13",
+      "x_m": 780,
+      "y_m": 150,
+      "z_m": 14.7,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-13-a",
+      "x_m": 780,
+      "y_m": 130,
+      "z_m": 14.5,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-13-b",
+      "x_m": 780,
+      "y_m": 210,
+      "z_m": 14.5,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-13-south",
+      "x_m": 805,
+      "y_m": 150,
+      "z_m": 15.75,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-13-north",
+      "x_m": 805,
+      "y_m": 210,
+      "z_m": 15.75,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-14",
+      "x_m": 780,
+      "y_m": 350,
+      "z_m": 14.7,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-14-a",
+      "x_m": 780,
+      "y_m": 330,
+      "z_m": 14.5,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-14-b",
+      "x_m": 780,
+      "y_m": 410,
+      "z_m": 14.5,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-14-south",
+      "x_m": 805,
+      "y_m": 350,
+      "z_m": 15.75,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-14-north",
+      "x_m": 805,
+      "y_m": 410,
+      "z_m": 15.75,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-15",
+      "x_m": 780,
+      "y_m": 550,
+      "z_m": 14.7,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-15-a",
+      "x_m": 780,
+      "y_m": 530,
+      "z_m": 14.5,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-15-b",
+      "x_m": 780,
+      "y_m": 610,
+      "z_m": 14.5,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-15-south",
+      "x_m": 805,
+      "y_m": 550,
+      "z_m": 15.75,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-15-north",
+      "x_m": 805,
+      "y_m": 610,
+      "z_m": 15.75,
+      "kind": "junction"
+    },
+    {
+      "id": "exit-16",
+      "x_m": 780,
+      "y_m": 750,
+      "z_m": 14.7,
+      "kind": "building_exit"
+    },
+    {
+      "id": "portal-16-a",
+      "x_m": 780,
+      "y_m": 730,
+      "z_m": 14.5,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "portal-16-b",
+      "x_m": 780,
+      "y_m": 810,
+      "z_m": 14.5,
+      "kind": "parcel_portal"
+    },
+    {
+      "id": "bend-16-south",
+      "x_m": 805,
+      "y_m": 750,
+      "z_m": 15.75,
+      "kind": "junction"
+    },
+    {
+      "id": "bend-16-north",
+      "x_m": 805,
+      "y_m": 810,
+      "z_m": 15.75,
+      "kind": "junction"
+    }
+  ],
+  "edges": [
+    {
+      "id": "road-v-100-100",
+      "from_node": "n-100-100",
+      "to_node": "n-100-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-100-300",
+      "from_node": "n-100-300",
+      "to_node": "n-100-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-100-500",
+      "from_node": "n-100-500",
+      "to_node": "n-100-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-100-700",
+      "from_node": "n-100-700",
+      "to_node": "n-100-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-300-100",
+      "from_node": "n-300-100",
+      "to_node": "n-300-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-300-300",
+      "from_node": "n-300-300",
+      "to_node": "n-300-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-300-500",
+      "from_node": "n-300-500",
+      "to_node": "n-300-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-300-700",
+      "from_node": "n-300-700",
+      "to_node": "n-300-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-400-100",
+      "from_node": "n-400-100",
+      "to_node": "n-400-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.014,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ]
+    },
+    {
+      "id": "road-v-400-300",
+      "from_node": "n-400-300",
+      "to_node": "n-400-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.014,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        13,
+        10.6
+      ]
+    },
+    {
+      "id": "road-v-400-500",
+      "from_node": "n-400-500",
+      "to_node": "n-400-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.014,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ]
+    },
+    {
+      "id": "road-v-400-700",
+      "from_node": "n-400-700",
+      "to_node": "n-400-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.014,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        13,
+        10.6
+      ]
+    },
+    {
+      "id": "road-v-600-100",
+      "from_node": "n-600-100",
+      "to_node": "n-600-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.014,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ]
+    },
+    {
+      "id": "road-v-600-300",
+      "from_node": "n-600-300",
+      "to_node": "n-600-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.014,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        13,
+        10.6
+      ]
+    },
+    {
+      "id": "road-v-600-500",
+      "from_node": "n-600-500",
+      "to_node": "n-600-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.014,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ]
+    },
+    {
+      "id": "road-v-600-700",
+      "from_node": "n-600-700",
+      "to_node": "n-600-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.014,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        13,
+        10.6
+      ]
+    },
+    {
+      "id": "road-v-700-100",
+      "from_node": "n-700-100",
+      "to_node": "n-700-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-700-300",
+      "from_node": "n-700-300",
+      "to_node": "n-700-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-700-500",
+      "from_node": "n-700-500",
+      "to_node": "n-700-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-700-700",
+      "from_node": "n-700-700",
+      "to_node": "n-700-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-v-900-100",
+      "from_node": "n-900-100",
+      "to_node": "n-900-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        20.5,
+        20.5
+      ]
+    },
+    {
+      "id": "road-v-900-300",
+      "from_node": "n-900-300",
+      "to_node": "n-900-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        20.5,
+        20.5
+      ]
+    },
+    {
+      "id": "road-v-900-500",
+      "from_node": "n-900-500",
+      "to_node": "n-900-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        20.5,
+        20.5
+      ]
+    },
+    {
+      "id": "road-v-900-700",
+      "from_node": "n-900-700",
+      "to_node": "n-900-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        20.5,
+        20.5
+      ]
+    },
+    {
+      "id": "road-h-100-100",
+      "from_node": "n-100-100",
+      "to_node": "n-300-100",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-h-300-100",
+      "from_node": "n-300-100",
+      "to_node": "n-400-100",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 100.01,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 14,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        10.6
+      ]
+    },
+    {
+      "id": "road-h-600-100",
+      "from_node": "n-600-100",
+      "to_node": "n-700-100",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 100.01,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 14,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        12.0
+      ]
+    },
+    {
+      "id": "road-h-700-100",
+      "from_node": "n-700-100",
+      "to_node": "n-900-100",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.181,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        20.5
+      ]
+    },
+    {
+      "id": "road-h-100-300",
+      "from_node": "n-100-300",
+      "to_node": "n-300-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-h-300-300",
+      "from_node": "n-300-300",
+      "to_node": "n-400-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 100.005,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 14,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        13
+      ]
+    },
+    {
+      "id": "road-h-400-300",
+      "from_node": "n-400-300",
+      "to_node": "n-600-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": true,
+      "elevation_profile_m": [
+        13,
+        13
+      ]
+    },
+    {
+      "id": "road-h-600-300",
+      "from_node": "n-600-300",
+      "to_node": "n-700-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 100.005,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 14,
+      "bridge": false,
+      "elevation_profile_m": [
+        13,
+        12.0
+      ]
+    },
+    {
+      "id": "road-h-700-300",
+      "from_node": "n-700-300",
+      "to_node": "n-900-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.181,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        20.5
+      ]
+    },
+    {
+      "id": "road-h-100-500",
+      "from_node": "n-100-500",
+      "to_node": "n-300-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-h-300-500",
+      "from_node": "n-300-500",
+      "to_node": "n-400-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 100.01,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 14,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        10.6
+      ]
+    },
+    {
+      "id": "road-h-600-500",
+      "from_node": "n-600-500",
+      "to_node": "n-700-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 100.01,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 14,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        12.0
+      ]
+    },
+    {
+      "id": "road-h-700-500",
+      "from_node": "n-700-500",
+      "to_node": "n-900-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.181,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        20.5
+      ]
+    },
+    {
+      "id": "road-h-100-700",
+      "from_node": "n-100-700",
+      "to_node": "n-300-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-h-300-700",
+      "from_node": "n-300-700",
+      "to_node": "n-400-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 100.005,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 14,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        13
+      ]
+    },
+    {
+      "id": "road-h-400-700",
+      "from_node": "n-400-700",
+      "to_node": "n-600-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": true,
+      "elevation_profile_m": [
+        13,
+        13
+      ]
+    },
+    {
+      "id": "road-h-600-700",
+      "from_node": "n-600-700",
+      "to_node": "n-700-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 100.005,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 14,
+      "bridge": false,
+      "elevation_profile_m": [
+        13,
+        12.0
+      ]
+    },
+    {
+      "id": "road-h-700-700",
+      "from_node": "n-700-700",
+      "to_node": "n-900-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.181,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        20.5
+      ]
+    },
+    {
+      "id": "road-h-100-900",
+      "from_node": "n-100-900",
+      "to_node": "n-300-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ]
+    },
+    {
+      "id": "road-h-300-900",
+      "from_node": "n-300-900",
+      "to_node": "n-400-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 100.01,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 14,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        10.6
+      ]
+    },
+    {
+      "id": "road-h-600-900",
+      "from_node": "n-600-900",
+      "to_node": "n-700-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 100.01,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 14,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        12.0
+      ]
+    },
+    {
+      "id": "road-h-700-900",
+      "from_node": "n-700-900",
+      "to_node": "n-900-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 200.181,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 28,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        20.5
+      ]
+    },
+    {
+      "id": "access-in-01-a",
+      "from_node": "exit-01",
+      "to_node": "portal-01-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.2,
+        12.0
+      ],
+      "portal_id": "portal-01-a"
+    },
+    {
+      "id": "access-out-01-a",
+      "from_node": "portal-01-a",
+      "to_node": "n-100-100",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 85.44,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 12,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-01-a"
+    },
+    {
+      "id": "access-in-01-b-1",
+      "from_node": "exit-01",
+      "to_node": "bend-01-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.2,
+        12.0
+      ],
+      "portal_id": "portal-01-b"
+    },
+    {
+      "id": "access-in-01-b-2",
+      "from_node": "bend-01-south",
+      "to_node": "bend-01-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-01-b"
+    },
+    {
+      "id": "access-in-01-b-3",
+      "from_node": "bend-01-north",
+      "to_node": "portal-01-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-01-b"
+    },
+    {
+      "id": "access-out-01-b",
+      "from_node": "portal-01-b",
+      "to_node": "n-100-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 120.416,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 17,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-01-b"
+    },
+    {
+      "id": "access-in-02-a",
+      "from_node": "exit-02",
+      "to_node": "portal-02-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.2,
+        12.0
+      ],
+      "portal_id": "portal-02-a"
+    },
+    {
+      "id": "access-out-02-a",
+      "from_node": "portal-02-a",
+      "to_node": "n-100-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 85.44,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 12,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-02-a"
+    },
+    {
+      "id": "access-in-02-b-1",
+      "from_node": "exit-02",
+      "to_node": "bend-02-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.2,
+        12.0
+      ],
+      "portal_id": "portal-02-b"
+    },
+    {
+      "id": "access-in-02-b-2",
+      "from_node": "bend-02-south",
+      "to_node": "bend-02-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-02-b"
+    },
+    {
+      "id": "access-in-02-b-3",
+      "from_node": "bend-02-north",
+      "to_node": "portal-02-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-02-b"
+    },
+    {
+      "id": "access-out-02-b",
+      "from_node": "portal-02-b",
+      "to_node": "n-100-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 120.416,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 17,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-02-b"
+    },
+    {
+      "id": "access-in-03-a",
+      "from_node": "exit-03",
+      "to_node": "portal-03-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.2,
+        12.0
+      ],
+      "portal_id": "portal-03-a"
+    },
+    {
+      "id": "access-out-03-a",
+      "from_node": "portal-03-a",
+      "to_node": "n-100-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 85.44,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 12,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-03-a"
+    },
+    {
+      "id": "access-in-03-b-1",
+      "from_node": "exit-03",
+      "to_node": "bend-03-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.2,
+        12.0
+      ],
+      "portal_id": "portal-03-b"
+    },
+    {
+      "id": "access-in-03-b-2",
+      "from_node": "bend-03-south",
+      "to_node": "bend-03-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-03-b"
+    },
+    {
+      "id": "access-in-03-b-3",
+      "from_node": "bend-03-north",
+      "to_node": "portal-03-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-03-b"
+    },
+    {
+      "id": "access-out-03-b",
+      "from_node": "portal-03-b",
+      "to_node": "n-100-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 120.416,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 17,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-03-b"
+    },
+    {
+      "id": "access-in-04-a",
+      "from_node": "exit-04",
+      "to_node": "portal-04-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.2,
+        12.0
+      ],
+      "portal_id": "portal-04-a"
+    },
+    {
+      "id": "access-out-04-a",
+      "from_node": "portal-04-a",
+      "to_node": "n-100-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 85.44,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 12,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-04-a"
+    },
+    {
+      "id": "access-in-04-b-1",
+      "from_node": "exit-04",
+      "to_node": "bend-04-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.2,
+        12.0
+      ],
+      "portal_id": "portal-04-b"
+    },
+    {
+      "id": "access-in-04-b-2",
+      "from_node": "bend-04-south",
+      "to_node": "bend-04-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-04-b"
+    },
+    {
+      "id": "access-in-04-b-3",
+      "from_node": "bend-04-north",
+      "to_node": "portal-04-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-04-b"
+    },
+    {
+      "id": "access-out-04-b",
+      "from_node": "portal-04-b",
+      "to_node": "n-100-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 120.416,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 17,
+      "bridge": false,
+      "elevation_profile_m": [
+        12.0,
+        12.0
+      ],
+      "portal_id": "portal-04-b"
+    },
+    {
+      "id": "access-in-05-a",
+      "from_node": "exit-05",
+      "to_node": "portal-05-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-05-a"
+    },
+    {
+      "id": "access-out-05-a",
+      "from_node": "portal-05-a",
+      "to_node": "n-400-100",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 36.056,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 5,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-05-a"
+    },
+    {
+      "id": "access-in-05-b-1",
+      "from_node": "exit-05",
+      "to_node": "bend-05-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-05-b"
+    },
+    {
+      "id": "access-in-05-b-2",
+      "from_node": "bend-05-south",
+      "to_node": "bend-05-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-05-b"
+    },
+    {
+      "id": "access-in-05-b-3",
+      "from_node": "bend-05-north",
+      "to_node": "portal-05-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-05-b"
+    },
+    {
+      "id": "access-out-05-b",
+      "from_node": "portal-05-b",
+      "to_node": "n-400-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 92.227,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 13,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ],
+      "portal_id": "portal-05-b"
+    },
+    {
+      "id": "access-in-06-a",
+      "from_node": "exit-06",
+      "to_node": "portal-06-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-06-a"
+    },
+    {
+      "id": "access-out-06-a",
+      "from_node": "portal-06-a",
+      "to_node": "n-400-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 36.135,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 5,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ],
+      "portal_id": "portal-06-a"
+    },
+    {
+      "id": "access-in-06-b-1",
+      "from_node": "exit-06",
+      "to_node": "bend-06-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-06-b"
+    },
+    {
+      "id": "access-in-06-b-2",
+      "from_node": "bend-06-south",
+      "to_node": "bend-06-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-06-b"
+    },
+    {
+      "id": "access-in-06-b-3",
+      "from_node": "bend-06-north",
+      "to_node": "portal-06-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-06-b"
+    },
+    {
+      "id": "access-out-06-b",
+      "from_node": "portal-06-b",
+      "to_node": "n-400-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 92.195,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 13,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-06-b"
+    },
+    {
+      "id": "access-in-07-a",
+      "from_node": "exit-07",
+      "to_node": "portal-07-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-07-a"
+    },
+    {
+      "id": "access-out-07-a",
+      "from_node": "portal-07-a",
+      "to_node": "n-400-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 36.056,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 5,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-07-a"
+    },
+    {
+      "id": "access-in-07-b-1",
+      "from_node": "exit-07",
+      "to_node": "bend-07-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-07-b"
+    },
+    {
+      "id": "access-in-07-b-2",
+      "from_node": "bend-07-south",
+      "to_node": "bend-07-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-07-b"
+    },
+    {
+      "id": "access-in-07-b-3",
+      "from_node": "bend-07-north",
+      "to_node": "portal-07-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-07-b"
+    },
+    {
+      "id": "access-out-07-b",
+      "from_node": "portal-07-b",
+      "to_node": "n-400-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 92.227,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 13,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ],
+      "portal_id": "portal-07-b"
+    },
+    {
+      "id": "access-in-08-a",
+      "from_node": "exit-08",
+      "to_node": "portal-08-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-08-a"
+    },
+    {
+      "id": "access-out-08-a",
+      "from_node": "portal-08-a",
+      "to_node": "n-400-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 36.135,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 5,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ],
+      "portal_id": "portal-08-a"
+    },
+    {
+      "id": "access-in-08-b-1",
+      "from_node": "exit-08",
+      "to_node": "bend-08-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-08-b"
+    },
+    {
+      "id": "access-in-08-b-2",
+      "from_node": "bend-08-south",
+      "to_node": "bend-08-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-08-b"
+    },
+    {
+      "id": "access-in-08-b-3",
+      "from_node": "bend-08-north",
+      "to_node": "portal-08-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-08-b"
+    },
+    {
+      "id": "access-out-08-b",
+      "from_node": "portal-08-b",
+      "to_node": "n-400-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 92.195,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 13,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-08-b"
+    },
+    {
+      "id": "access-in-09-a",
+      "from_node": "exit-09",
+      "to_node": "portal-09-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-09-a"
+    },
+    {
+      "id": "access-out-09-a",
+      "from_node": "portal-09-a",
+      "to_node": "n-600-100",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 36.056,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 5,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-09-a"
+    },
+    {
+      "id": "access-in-09-b-1",
+      "from_node": "exit-09",
+      "to_node": "bend-09-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-09-b"
+    },
+    {
+      "id": "access-in-09-b-2",
+      "from_node": "bend-09-south",
+      "to_node": "bend-09-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-09-b"
+    },
+    {
+      "id": "access-in-09-b-3",
+      "from_node": "bend-09-north",
+      "to_node": "portal-09-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-09-b"
+    },
+    {
+      "id": "access-out-09-b",
+      "from_node": "portal-09-b",
+      "to_node": "n-600-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 92.227,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 13,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ],
+      "portal_id": "portal-09-b"
+    },
+    {
+      "id": "access-in-10-a",
+      "from_node": "exit-10",
+      "to_node": "portal-10-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-10-a"
+    },
+    {
+      "id": "access-out-10-a",
+      "from_node": "portal-10-a",
+      "to_node": "n-600-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 36.135,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 5,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ],
+      "portal_id": "portal-10-a"
+    },
+    {
+      "id": "access-in-10-b-1",
+      "from_node": "exit-10",
+      "to_node": "bend-10-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-10-b"
+    },
+    {
+      "id": "access-in-10-b-2",
+      "from_node": "bend-10-south",
+      "to_node": "bend-10-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-10-b"
+    },
+    {
+      "id": "access-in-10-b-3",
+      "from_node": "bend-10-north",
+      "to_node": "portal-10-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-10-b"
+    },
+    {
+      "id": "access-out-10-b",
+      "from_node": "portal-10-b",
+      "to_node": "n-600-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 92.195,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 13,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-10-b"
+    },
+    {
+      "id": "access-in-11-a",
+      "from_node": "exit-11",
+      "to_node": "portal-11-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-11-a"
+    },
+    {
+      "id": "access-out-11-a",
+      "from_node": "portal-11-a",
+      "to_node": "n-600-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 36.056,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 5,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-11-a"
+    },
+    {
+      "id": "access-in-11-b-1",
+      "from_node": "exit-11",
+      "to_node": "bend-11-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-11-b"
+    },
+    {
+      "id": "access-in-11-b-2",
+      "from_node": "bend-11-south",
+      "to_node": "bend-11-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-11-b"
+    },
+    {
+      "id": "access-in-11-b-3",
+      "from_node": "bend-11-north",
+      "to_node": "portal-11-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-11-b"
+    },
+    {
+      "id": "access-out-11-b",
+      "from_node": "portal-11-b",
+      "to_node": "n-600-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 92.227,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 13,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ],
+      "portal_id": "portal-11-b"
+    },
+    {
+      "id": "access-in-12-a",
+      "from_node": "exit-12",
+      "to_node": "portal-12-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-12-a"
+    },
+    {
+      "id": "access-out-12-a",
+      "from_node": "portal-12-a",
+      "to_node": "n-600-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 36.135,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 5,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        13
+      ],
+      "portal_id": "portal-12-a"
+    },
+    {
+      "id": "access-in-12-b-1",
+      "from_node": "exit-12",
+      "to_node": "bend-12-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.799999999999999,
+        10.6
+      ],
+      "portal_id": "portal-12-b"
+    },
+    {
+      "id": "access-in-12-b-2",
+      "from_node": "bend-12-south",
+      "to_node": "bend-12-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-12-b"
+    },
+    {
+      "id": "access-in-12-b-3",
+      "from_node": "bend-12-north",
+      "to_node": "portal-12-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-12-b"
+    },
+    {
+      "id": "access-out-12-b",
+      "from_node": "portal-12-b",
+      "to_node": "n-600-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 92.195,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 13,
+      "bridge": false,
+      "elevation_profile_m": [
+        10.6,
+        10.6
+      ],
+      "portal_id": "portal-12-b"
+    },
+    {
+      "id": "access-in-13-a",
+      "from_node": "exit-13",
+      "to_node": "portal-13-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.7,
+        14.5
+      ],
+      "portal_id": "portal-13-a"
+    },
+    {
+      "id": "access-out-13-a",
+      "from_node": "portal-13-a",
+      "to_node": "n-700-100",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 85.477,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 12,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.5,
+        12.0
+      ],
+      "portal_id": "portal-13-a"
+    },
+    {
+      "id": "access-in-13-b-1",
+      "from_node": "exit-13",
+      "to_node": "bend-13-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.022,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.7,
+        15.75
+      ],
+      "portal_id": "portal-13-b"
+    },
+    {
+      "id": "access-in-13-b-2",
+      "from_node": "bend-13-south",
+      "to_node": "bend-13-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        15.75,
+        15.75
+      ],
+      "portal_id": "portal-13-b"
+    },
+    {
+      "id": "access-in-13-b-3",
+      "from_node": "bend-13-north",
+      "to_node": "portal-13-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.031,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        15.75,
+        14.5
+      ],
+      "portal_id": "portal-13-b"
+    },
+    {
+      "id": "access-out-13-b",
+      "from_node": "portal-13-b",
+      "to_node": "n-700-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 120.442,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 17,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.5,
+        12.0
+      ],
+      "portal_id": "portal-13-b"
+    },
+    {
+      "id": "access-in-14-a",
+      "from_node": "exit-14",
+      "to_node": "portal-14-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.7,
+        14.5
+      ],
+      "portal_id": "portal-14-a"
+    },
+    {
+      "id": "access-out-14-a",
+      "from_node": "portal-14-a",
+      "to_node": "n-700-300",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 85.477,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 12,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.5,
+        12.0
+      ],
+      "portal_id": "portal-14-a"
+    },
+    {
+      "id": "access-in-14-b-1",
+      "from_node": "exit-14",
+      "to_node": "bend-14-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.022,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.7,
+        15.75
+      ],
+      "portal_id": "portal-14-b"
+    },
+    {
+      "id": "access-in-14-b-2",
+      "from_node": "bend-14-south",
+      "to_node": "bend-14-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        15.75,
+        15.75
+      ],
+      "portal_id": "portal-14-b"
+    },
+    {
+      "id": "access-in-14-b-3",
+      "from_node": "bend-14-north",
+      "to_node": "portal-14-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.031,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        15.75,
+        14.5
+      ],
+      "portal_id": "portal-14-b"
+    },
+    {
+      "id": "access-out-14-b",
+      "from_node": "portal-14-b",
+      "to_node": "n-700-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 120.442,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 17,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.5,
+        12.0
+      ],
+      "portal_id": "portal-14-b"
+    },
+    {
+      "id": "access-in-15-a",
+      "from_node": "exit-15",
+      "to_node": "portal-15-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.7,
+        14.5
+      ],
+      "portal_id": "portal-15-a"
+    },
+    {
+      "id": "access-out-15-a",
+      "from_node": "portal-15-a",
+      "to_node": "n-700-500",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 85.477,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 12,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.5,
+        12.0
+      ],
+      "portal_id": "portal-15-a"
+    },
+    {
+      "id": "access-in-15-b-1",
+      "from_node": "exit-15",
+      "to_node": "bend-15-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.022,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.7,
+        15.75
+      ],
+      "portal_id": "portal-15-b"
+    },
+    {
+      "id": "access-in-15-b-2",
+      "from_node": "bend-15-south",
+      "to_node": "bend-15-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        15.75,
+        15.75
+      ],
+      "portal_id": "portal-15-b"
+    },
+    {
+      "id": "access-in-15-b-3",
+      "from_node": "bend-15-north",
+      "to_node": "portal-15-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.031,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        15.75,
+        14.5
+      ],
+      "portal_id": "portal-15-b"
+    },
+    {
+      "id": "access-out-15-b",
+      "from_node": "portal-15-b",
+      "to_node": "n-700-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 120.442,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 17,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.5,
+        12.0
+      ],
+      "portal_id": "portal-15-b"
+    },
+    {
+      "id": "access-in-16-a",
+      "from_node": "exit-16",
+      "to_node": "portal-16-a",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 20.001,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 2,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.7,
+        14.5
+      ],
+      "portal_id": "portal-16-a"
+    },
+    {
+      "id": "access-out-16-a",
+      "from_node": "portal-16-a",
+      "to_node": "n-700-700",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 85.477,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 12,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.5,
+        12.0
+      ],
+      "portal_id": "portal-16-a"
+    },
+    {
+      "id": "access-in-16-b-1",
+      "from_node": "exit-16",
+      "to_node": "bend-16-south",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.022,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.7,
+        15.75
+      ],
+      "portal_id": "portal-16-b"
+    },
+    {
+      "id": "access-in-16-b-2",
+      "from_node": "bend-16-south",
+      "to_node": "bend-16-north",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 60.0,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 8,
+      "bridge": false,
+      "elevation_profile_m": [
+        15.75,
+        15.75
+      ],
+      "portal_id": "portal-16-b"
+    },
+    {
+      "id": "access-in-16-b-3",
+      "from_node": "bend-16-north",
+      "to_node": "portal-16-b",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 25.031,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 3,
+      "bridge": false,
+      "elevation_profile_m": [
+        15.75,
+        14.5
+      ],
+      "portal_id": "portal-16-b"
+    },
+    {
+      "id": "access-out-16-b",
+      "from_node": "portal-16-b",
+      "to_node": "n-700-900",
+      "bidirectional": true,
+      "modes": [
+        "walk",
+        "car"
+      ],
+      "length_m": 120.442,
+      "walk_speed_mps": 1.2,
+      "car_speed_mps": 8.33,
+      "walk_capacity_person_s": 2.0,
+      "car_capacity_vehicle_s": 0.3,
+      "storage_vehicles": 17,
+      "bridge": false,
+      "elevation_profile_m": [
+        14.5,
+        12.0
+      ],
+      "portal_id": "portal-16-b"
+    }
+  ],
+  "turn_restrictions": [],
+  "notes": "合成双向网络；所有同节点转向允许，未模拟信号灯。容量均为情景假设。"
+}

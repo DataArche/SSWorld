@@ -52,7 +52,9 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   const list = await client.request("tools/list", {});
   const names = list.result.tools.map((tool) => tool.name);
   assert.deepEqual(names, ["ssworld_catalog", "ssworld_project_list", "ssworld_project_create", "ssworld_source_read",
-    "ssworld_source_write", "ssworld_source_patch", "ssworld_source_batch", "ssworld_compile", "ssworld_scene_inspect", "ssworld_preview", "ssworld_capture_frame", "ssworld_logic_read", "ssworld_logic_write", "ssworld_environment_read", "ssworld_geo_read", "ssworld_geometry_read", "ssworld_engine_status"]);
+    "ssworld_source_write", "ssworld_source_patch", "ssworld_source_batch", "ssworld_compile", "ssworld_scene_inspect", "ssworld_preview", "ssworld_capture_frame", "ssworld_logic_read", "ssworld_logic_write", "ssworld_environment_read", "ssworld_geo_read", "ssworld_geometry_read",
+    "ssworld_city_import", "ssworld_city_status", "ssworld_city_query", "ssworld_city_command", "ssworld_city_impact", "ssworld_city_run", "ssworld_city_build",
+    "ssworld_engine_status"]);
   for (const tool of list.result.tools) assert.equal(tool.rich, undefined, `${tool.name} leaks internal flags`);
   for (const tool of list.result.tools) assert.equal(tool.inputSchema.type, "object", tool.name);
 
@@ -410,7 +412,7 @@ test("ssworld-mcp end to end over stdio", async (t) => {
 
   const preview = await client.call("ssworld_preview", { project: "demo" });
   assert.equal(preview.isError, false, JSON.stringify(preview.body) + client.stderr);
-  assert.equal(preview.body.viewer_url, `http://127.0.0.1:${PORT}/projects/demo/index.html`);
+  assert.match(preview.body.viewer_url, new RegExp(`^http://127\\.0\\.0\\.1:${PORT}/projects/demo/index\\.html\\?session=[0-9a-f]{8}$`));
   assert.equal(preview.body.render_verified, false);
   assert.equal(preview.body.page.connected, false);
   assert.equal(preview.body.next.action, "open_webgpu_viewer");
@@ -509,7 +511,9 @@ test("ssworld-mcp end to end over stdio", async (t) => {
     if (command.kind === "capture") return { id: command.id, ok: true, png_base64: png, stats: { width: 2, height: 2, distinct_colors: 4, non_black_ratio: 1, overexposed_ratio: 0, mean_luma: 90 },
       camera: { heading: 0, fov: 50 }, status: clientStatus, ...(command.params.await ? (command.params.await.state === "never"
         ? { ok: false, error: `await State 'never' === true: not satisfied within ${command.params.await.timeout_ms} ms`, code: "await_timeout", logic: clientStatus.logic }
-        : { awaited: { satisfied: true, waited_ms: 12, condition: `State '${command.params.await.state}' === true` } }) : {}) };
+        : { awaited: { satisfied: true, waited_ms: 12, condition: `State '${command.params.await.state}' === true` } }) : {}),
+      ...(command.params.stable ? { stats: { width: 2, height: 2, distinct_colors: 5000, non_black_ratio: 1, overexposed_ratio: 0, mean_luma: 6 }, stabilised: { stable: false, waited_ms: command.params.stable.timeout_ms, tolerance: 0.3, samples: [21.7, 13, 6],
+        reason: `mean luma still spanned 0.3 or more over the last 4 s after ${command.params.stable.timeout_ms} ms` } } : {}) };
     if (command.kind === "logic_read") return { id: command.id, ok: true, logic: clientStatus.logic, status: clientStatus };
     if (command.kind === "logic_write") {
       if ("width" in command.params.set) return { id: command.id, ok: false, error: "logical write width was rejected and rolled back (rolled_back: binding_commit_failed on car.width: Box.width must be positive)",
@@ -583,6 +587,33 @@ test("ssworld-mcp end to end over stdio", async (t) => {
   assert.equal(unknownWrite.isError, true);
   assert.equal(unknownWrite.body.error, "logic_property_unknown");
   assert.equal(unknownWrite.body.next.action, "fix_call");
+  // A page opened from this session's viewer_url carries the session in its client id and answers by default, even though
+  // another visible page synced more recently; hidden, it steps aside for the visible one (a hidden tab paints no frames).
+  const session = new URL(preview.body.viewer_url).searchParams.get("session");
+  let mineStatus = { ...status, client: `${session}.mine`, user_agent: "Mine/1", logic: { ...status.logic, properties: { score: 11 } } };
+  const pumpMine = setInterval(async () => {
+    const { commands } = await syncAs(mineStatus.client, mineStatus);
+    for (const command of commands) await syncAs(mineStatus.client, mineStatus, [answer(command, mineStatus)]);
+  }, 100);
+  t.after(() => clearInterval(pumpMine));
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const mineCapture = await client.call("ssworld_capture_frame", { project: "demo", timeout_ms: 5000 });
+  assert.equal(mineCapture.isError, false, JSON.stringify(mineCapture.body));
+  assert.equal(mineCapture.body.receipt.client.id, `${session}.mine`);
+  assert.equal(mineCapture.body.receipt.client_selection, "this_session");
+  assert.equal((await client.call("ssworld_logic_read", { project: "demo" })).body.logic.properties.score, 11);
+  // stable travels to the page, and a light still converging is reported in the verdict rather than refused.
+  const stillMoving = await client.call("ssworld_capture_frame", { project: "demo", stable: { timeout_ms: 2000 }, detail: "brief", timeout_ms: 5000 });
+  assert.equal(stillMoving.isError, false, JSON.stringify(stillMoving.body));
+  assert.equal(stillMoving.body.stabilised.stable, false);
+  assert.equal(stillMoving.body.stabilised.waited_ms, 2000);
+  assert.match(stillMoving.body.verdict, /not known to show settled light \(mean luma still spanned/);
+  mineStatus = { ...mineStatus, visibility: "hidden" };
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const mineHidden = await client.call("ssworld_capture_frame", { project: "demo", timeout_ms: 5000 });
+  assert.equal(mineHidden.body.receipt.client.id, "fake", "a hidden own page yields to the visible one");
+  assert.equal(mineHidden.body.receipt.client_selection, "most_recent_visible");
+  clearInterval(pumpMine);
   clearInterval(pumpBoth);
   await new Promise((resolve) => setTimeout(resolve, 3200));
   assert.deepEqual((await client.call("ssworld_preview", { project: "demo" })).body.page.clients, [], "both fake pages went stale");
@@ -595,9 +626,12 @@ test("ssworld-mcp end to end over stdio", async (t) => {
       stats: { width: 2, height: 2, distinct_colors: 4, non_black_ratio: 1, overexposed_ratio: 0, mean_luma: 90 }, camera: { heading: 0, fov: 50 }, status }]);
   }, 100);
   t.after(() => clearInterval(pump1b));
-  const behind = await client.call("ssworld_capture_frame", { project: "demo", timeout_ms: 5000 });
+  // This fake page is an older index.html that ignores stable: the frame comes back, flagged as not waited.
+  const behind = await client.call("ssworld_capture_frame", { project: "demo", stable: { timeout_ms: 1000 }, timeout_ms: 5000 });
   clearInterval(pump1b);
   assert.equal(behind.isError, false, JSON.stringify(behind.body));
+  assert.equal(behind.body.stabilised.page_unsupported, true);
+  assert.equal(behind.body.stabilised.stable, null);
   assert.equal(behind.body.receipt.in_sync, false);
   assert.match(behind.body.receipt.staleness[0], /changed since the last compile/);
   assert.equal(behind.body.next.action, "recompile_and_recapture");

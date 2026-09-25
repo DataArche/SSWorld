@@ -1,0 +1,741 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "building-01",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.001455271,
+              0.001347473
+            ],
+            [
+              0.001778664,
+              0.001347473
+            ],
+            [
+              0.001778664,
+              0.001706799
+            ],
+            [
+              0.001455271,
+              0.001706799
+            ],
+            [
+              0.001455271,
+              0.001347473
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-01",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-01",
+        "name": "合成建筑 01",
+        "use": "residential",
+        "height_m": 15,
+        "floors": 5,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 12.0,
+        "floor_elevation_m": 12.2,
+        "recipe_id": "recipe-01"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-02",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.001455271,
+              0.003144103
+            ],
+            [
+              0.001778664,
+              0.003144103
+            ],
+            [
+              0.001778664,
+              0.00350343
+            ],
+            [
+              0.001455271,
+              0.00350343
+            ],
+            [
+              0.001455271,
+              0.003144103
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-02",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-02",
+        "name": "合成建筑 02",
+        "use": "commercial",
+        "height_m": 18,
+        "floors": 6,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 12.0,
+        "floor_elevation_m": 12.2,
+        "recipe_id": "recipe-02"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-03",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.001455271,
+              0.004940734
+            ],
+            [
+              0.001778664,
+              0.004940734
+            ],
+            [
+              0.001778664,
+              0.00530006
+            ],
+            [
+              0.001455271,
+              0.00530006
+            ],
+            [
+              0.001455271,
+              0.004940734
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-03",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-03",
+        "name": "合成建筑 03",
+        "use": "mixed",
+        "height_m": 21,
+        "floors": 7,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 12.0,
+        "floor_elevation_m": 12.2,
+        "recipe_id": "recipe-03"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-04",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.001455271,
+              0.006737365
+            ],
+            [
+              0.001778664,
+              0.006737365
+            ],
+            [
+              0.001778664,
+              0.007096691
+            ],
+            [
+              0.001455271,
+              0.007096691
+            ],
+            [
+              0.001455271,
+              0.006737365
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-04",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-04",
+        "name": "合成建筑 04",
+        "use": "residential",
+        "height_m": 12,
+        "floors": 4,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 12.0,
+        "floor_elevation_m": 12.2,
+        "recipe_id": "recipe-04"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-05",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.003611227,
+              0.001347473
+            ],
+            [
+              0.003934621,
+              0.001347473
+            ],
+            [
+              0.003934621,
+              0.001706799
+            ],
+            [
+              0.003611227,
+              0.001706799
+            ],
+            [
+              0.003611227,
+              0.001347473
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-05",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-05",
+        "name": "合成建筑 05",
+        "use": "residential",
+        "height_m": 15,
+        "floors": 5,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 10.6,
+        "floor_elevation_m": 10.799999999999999,
+        "recipe_id": "recipe-05"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-06",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.003611227,
+              0.003144103
+            ],
+            [
+              0.003934621,
+              0.003144103
+            ],
+            [
+              0.003934621,
+              0.00350343
+            ],
+            [
+              0.003611227,
+              0.00350343
+            ],
+            [
+              0.003611227,
+              0.003144103
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-06",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-06",
+        "name": "合成建筑 06",
+        "use": "commercial",
+        "height_m": 18,
+        "floors": 6,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 10.6,
+        "floor_elevation_m": 10.799999999999999,
+        "recipe_id": "recipe-06"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-07",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.003611227,
+              0.004940734
+            ],
+            [
+              0.003934621,
+              0.004940734
+            ],
+            [
+              0.003934621,
+              0.00530006
+            ],
+            [
+              0.003611227,
+              0.00530006
+            ],
+            [
+              0.003611227,
+              0.004940734
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-07",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-07",
+        "name": "合成建筑 07",
+        "use": "mixed",
+        "height_m": 21,
+        "floors": 7,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 10.6,
+        "floor_elevation_m": 10.799999999999999,
+        "recipe_id": "recipe-07"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-08",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.003611227,
+              0.006737365
+            ],
+            [
+              0.003934621,
+              0.006737365
+            ],
+            [
+              0.003934621,
+              0.007096691
+            ],
+            [
+              0.003611227,
+              0.007096691
+            ],
+            [
+              0.003611227,
+              0.006737365
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-08",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-08",
+        "name": "合成建筑 08",
+        "use": "residential",
+        "height_m": 12,
+        "floors": 4,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 10.6,
+        "floor_elevation_m": 10.799999999999999,
+        "recipe_id": "recipe-08"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-09",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.005048532,
+              0.001347473
+            ],
+            [
+              0.005371925,
+              0.001347473
+            ],
+            [
+              0.005371925,
+              0.001706799
+            ],
+            [
+              0.005048532,
+              0.001706799
+            ],
+            [
+              0.005048532,
+              0.001347473
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-09",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-09",
+        "name": "合成建筑 09",
+        "use": "residential",
+        "height_m": 15,
+        "floors": 5,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 10.6,
+        "floor_elevation_m": 10.799999999999999,
+        "recipe_id": "recipe-09"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-10",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.005048532,
+              0.003144103
+            ],
+            [
+              0.005371925,
+              0.003144103
+            ],
+            [
+              0.005371925,
+              0.00350343
+            ],
+            [
+              0.005048532,
+              0.00350343
+            ],
+            [
+              0.005048532,
+              0.003144103
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-10",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-10",
+        "name": "合成建筑 10",
+        "use": "commercial",
+        "height_m": 18,
+        "floors": 6,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 10.6,
+        "floor_elevation_m": 10.799999999999999,
+        "recipe_id": "recipe-10"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-11",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.005048532,
+              0.004940734
+            ],
+            [
+              0.005371925,
+              0.004940734
+            ],
+            [
+              0.005371925,
+              0.00530006
+            ],
+            [
+              0.005048532,
+              0.00530006
+            ],
+            [
+              0.005048532,
+              0.004940734
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-11",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-11",
+        "name": "合成建筑 11",
+        "use": "mixed",
+        "height_m": 21,
+        "floors": 7,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 10.6,
+        "floor_elevation_m": 10.799999999999999,
+        "recipe_id": "recipe-11"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-12",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.005048532,
+              0.006737365
+            ],
+            [
+              0.005371925,
+              0.006737365
+            ],
+            [
+              0.005371925,
+              0.007096691
+            ],
+            [
+              0.005048532,
+              0.007096691
+            ],
+            [
+              0.005048532,
+              0.006737365
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-12",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-12",
+        "name": "合成建筑 12",
+        "use": "residential",
+        "height_m": 12,
+        "floors": 4,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 10.6,
+        "floor_elevation_m": 10.799999999999999,
+        "recipe_id": "recipe-12"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-13",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.006845162,
+              0.001347473
+            ],
+            [
+              0.007168556,
+              0.001347473
+            ],
+            [
+              0.007168556,
+              0.001706799
+            ],
+            [
+              0.006845162,
+              0.001706799
+            ],
+            [
+              0.006845162,
+              0.001347473
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-13",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-13",
+        "name": "合成建筑 13",
+        "use": "residential",
+        "height_m": 15,
+        "floors": 5,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 14.5,
+        "floor_elevation_m": 14.7,
+        "recipe_id": "recipe-13"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-14",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.006845162,
+              0.003144103
+            ],
+            [
+              0.007168556,
+              0.003144103
+            ],
+            [
+              0.007168556,
+              0.00350343
+            ],
+            [
+              0.006845162,
+              0.00350343
+            ],
+            [
+              0.006845162,
+              0.003144103
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-14",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-14",
+        "name": "合成建筑 14",
+        "use": "commercial",
+        "height_m": 18,
+        "floors": 6,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 14.5,
+        "floor_elevation_m": 14.7,
+        "recipe_id": "recipe-14"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-15",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.006845162,
+              0.004940734
+            ],
+            [
+              0.007168556,
+              0.004940734
+            ],
+            [
+              0.007168556,
+              0.00530006
+            ],
+            [
+              0.006845162,
+              0.00530006
+            ],
+            [
+              0.006845162,
+              0.004940734
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-15",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-15",
+        "name": "合成建筑 15",
+        "use": "mixed",
+        "height_m": 21,
+        "floors": 7,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 14.5,
+        "floor_elevation_m": 14.7,
+        "recipe_id": "recipe-15"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "building-16",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.006845162,
+              0.006737365
+            ],
+            [
+              0.007168556,
+              0.006737365
+            ],
+            [
+              0.007168556,
+              0.007096691
+            ],
+            [
+              0.006845162,
+              0.007096691
+            ],
+            [
+              0.006845162,
+              0.006737365
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "building-16",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-16",
+        "name": "合成建筑 16",
+        "use": "residential",
+        "height_m": 12,
+        "floors": 4,
+        "footprint_area_m2": 1440,
+        "ground_elevation_m": 14.5,
+        "floor_elevation_m": 14.7,
+        "recipe_id": "recipe-16"
+      }
+    }
+  ]
+}

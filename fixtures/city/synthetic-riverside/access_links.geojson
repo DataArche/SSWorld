@@ -1,0 +1,4037 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "access-in-01-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.001347473
+          ],
+          [
+            0.001616968,
+            0.00116781
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-01-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-01",
+        "to_node": "portal-01-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.2,
+          12.0
+        ],
+        "portal_id": "portal-01-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-01-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.00116781
+          ],
+          [
+            0.000898315,
+            0.000898315
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-01-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-01-a",
+        "to_node": "n-100-100",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 85.44,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 12,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-01-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-01-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.001347473
+          ],
+          [
+            0.001841546,
+            0.001347473
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-01-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-01",
+        "to_node": "bend-01-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.2,
+          12.0
+        ],
+        "portal_id": "portal-01-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-01-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001841546,
+            0.001347473
+          ],
+          [
+            0.001841546,
+            0.001886462
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-01-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-01-south",
+        "to_node": "bend-01-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-01-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-01-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001841546,
+            0.001886462
+          ],
+          [
+            0.001616968,
+            0.001886462
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-01-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-01-north",
+        "to_node": "portal-01-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-01-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-01-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.001886462
+          ],
+          [
+            0.000898315,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-01-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-01-b",
+        "to_node": "n-100-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 120.416,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 17,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-01-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-02-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.003144103
+          ],
+          [
+            0.001616968,
+            0.00296444
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-02-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-02",
+        "to_node": "portal-02-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.2,
+          12.0
+        ],
+        "portal_id": "portal-02-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-02-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.00296444
+          ],
+          [
+            0.000898315,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-02-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-02-a",
+        "to_node": "n-100-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 85.44,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 12,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-02-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-02-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.003144103
+          ],
+          [
+            0.001841546,
+            0.003144103
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-02-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-02",
+        "to_node": "bend-02-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.2,
+          12.0
+        ],
+        "portal_id": "portal-02-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-02-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001841546,
+            0.003144103
+          ],
+          [
+            0.001841546,
+            0.003683093
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-02-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-02-south",
+        "to_node": "bend-02-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-02-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-02-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001841546,
+            0.003683093
+          ],
+          [
+            0.001616968,
+            0.003683093
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-02-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-02-north",
+        "to_node": "portal-02-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-02-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-02-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.003683093
+          ],
+          [
+            0.000898315,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-02-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-02-b",
+        "to_node": "n-100-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 120.416,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 17,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-02-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-03-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.004940734
+          ],
+          [
+            0.001616968,
+            0.004761071
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-03-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-03",
+        "to_node": "portal-03-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.2,
+          12.0
+        ],
+        "portal_id": "portal-03-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-03-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.004761071
+          ],
+          [
+            0.000898315,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-03-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-03-a",
+        "to_node": "n-100-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 85.44,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 12,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-03-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-03-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.004940734
+          ],
+          [
+            0.001841546,
+            0.004940734
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-03-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-03",
+        "to_node": "bend-03-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.2,
+          12.0
+        ],
+        "portal_id": "portal-03-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-03-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001841546,
+            0.004940734
+          ],
+          [
+            0.001841546,
+            0.005479723
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-03-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-03-south",
+        "to_node": "bend-03-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-03-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-03-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001841546,
+            0.005479723
+          ],
+          [
+            0.001616968,
+            0.005479723
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-03-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-03-north",
+        "to_node": "portal-03-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-03-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-03-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.005479723
+          ],
+          [
+            0.000898315,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-03-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-03-b",
+        "to_node": "n-100-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 120.416,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 17,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-03-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-04-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.006737365
+          ],
+          [
+            0.001616968,
+            0.006557702
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-04-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-04",
+        "to_node": "portal-04-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.2,
+          12.0
+        ],
+        "portal_id": "portal-04-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-04-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.006557702
+          ],
+          [
+            0.000898315,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-04-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-04-a",
+        "to_node": "n-100-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 85.44,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 12,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-04-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-04-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.006737365
+          ],
+          [
+            0.001841546,
+            0.006737365
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-04-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-04",
+        "to_node": "bend-04-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.2,
+          12.0
+        ],
+        "portal_id": "portal-04-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-04-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001841546,
+            0.006737365
+          ],
+          [
+            0.001841546,
+            0.007276354
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-04-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-04-south",
+        "to_node": "bend-04-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-04-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-04-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001841546,
+            0.007276354
+          ],
+          [
+            0.001616968,
+            0.007276354
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-04-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-04-north",
+        "to_node": "portal-04-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-04-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-04-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.001616968,
+            0.007276354
+          ],
+          [
+            0.000898315,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-04-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-04-b",
+        "to_node": "n-100-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 120.416,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 17,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ],
+        "portal_id": "portal-04-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-05-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.001347473
+          ],
+          [
+            0.003772924,
+            0.00116781
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-05-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-05",
+        "to_node": "portal-05-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-05-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-05-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.00116781
+          ],
+          [
+            0.003593261,
+            0.000898315
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-05-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-05-a",
+        "to_node": "n-400-100",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 36.056,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 5,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-05-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-05-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.001347473
+          ],
+          [
+            0.003997503,
+            0.001347473
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-05-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-05",
+        "to_node": "bend-05-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-05-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-05-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003997503,
+            0.001347473
+          ],
+          [
+            0.003997503,
+            0.001886462
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-05-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-05-south",
+        "to_node": "bend-05-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-05-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-05-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003997503,
+            0.001886462
+          ],
+          [
+            0.003772924,
+            0.001886462
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-05-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-05-north",
+        "to_node": "portal-05-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-05-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-05-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.001886462
+          ],
+          [
+            0.003593261,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-05-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-05-b",
+        "to_node": "n-400-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 92.227,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 13,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ],
+        "portal_id": "portal-05-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-06-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.003144103
+          ],
+          [
+            0.003772924,
+            0.00296444
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-06-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-06",
+        "to_node": "portal-06-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-06-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-06-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.00296444
+          ],
+          [
+            0.003593261,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-06-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-06-a",
+        "to_node": "n-400-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 36.135,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 5,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ],
+        "portal_id": "portal-06-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-06-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.003144103
+          ],
+          [
+            0.003997503,
+            0.003144103
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-06-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-06",
+        "to_node": "bend-06-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-06-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-06-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003997503,
+            0.003144103
+          ],
+          [
+            0.003997503,
+            0.003683093
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-06-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-06-south",
+        "to_node": "bend-06-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-06-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-06-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003997503,
+            0.003683093
+          ],
+          [
+            0.003772924,
+            0.003683093
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-06-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-06-north",
+        "to_node": "portal-06-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-06-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-06-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.003683093
+          ],
+          [
+            0.003593261,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-06-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-06-b",
+        "to_node": "n-400-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 92.195,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 13,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-06-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-07-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.004940734
+          ],
+          [
+            0.003772924,
+            0.004761071
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-07-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-07",
+        "to_node": "portal-07-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-07-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-07-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.004761071
+          ],
+          [
+            0.003593261,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-07-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-07-a",
+        "to_node": "n-400-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 36.056,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 5,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-07-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-07-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.004940734
+          ],
+          [
+            0.003997503,
+            0.004940734
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-07-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-07",
+        "to_node": "bend-07-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-07-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-07-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003997503,
+            0.004940734
+          ],
+          [
+            0.003997503,
+            0.005479723
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-07-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-07-south",
+        "to_node": "bend-07-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-07-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-07-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003997503,
+            0.005479723
+          ],
+          [
+            0.003772924,
+            0.005479723
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-07-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-07-north",
+        "to_node": "portal-07-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-07-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-07-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.005479723
+          ],
+          [
+            0.003593261,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-07-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-07-b",
+        "to_node": "n-400-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 92.227,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 13,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ],
+        "portal_id": "portal-07-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-08-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.006737365
+          ],
+          [
+            0.003772924,
+            0.006557702
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-08-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-08",
+        "to_node": "portal-08-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-08-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-08-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.006557702
+          ],
+          [
+            0.003593261,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-08-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-08-a",
+        "to_node": "n-400-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 36.135,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 5,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ],
+        "portal_id": "portal-08-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-08-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.006737365
+          ],
+          [
+            0.003997503,
+            0.006737365
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-08-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-08",
+        "to_node": "bend-08-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-08-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-08-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003997503,
+            0.006737365
+          ],
+          [
+            0.003997503,
+            0.007276354
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-08-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-08-south",
+        "to_node": "bend-08-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-08-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-08-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003997503,
+            0.007276354
+          ],
+          [
+            0.003772924,
+            0.007276354
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-08-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-08-north",
+        "to_node": "portal-08-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-08-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-08-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003772924,
+            0.007276354
+          ],
+          [
+            0.003593261,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-08-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-08-b",
+        "to_node": "n-400-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 92.195,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 13,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-08-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-09-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.001347473
+          ],
+          [
+            0.005210229,
+            0.00116781
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-09-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-09",
+        "to_node": "portal-09-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-09-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-09-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.00116781
+          ],
+          [
+            0.005389892,
+            0.000898315
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-09-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-09-a",
+        "to_node": "n-600-100",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 36.056,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 5,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-09-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-09-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.001347473
+          ],
+          [
+            0.005434807,
+            0.001347473
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-09-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-09",
+        "to_node": "bend-09-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-09-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-09-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005434807,
+            0.001347473
+          ],
+          [
+            0.005434807,
+            0.001886462
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-09-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-09-south",
+        "to_node": "bend-09-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-09-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-09-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005434807,
+            0.001886462
+          ],
+          [
+            0.005210229,
+            0.001886462
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-09-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-09-north",
+        "to_node": "portal-09-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-09-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-09-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.001886462
+          ],
+          [
+            0.005389892,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-09-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-09-b",
+        "to_node": "n-600-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 92.227,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 13,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ],
+        "portal_id": "portal-09-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-10-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.003144103
+          ],
+          [
+            0.005210229,
+            0.00296444
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-10-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-10",
+        "to_node": "portal-10-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-10-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-10-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.00296444
+          ],
+          [
+            0.005389892,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-10-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-10-a",
+        "to_node": "n-600-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 36.135,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 5,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ],
+        "portal_id": "portal-10-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-10-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.003144103
+          ],
+          [
+            0.005434807,
+            0.003144103
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-10-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-10",
+        "to_node": "bend-10-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-10-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-10-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005434807,
+            0.003144103
+          ],
+          [
+            0.005434807,
+            0.003683093
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-10-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-10-south",
+        "to_node": "bend-10-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-10-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-10-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005434807,
+            0.003683093
+          ],
+          [
+            0.005210229,
+            0.003683093
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-10-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-10-north",
+        "to_node": "portal-10-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-10-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-10-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.003683093
+          ],
+          [
+            0.005389892,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-10-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-10-b",
+        "to_node": "n-600-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 92.195,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 13,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-10-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-11-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.004940734
+          ],
+          [
+            0.005210229,
+            0.004761071
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-11-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-11",
+        "to_node": "portal-11-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-11-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-11-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.004761071
+          ],
+          [
+            0.005389892,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-11-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-11-a",
+        "to_node": "n-600-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 36.056,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 5,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-11-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-11-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.004940734
+          ],
+          [
+            0.005434807,
+            0.004940734
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-11-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-11",
+        "to_node": "bend-11-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-11-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-11-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005434807,
+            0.004940734
+          ],
+          [
+            0.005434807,
+            0.005479723
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-11-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-11-south",
+        "to_node": "bend-11-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-11-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-11-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005434807,
+            0.005479723
+          ],
+          [
+            0.005210229,
+            0.005479723
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-11-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-11-north",
+        "to_node": "portal-11-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-11-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-11-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.005479723
+          ],
+          [
+            0.005389892,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-11-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-11-b",
+        "to_node": "n-600-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 92.227,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 13,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ],
+        "portal_id": "portal-11-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-12-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.006737365
+          ],
+          [
+            0.005210229,
+            0.006557702
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-12-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-12",
+        "to_node": "portal-12-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-12-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-12-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.006557702
+          ],
+          [
+            0.005389892,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-12-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-12-a",
+        "to_node": "n-600-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 36.135,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 5,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ],
+        "portal_id": "portal-12-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-12-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.006737365
+          ],
+          [
+            0.005434807,
+            0.006737365
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-12-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-12",
+        "to_node": "bend-12-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.799999999999999,
+          10.6
+        ],
+        "portal_id": "portal-12-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-12-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005434807,
+            0.006737365
+          ],
+          [
+            0.005434807,
+            0.007276354
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-12-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-12-south",
+        "to_node": "bend-12-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-12-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-12-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005434807,
+            0.007276354
+          ],
+          [
+            0.005210229,
+            0.007276354
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-12-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-12-north",
+        "to_node": "portal-12-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-12-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-12-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005210229,
+            0.007276354
+          ],
+          [
+            0.005389892,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-12-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-12-b",
+        "to_node": "n-600-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 92.195,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 13,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          10.6
+        ],
+        "portal_id": "portal-12-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-13-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.001347473
+          ],
+          [
+            0.007006859,
+            0.00116781
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-13-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-13",
+        "to_node": "portal-13-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.7,
+          14.5
+        ],
+        "portal_id": "portal-13-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-13-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.00116781
+          ],
+          [
+            0.006288207,
+            0.000898315
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-13-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-13-a",
+        "to_node": "n-700-100",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 85.477,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 12,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.5,
+          12.0
+        ],
+        "portal_id": "portal-13-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-13-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.001347473
+          ],
+          [
+            0.007231438,
+            0.001347473
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-13-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-13",
+        "to_node": "bend-13-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.022,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.7,
+          15.75
+        ],
+        "portal_id": "portal-13-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-13-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007231438,
+            0.001347473
+          ],
+          [
+            0.007231438,
+            0.001886462
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-13-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-13-south",
+        "to_node": "bend-13-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          15.75,
+          15.75
+        ],
+        "portal_id": "portal-13-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-13-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007231438,
+            0.001886462
+          ],
+          [
+            0.007006859,
+            0.001886462
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-13-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-13-north",
+        "to_node": "portal-13-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.031,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          15.75,
+          14.5
+        ],
+        "portal_id": "portal-13-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-13-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.001886462
+          ],
+          [
+            0.006288207,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-13-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-13-b",
+        "to_node": "n-700-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 120.442,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 17,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.5,
+          12.0
+        ],
+        "portal_id": "portal-13-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-14-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.003144103
+          ],
+          [
+            0.007006859,
+            0.00296444
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-14-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-14",
+        "to_node": "portal-14-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.7,
+          14.5
+        ],
+        "portal_id": "portal-14-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-14-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.00296444
+          ],
+          [
+            0.006288207,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-14-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-14-a",
+        "to_node": "n-700-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 85.477,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 12,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.5,
+          12.0
+        ],
+        "portal_id": "portal-14-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-14-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.003144103
+          ],
+          [
+            0.007231438,
+            0.003144103
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-14-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-14",
+        "to_node": "bend-14-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.022,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.7,
+          15.75
+        ],
+        "portal_id": "portal-14-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-14-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007231438,
+            0.003144103
+          ],
+          [
+            0.007231438,
+            0.003683093
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-14-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-14-south",
+        "to_node": "bend-14-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          15.75,
+          15.75
+        ],
+        "portal_id": "portal-14-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-14-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007231438,
+            0.003683093
+          ],
+          [
+            0.007006859,
+            0.003683093
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-14-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-14-north",
+        "to_node": "portal-14-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.031,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          15.75,
+          14.5
+        ],
+        "portal_id": "portal-14-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-14-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.003683093
+          ],
+          [
+            0.006288207,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-14-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-14-b",
+        "to_node": "n-700-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 120.442,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 17,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.5,
+          12.0
+        ],
+        "portal_id": "portal-14-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-15-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.004940734
+          ],
+          [
+            0.007006859,
+            0.004761071
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-15-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-15",
+        "to_node": "portal-15-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.7,
+          14.5
+        ],
+        "portal_id": "portal-15-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-15-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.004761071
+          ],
+          [
+            0.006288207,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-15-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-15-a",
+        "to_node": "n-700-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 85.477,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 12,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.5,
+          12.0
+        ],
+        "portal_id": "portal-15-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-15-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.004940734
+          ],
+          [
+            0.007231438,
+            0.004940734
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-15-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-15",
+        "to_node": "bend-15-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.022,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.7,
+          15.75
+        ],
+        "portal_id": "portal-15-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-15-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007231438,
+            0.004940734
+          ],
+          [
+            0.007231438,
+            0.005479723
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-15-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-15-south",
+        "to_node": "bend-15-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          15.75,
+          15.75
+        ],
+        "portal_id": "portal-15-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-15-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007231438,
+            0.005479723
+          ],
+          [
+            0.007006859,
+            0.005479723
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-15-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-15-north",
+        "to_node": "portal-15-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.031,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          15.75,
+          14.5
+        ],
+        "portal_id": "portal-15-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-15-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.005479723
+          ],
+          [
+            0.006288207,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-15-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-15-b",
+        "to_node": "n-700-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 120.442,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 17,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.5,
+          12.0
+        ],
+        "portal_id": "portal-15-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-16-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.006737365
+          ],
+          [
+            0.007006859,
+            0.006557702
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-16-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-16",
+        "to_node": "portal-16-a",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 20.001,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 2,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.7,
+          14.5
+        ],
+        "portal_id": "portal-16-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-16-a",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.006557702
+          ],
+          [
+            0.006288207,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-16-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-16-a",
+        "to_node": "n-700-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 85.477,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 12,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.5,
+          12.0
+        ],
+        "portal_id": "portal-16-a"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-16-b-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.006737365
+          ],
+          [
+            0.007231438,
+            0.006737365
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-16-b-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "exit-16",
+        "to_node": "bend-16-south",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.022,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.7,
+          15.75
+        ],
+        "portal_id": "portal-16-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-16-b-2",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007231438,
+            0.006737365
+          ],
+          [
+            0.007231438,
+            0.007276354
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-16-b-2",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-16-south",
+        "to_node": "bend-16-north",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 60.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 8,
+        "bridge": false,
+        "elevation_profile_m": [
+          15.75,
+          15.75
+        ],
+        "portal_id": "portal-16-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-in-16-b-3",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007231438,
+            0.007276354
+          ],
+          [
+            0.007006859,
+            0.007276354
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-in-16-b-3",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "bend-16-north",
+        "to_node": "portal-16-b",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 25.031,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 3,
+        "bridge": false,
+        "elevation_profile_m": [
+          15.75,
+          14.5
+        ],
+        "portal_id": "portal-16-b"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "access-out-16-b",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.007006859,
+            0.007276354
+          ],
+          [
+            0.006288207,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "access-out-16-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "portal-16-b",
+        "to_node": "n-700-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 120.442,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 17,
+        "bridge": false,
+        "elevation_profile_m": [
+          14.5,
+          12.0
+        ],
+        "portal_id": "portal-16-b"
+      }
+    }
+  ]
+}

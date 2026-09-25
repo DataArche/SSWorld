@@ -1,0 +1,1 @@
+{"Traffic":{"methods":{"tick":{"args":[{"name":"running","type":"bool"},{"name":"lightLevel","type":"real"},{"name":"lensLevel","type":"real"}]}}},"Park":{"methods":{"tick":{"args":[{"name":"running","type":"bool"}]}}}}

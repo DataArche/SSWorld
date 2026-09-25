@@ -1,0 +1,86 @@
+{
+  "id": "synthetic-riverside-v1",
+  "name": "虚构河畔城市开发数据包",
+  "synthetic": true,
+  "area_m2": 1000000,
+  "generator": "../generate_demo.py",
+  "generator_version": "1",
+  "seed": 0,
+  "horizontal_frame": {
+    "type": "local_equirectangular",
+    "units": "m",
+    "extent_m": [
+      0,
+      0,
+      1000,
+      1000
+    ],
+    "display_origin_lon_lat": [
+      0.0,
+      0.0
+    ],
+    "conversion": "lon=x/(6378137*pi/180); lat=y/(6378137*pi/180)",
+    "geojson_crs": "OGC:CRS84",
+    "note": "虚构坐标锚点，不代表真实地理位置；计算使用本地米坐标"
+  },
+  "vertical_datum": "synthetic_local",
+  "source": "Entirely authored; no downloaded OSM data included",
+  "license": "CC0-1.0",
+  "counts": {
+    "site": 1,
+    "water": 1,
+    "landslide": 1,
+    "hydraulic_structures": 2,
+    "surface_cover": 2,
+    "roads": 46,
+    "parcels": 16,
+    "buildings": 16,
+    "portals": 32,
+    "access_links": 96,
+    "shelters": 2,
+    "modeling_survey": 1,
+    "network_nodes": 110
+  },
+  "files": [
+    "access_links.geojson",
+    "build_recipes.json",
+    "buildings.geojson",
+    "demand.csv",
+    "hydraulic_structures.geojson",
+    "landslide.geojson",
+    "modeling_survey.geojson",
+    "network.json",
+    "network_nodes.geojson",
+    "parcels.geojson",
+    "population.csv",
+    "portals.geojson",
+    "preview_data.json",
+    "roads.geojson",
+    "sample_checks.json",
+    "scenarios.json",
+    "shelters.geojson",
+    "site.geojson",
+    "surface_cover.geojson",
+    "terrain.asc",
+    "terrain_grid.json",
+    "water.geojson",
+    "water_levels.csv"
+  ],
+  "missing_real_inputs": [
+    "真实地形和高程基准",
+    "实测水位",
+    "实际入口与通行限制",
+    "实测人口和OD",
+    "照片/点云",
+    "地质及滑坡运动参数"
+  ],
+  "ready_for": [
+    "场地导入",
+    "双入口编辑",
+    "固定需求路由",
+    "静态水位增量",
+    "给定滑坡范围的暴露与疏散开发",
+    "规则建筑生成",
+    "用途变更开发"
+  ]
+}

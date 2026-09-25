@@ -1,0 +1,47 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "slide-1",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.006647533,
+              0.003772924
+            ],
+            [
+              0.00880349,
+              0.003772924
+            ],
+            [
+              0.00880349,
+              0.007006859
+            ],
+            [
+              0.006647533,
+              0.007006859
+            ],
+            [
+              0.006647533,
+              0.003772924
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "slide-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "name": "假设滑坡影响范围",
+        "hazard_type": "landslide",
+        "input_type": "authored_extent",
+        "arrival_time_s": null,
+        "description": "用于暴露与疏散开发；未计算真实滑坡发生概率或运动范围"
+      }
+    }
+  ]
+}

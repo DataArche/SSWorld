@@ -1649,6 +1649,173 @@
         "onFinished"
       ]
     },
+    "ParticleEmitter": {
+      "adapter": "particle",
+      "commands": [
+        "burst",
+        "restart",
+        "clear"
+      ],
+      "factory": "createParticleEmitter",
+      "members": {
+        "alphaEnd": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "alphaStart": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "blend": {
+          "note": "alpha | additive | premultiplied; additive for fire/glow, alpha for smoke/rain",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "colorEnd": {
+          "value_type": "color"
+        },
+        "colorStart": {
+          "value_type": "color"
+        },
+        "direction": {
+          "note": "local axis particles leave along, default [0,0,1] (up)",
+          "unit": "scalar",
+          "value_type": "vector3"
+        },
+        "drag": {
+          "note": "per-second velocity damping, 0..10",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "emitting": {
+          "note": "false stops spawning and lets the live particles die; bind it to a State or Timer to switch an effect on and off",
+          "value_type": "boolean"
+        },
+        "gravity": {
+          "note": "m/s2 pulling along -Z; 9.8 for water, ~1 for embers, negative for rising smoke",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "lifetime": {
+          "note": "[min, max] seconds each particle lives",
+          "unit": "scalar",
+          "value_type": "vector2"
+        },
+        "localSpace": {
+          "note": "true makes live particles follow the emitter when it moves",
+          "update_class": "create_only",
+          "value_type": "boolean"
+        },
+        "maxDrawDistance": {
+          "unit": "m",
+          "value_type": "scalar"
+        },
+        "maxParticles": {
+          "note": "hard cap, default 500, max 20000; rate x lifetime.max must fit or the emitter clips",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "opacitySource": {
+          "note": "alpha (default) | luminance - greyscale smoke/glow textures without an alpha channel need luminance",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "parent": {
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "playbackSpeed": {
+          "note": "1 is real time; 0 freezes the simulation (deterministic screenshots)",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "position": {
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "rate": {
+          "note": "particles per second, 0..5000",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "rotation": {
+          "unit": "deg",
+          "value_type": "vector3"
+        },
+        "rotationSpeed": {
+          "note": "[min, max] degrees per second of sprite spin",
+          "unit": "deg",
+          "value_type": "vector2"
+        },
+        "seed": {
+          "note": "0 is random; any other integer replays the same particles",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        },
+        "shape": {
+          "note": "point | sphere | box | cone",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "shapeSize": {
+          "note": "sphere: x is the radius; box: half extents; cone: x is the base radius",
+          "unit": "m",
+          "value_type": "vector3"
+        },
+        "size": {
+          "note": "[at birth, at death] sprite edge length",
+          "unit": "m",
+          "value_type": "vector2"
+        },
+        "sizeVariation": {
+          "note": "0..1 random +/- fraction of the birth size",
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "softness": {
+          "note": "NOT AVAILABLE on this engine build: any value above 0 is refused at compile time (particle_softness_unavailable). The depth fade reaches the engine but produces no visible change on real hardware; keep it 0 and keep the effect away from surfaces it would cut into",
+          "unit": "m",
+          "value_type": "scalar"
+        },
+        "speed": {
+          "note": "[min, max] m/s along direction",
+          "unit": "scalar",
+          "value_type": "vector2"
+        },
+        "spread": {
+          "note": "cone half-angle around direction, 0..180; 180 is a full sphere",
+          "unit": "deg",
+          "value_type": "scalar"
+        },
+        "sprite": {
+          "note": "a Texture id; omit for a solid soft dot. PNG/JPEG only; alpha or greyscale decides opacity, see opacitySource",
+          "update_class": "create_only",
+          "value_type": "object_ref"
+        },
+        "subImageMode": {
+          "note": "random | linear | linearBlend",
+          "update_class": "create_only",
+          "value_type": "string"
+        },
+        "subImages": {
+          "note": "[columns, rows] of a flipbook texture",
+          "update_class": "create_only",
+          "value_type": "vector2"
+        },
+        "visible": {
+          "value_type": "boolean"
+        },
+        "warmup": {
+          "note": "pre-simulate this many seconds on creation so the effect starts full",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "value_type": "scalar"
+        }
+      },
+      "note": "one sprite emitter; particles are unlit, do not collide and do not cast shadows"
+    },
     "PauseAnimation": {
       "adapter": "animation_definition",
       "factory": "createPauseAnimation",
@@ -2090,6 +2257,10 @@
           "value_type": "scalar"
         },
         "settings.motionBlurAmount": {
+          "unit": "scalar",
+          "value_type": "scalar"
+        },
+        "settings.motionBlurTargetFPS": {
           "unit": "scalar",
           "value_type": "scalar"
         },

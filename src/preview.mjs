@@ -1,7 +1,7 @@
 // Local preview server: serves projects, the SSDL browser runtime and the engine pair with the
 // COOP/COEP headers WebGPU + wasm threads need, plus the /__ssdl_dev/version hot-reload endpoint
 // the project page polls. Reuses an already running instance on the same port.
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { createReadStream, existsSync, readdirSync, statSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -9,8 +9,10 @@ import { PROJECTS_ROOT, SSDL_ROOT, PREVIEW_PORT, PACKAGE, PACKAGE_ROOT } from ".
 import { engineStatus, ensureEngine } from "./engine.mjs";
 import { compileProject, CompileError } from "./compile.mjs";
 import { ASSETS_DIR } from "./runtime-support.mjs";
+import { cityEndpoint } from "./city/service.mjs";
 
 const STATUS_ROUTE = "/__ssworld/status";
+const CITY_ROUTE = "/__ssworld/city/";    // page <-> server: read the city model, its runs and (loopback, token) write commands
 const SYNC_ROUTE = "/__ssworld/sync";      // page -> server: status heartbeat + command results; server -> page: pending commands
 const PAGE_ROUTE = "/__ssworld/page";      // tool -> server: last known page status for a project
 const COMMAND_ROUTE = "/__ssworld/command"; // tool -> server: queue a command for the page and wait for its result
@@ -136,12 +138,25 @@ const RUNTIME_FILES = {
   // The catalog projection sits under runtime/generated/ in the repository and is flattened by the packer.
   ...(existsSync(path.join(SSDL_ROOT, "runtime", "generated", "ssdl-builtin-catalog-v1.js"))
     ? { "ssdl-builtin-catalog-v1.js": path.join(SSDL_ROOT, "runtime", "generated", "ssdl-builtin-catalog-v1.js") } : {}),
-  "qtloader.js": path.join(SSDL_ROOT, "engine-support", "qtloader.js"),
-  "integer-codec.js": path.join(SSDL_ROOT, "engine-support", "integer-codec.js"),
-  "expression-runtime.js": path.join(SSDL_ROOT, "engine-support", "expression-runtime.js"),
+  // engine-support/ exists only in the PACKAGED closure; in the repository these three live at their
+  // canonical sources, which is where the packer copies them from. Resolving both means the preview
+  // server runs from the source tree as well as from the package -- without the fallback the page
+  // 404s on qtloader.js and reports "qtLoad is not defined", which reads like a broken engine.
+  // integer-codec.js and expression-runtime.js come from the COMPILER, never from the engine build:
+  // taking them off the engine once made the page run a stale interpreter while every byte-equality
+  // gate stayed green.
+  ...Object.fromEntries(Object.entries({
+    "qtloader.js": ["engine-support/qtloader.js", "examples/.ssdl-native-runtime/qtloader.js"],
+    "integer-codec.js": ["engine-support/integer-codec.js", "compiler/generated/integer-codec.js"],
+    "expression-runtime.js": ["engine-support/expression-runtime.js", "compiler/src/expression-runtime.js"],
+  }).map(([name, candidates]) => {
+    const found = candidates.map((relative) => path.join(SSDL_ROOT, relative)).find((file) => existsSync(file));
+    return [name, found ?? path.join(SSDL_ROOT, candidates[0])];
+  })),
 };
 
 const compileFailures = new Map();
+const TRANSIENT_COMPILE_FAILURES = new Set(["compile_busy", "generated_write_conflict"]);
 
 // Files whose change must NOT reload the page: capture PNGs (ssworld_capture_frame writes one per call, and a
 // reload resets the scene logic) and page backups from template upgrades.
@@ -196,15 +211,19 @@ async function versionEndpoint(query, response) {
         || path.relative(directory, absolute).split(path.sep)[0] === ASSETS_DIR) stamp = Math.max(stamp, statSync(absolute).mtimeMs);
     }
   })(directory);
-  if (!existsSync(generated) || stamp > statSync(generated).mtimeMs) {
+  const stale = () => !existsSync(generated) || stamp > statSync(generated).mtimeMs;
+  if (stale()) {
     const cached = compileFailures.get(directory);
     if (cached && cached.stamp === stamp) return sendJson(response, { ok: false, error: "compile_failed", message: cached.message }, 422);
     try {
-      await compileProject(directory);
+      // Asked again under the compile lock: an ssworld_compile that was already running has
+      // usually just produced this very module.
+      await compileProject(directory, { isStale: stale });
       compileFailures.delete(directory);
     } catch (error) {
       const message = error instanceof CompileError ? error.message : `SSDL compile failed: ${error.message}`;
-      compileFailures.set(directory, { stamp, message });
+      // Contention is not a verdict on the sources; the next poll tries again.
+      if (!TRANSIENT_COMPILE_FAILURES.has(error.diagnostic?.code)) compileFailures.set(directory, { stamp, message });
       return sendJson(response, { ok: false, error: "compile_failed", message }, 422);
     }
   }
@@ -223,6 +242,14 @@ async function handle(request, response) {
   if (route === COMMAND_ROUTE && request.method === "POST") return commandEndpoint(await readBody(request), response);
   if (route === PAGE_ROUTE) return sendJson(response, { ok: true, project: url.searchParams.get("project"), page: pageStatus(url.searchParams.get("project") || "", { client: url.searchParams.get("client") }) });
   if (route === "/__ssdl_dev/version") return versionEndpoint(url.searchParams, response);
+  if (route.startsWith(CITY_ROUTE)) {
+    const body = request.method === "POST" ? await readBody(request) : null;
+    const answer = await cityEndpoint(route.slice(CITY_ROUTE.length), {
+      method: request.method, query: url.searchParams, body,
+      origin: request.headers.origin ?? null, remote: request.socket.remoteAddress ?? null, port: PREVIEW_PORT,
+    });
+    return sendJson(response, answer.value, answer.status);
+  }
   if (route === "/" ) return sendJson(response, { ok: true, service: "ssworld-preview", hint: "open /projects/<name>/index.html" });
   if (route.startsWith("/projects/")) {
     const relative = route.slice("/projects/".length);
@@ -298,8 +325,19 @@ export async function pageCommand(project, kind, params = {}, { port = PREVIEW_P
   return response.json();
 }
 
+// One id per MCP server process, i.e. per agent session. viewer_url carries it, a page opened from that
+// URL folds it into its client id, and a tool call without `client` prefers this session's page over any
+// other browser showing the same project: "the most recently synced visible page" once meant a desktop
+// preview pane answering for the automation browser the agent was actually driving.
+export const SESSION_ID = randomBytes(4).toString("hex");
+
+/** Whether a page client id came from a viewer_url this session handed out. */
+export function isSessionClient(id) {
+  return typeof id === "string" && id.startsWith(`${SESSION_ID}.`);
+}
+
 export function projectUrl(name, port = PREVIEW_PORT) {
-  return `http://127.0.0.1:${port}/projects/${name}/index.html`;
+  return `http://127.0.0.1:${port}/projects/${name}/index.html?session=${SESSION_ID}`;
 }
 
 export async function serveForever(port = PREVIEW_PORT) {

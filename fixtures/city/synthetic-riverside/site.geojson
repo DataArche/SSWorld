@@ -1,0 +1,44 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "site-1",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.0,
+              0.0
+            ],
+            [
+              0.008983153,
+              0.0
+            ],
+            [
+              0.008983153,
+              0.008983153
+            ],
+            [
+              0.0,
+              0.008983153
+            ],
+            [
+              0.0,
+              0.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "site-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "name": "虚构河畔片区",
+        "area_m2": 1000000
+      }
+    }
+  ]
+}

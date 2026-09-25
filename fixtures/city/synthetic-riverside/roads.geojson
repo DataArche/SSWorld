@@ -1,0 +1,1891 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "road-v-100-100",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.000898315,
+            0.000898315
+          ],
+          [
+            0.000898315,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-100-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-100-100",
+        "to_node": "n-100-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-100-300",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.000898315,
+            0.002694946
+          ],
+          [
+            0.000898315,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-100-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-100-300",
+        "to_node": "n-100-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-100-500",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.000898315,
+            0.004491576
+          ],
+          [
+            0.000898315,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-100-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-100-500",
+        "to_node": "n-100-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-100-700",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.000898315,
+            0.006288207
+          ],
+          [
+            0.000898315,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-100-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-100-700",
+        "to_node": "n-100-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-300-100",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.002694946,
+            0.000898315
+          ],
+          [
+            0.002694946,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-300-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-300-100",
+        "to_node": "n-300-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-300-300",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.002694946,
+            0.002694946
+          ],
+          [
+            0.002694946,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-300-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-300-300",
+        "to_node": "n-300-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-300-500",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.002694946,
+            0.004491576
+          ],
+          [
+            0.002694946,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-300-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-300-500",
+        "to_node": "n-300-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-300-700",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.002694946,
+            0.006288207
+          ],
+          [
+            0.002694946,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-300-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-300-700",
+        "to_node": "n-300-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-400-100",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003593261,
+            0.000898315
+          ],
+          [
+            0.003593261,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-400-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-400-100",
+        "to_node": "n-400-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.014,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-400-300",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003593261,
+            0.002694946
+          ],
+          [
+            0.003593261,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-400-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-400-300",
+        "to_node": "n-400-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.014,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          13,
+          10.6
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-400-500",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003593261,
+            0.004491576
+          ],
+          [
+            0.003593261,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-400-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-400-500",
+        "to_node": "n-400-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.014,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-400-700",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003593261,
+            0.006288207
+          ],
+          [
+            0.003593261,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-400-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-400-700",
+        "to_node": "n-400-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.014,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          13,
+          10.6
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-600-100",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005389892,
+            0.000898315
+          ],
+          [
+            0.005389892,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-600-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-600-100",
+        "to_node": "n-600-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.014,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-600-300",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005389892,
+            0.002694946
+          ],
+          [
+            0.005389892,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-600-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-600-300",
+        "to_node": "n-600-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.014,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          13,
+          10.6
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-600-500",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005389892,
+            0.004491576
+          ],
+          [
+            0.005389892,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-600-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-600-500",
+        "to_node": "n-600-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.014,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          13
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-600-700",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005389892,
+            0.006288207
+          ],
+          [
+            0.005389892,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-600-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-600-700",
+        "to_node": "n-600-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.014,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          13,
+          10.6
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-700-100",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.006288207,
+            0.000898315
+          ],
+          [
+            0.006288207,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-700-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-700-100",
+        "to_node": "n-700-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-700-300",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.006288207,
+            0.002694946
+          ],
+          [
+            0.006288207,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-700-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-700-300",
+        "to_node": "n-700-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-700-500",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.006288207,
+            0.004491576
+          ],
+          [
+            0.006288207,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-700-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-700-500",
+        "to_node": "n-700-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-700-700",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.006288207,
+            0.006288207
+          ],
+          [
+            0.006288207,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-700-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-700-700",
+        "to_node": "n-700-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-900-100",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.008084838,
+            0.000898315
+          ],
+          [
+            0.008084838,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-900-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-900-100",
+        "to_node": "n-900-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          20.5,
+          20.5
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-900-300",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.008084838,
+            0.002694946
+          ],
+          [
+            0.008084838,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-900-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-900-300",
+        "to_node": "n-900-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          20.5,
+          20.5
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-900-500",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.008084838,
+            0.004491576
+          ],
+          [
+            0.008084838,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-900-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-900-500",
+        "to_node": "n-900-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          20.5,
+          20.5
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-v-900-700",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.008084838,
+            0.006288207
+          ],
+          [
+            0.008084838,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-v-900-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-900-700",
+        "to_node": "n-900-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          20.5,
+          20.5
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-100-100",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.000898315,
+            0.000898315
+          ],
+          [
+            0.002694946,
+            0.000898315
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-100-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-100-100",
+        "to_node": "n-300-100",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-300-100",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.002694946,
+            0.000898315
+          ],
+          [
+            0.003593261,
+            0.000898315
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-300-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-300-100",
+        "to_node": "n-400-100",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 100.01,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 14,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          10.6
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-600-100",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005389892,
+            0.000898315
+          ],
+          [
+            0.006288207,
+            0.000898315
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-600-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-600-100",
+        "to_node": "n-700-100",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 100.01,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 14,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-700-100",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.006288207,
+            0.000898315
+          ],
+          [
+            0.008084838,
+            0.000898315
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-700-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-700-100",
+        "to_node": "n-900-100",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.181,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          20.5
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-100-300",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.000898315,
+            0.002694946
+          ],
+          [
+            0.002694946,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-100-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-100-300",
+        "to_node": "n-300-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-300-300",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.002694946,
+            0.002694946
+          ],
+          [
+            0.003593261,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-300-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-300-300",
+        "to_node": "n-400-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 100.005,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 14,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          13
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-400-300",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003593261,
+            0.002694946
+          ],
+          [
+            0.005389892,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-400-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-400-300",
+        "to_node": "n-600-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": true,
+        "elevation_profile_m": [
+          13,
+          13
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-600-300",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005389892,
+            0.002694946
+          ],
+          [
+            0.006288207,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-600-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-600-300",
+        "to_node": "n-700-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 100.005,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 14,
+        "bridge": false,
+        "elevation_profile_m": [
+          13,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-700-300",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.006288207,
+            0.002694946
+          ],
+          [
+            0.008084838,
+            0.002694946
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-700-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-700-300",
+        "to_node": "n-900-300",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.181,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          20.5
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-100-500",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.000898315,
+            0.004491576
+          ],
+          [
+            0.002694946,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-100-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-100-500",
+        "to_node": "n-300-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-300-500",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.002694946,
+            0.004491576
+          ],
+          [
+            0.003593261,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-300-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-300-500",
+        "to_node": "n-400-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 100.01,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 14,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          10.6
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-600-500",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005389892,
+            0.004491576
+          ],
+          [
+            0.006288207,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-600-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-600-500",
+        "to_node": "n-700-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 100.01,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 14,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-700-500",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.006288207,
+            0.004491576
+          ],
+          [
+            0.008084838,
+            0.004491576
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-700-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-700-500",
+        "to_node": "n-900-500",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.181,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          20.5
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-100-700",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.000898315,
+            0.006288207
+          ],
+          [
+            0.002694946,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-100-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-100-700",
+        "to_node": "n-300-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-300-700",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.002694946,
+            0.006288207
+          ],
+          [
+            0.003593261,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-300-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-300-700",
+        "to_node": "n-400-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 100.005,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 14,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          13
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-400-700",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.003593261,
+            0.006288207
+          ],
+          [
+            0.005389892,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-400-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-400-700",
+        "to_node": "n-600-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": true,
+        "elevation_profile_m": [
+          13,
+          13
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-600-700",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005389892,
+            0.006288207
+          ],
+          [
+            0.006288207,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-600-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-600-700",
+        "to_node": "n-700-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 100.005,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 14,
+        "bridge": false,
+        "elevation_profile_m": [
+          13,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-700-700",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.006288207,
+            0.006288207
+          ],
+          [
+            0.008084838,
+            0.006288207
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-700-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-700-700",
+        "to_node": "n-900-700",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.181,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          20.5
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-100-900",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.000898315,
+            0.008084838
+          ],
+          [
+            0.002694946,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-100-900",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-100-900",
+        "to_node": "n-300-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.0,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-300-900",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.002694946,
+            0.008084838
+          ],
+          [
+            0.003593261,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-300-900",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-300-900",
+        "to_node": "n-400-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 100.01,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 14,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          10.6
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-600-900",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.005389892,
+            0.008084838
+          ],
+          [
+            0.006288207,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-600-900",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-600-900",
+        "to_node": "n-700-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 100.01,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 14,
+        "bridge": false,
+        "elevation_profile_m": [
+          10.6,
+          12.0
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "road-h-700-900",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.006288207,
+            0.008084838
+          ],
+          [
+            0.008084838,
+            0.008084838
+          ]
+        ]
+      },
+      "properties": {
+        "id": "road-h-700-900",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "from_node": "n-700-900",
+        "to_node": "n-900-900",
+        "bidirectional": true,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "length_m": 200.181,
+        "walk_speed_mps": 1.2,
+        "car_speed_mps": 8.33,
+        "walk_capacity_person_s": 2.0,
+        "car_capacity_vehicle_s": 0.3,
+        "storage_vehicles": 28,
+        "bridge": false,
+        "elevation_profile_m": [
+          12.0,
+          20.5
+        ]
+      }
+    }
+  ]
+}

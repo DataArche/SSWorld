@@ -4,7 +4,7 @@ import parser from "../generated/parser-0.3.cjs";
 import expressionRuntime from "./expression-runtime.js";
 import propertyRegistry from "../generated/property-registry.js";
 import { emitSceneModule } from "./scene-module-emitter.mjs";
-import { expandSourceProject, FRAGMENT_PARAMS_ID, FRAGMENT_ROOT_ID } from "./source-project-0.3.mjs";
+import { expandSourceProject, FRAGMENT_PARAMS_ID, FRAGMENT_ROOT_ID, SOURCE_LIMITS } from "./source-project-0.3.mjs";
 import { validateGeo } from "./geo-0.3.mjs";
 
 const catalog = JSON.parse(readFileSync(new URL("../generated/builtin-catalog-v1.json", import.meta.url), "utf8"));
@@ -76,7 +76,70 @@ function literalValue(ast) {
   if (ast.kind === "negative" && ast.arg.kind === "number") return -Number(ast.arg.token);
   if (ast.kind === "array") return ast.values.map(literalValue);
   if (ast.kind === "identifier") return ast.value;
-  fail("constant_required", ast);
+  fail("constant_required", ast, "a constant is required here: a number, string, bool or list of them, not an expression or a reference");
+}
+
+/** literalValue with the reason a constant is required at this particular place. */
+function constantValue(ast, reason) {
+  try {
+    return literalValue(ast);
+  } catch (error) {
+    if (error.code === "constant_required") fail("constant_required", ast, reason);
+    throw error;
+  }
+}
+
+// Edit distance where swapping two neighbouring letters ("widht") is one edit, not two.
+function editDistance(left, right) {
+  const rows = [Array.from({ length: right.length + 1 }, (_, index) => index)];
+  for (let i = 1; i <= left.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= right.length; j++) {
+      row[j] = Math.min(rows[i - 1][j] + 1, row[j - 1] + 1, rows[i - 1][j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && left[i - 1] === right[j - 2] && left[i - 2] === right[j - 1]) row[j] = Math.min(row[j], rows[i - 2][j - 2] + 1);
+    }
+    rows.push(row);
+  }
+  return rows[left.length][right.length];
+}
+
+/** "; did you mean 'height'?" when one of `candidates` is a likely misspelling of `name`, else "". */
+function closestName(candidates, name) {
+  let best = null;
+  for (const candidate of candidates) {
+    const distance = editDistance(name.toLowerCase(), candidate.toLowerCase());
+    if (distance <= Math.max(1, Math.floor(name.length / 3)) && (!best || distance < best.distance)) best = { candidate, distance };
+  }
+  return best ? `; did you mean '${best.candidate}'?` : "";
+}
+
+function closestMember(symbols, owner, member) {
+  const prefix = `${owner}.`;
+  return closestName([...symbols.types.keys()].filter((key) => key.startsWith(prefix)).map((key) => key.slice(prefix.length)), member);
+}
+
+// Why a reference names nothing, in terms an author can act on. The bare key ("lamp.tod") says
+// neither that the id is a component instance nor that the member is a parameter, and both cost
+// real sessions: the fix is different in each case.
+function unknownReferenceDetail(symbols, segments) {
+  const text = segments.join(".");
+  if (segments.length === 1) {
+    return `'${text}' is not a property declared on '${symbols.rootId}'${closestMember(symbols, symbols.rootId, text)}; a declared property is read by its bare name, anything else as <id>.<member>`;
+  }
+  const [head, member] = segments;
+  const node = symbols.nodes.get(head);
+  if (!node) {
+    const inner = [...symbols.nodes.keys()].find((id) => id.endsWith(`__${head}`));
+    if (inner) {
+      return `'${text}': '${head}' is a node inside the component instance '${inner.slice(0, -head.length - 2)}', and a component's inner nodes cannot be read from outside it; pass the value in through a property the component declares instead`;
+    }
+    return `'${text}': there is no node '${head}' in this scene`;
+  }
+  const origin = node.instance_chain?.at(-1);
+  if (origin?.instance_id === head) {
+    return `'${text}': '${head}' is an instance of ${origin.file}, and the properties a component declares are parameters used inside it, not members that can be read back through the instance id; read the value from where it comes from instead`;
+  }
+  return `'${text}': ${node.type} '${head}' has no readable member '${member}'${closestMember(symbols, head, member)}`;
 }
 
 function typeSpec(valueType, unit = null) {
@@ -157,16 +220,16 @@ function compileExpression(ast, expected, symbols, dependencies) {
     let owner, property;
     if (segments.length === 1) {
       const declaration = symbols.declarations.get(segments[0]);
-      if (!declaration) fail("unknown_reference", ast, segments[0]);
+      if (!declaration) fail("unknown_reference", ast, unknownReferenceDetail(symbols, segments));
       owner = symbols.rootId;
       property = declaration.name;
     } else if (segments.length >= 2 && symbols.nodes.has(segments[0])) {
       owner = segments[0]; property = segments.slice(1).join(".");
       property = runtimeProperty(symbols.nodes.get(owner).type, property);
-    } else fail("unknown_reference", ast, segments.join("."));
+    } else fail("unknown_reference", ast, unknownReferenceDetail(symbols, segments));
     const key = `${owner}.${property}`;
     const actual = symbols.types.get(key);
-    if (!actual) fail("unknown_reference", ast, key);
+    if (!actual) fail("unknown_reference", ast, unknownReferenceDetail(symbols, segments));
     if (actual.value_type !== expected.value_type && !([actual.value_type, expected.value_type].every(type => ["string","color"].includes(type)))) fail("type_mismatch", ast, key);
     dependencies.add(key);
     return { ref: { root: "node", segments: [owner, property], channel: "logical" } };
@@ -1499,7 +1562,7 @@ function compileDocument(document, source, options = {}) {
     const descriptor = catalog.property_types[declaration.type];
     if (!descriptor || !declaration.value) fail("property_declaration_invalid", declaration);
     const expected = typeSpec(descriptor.value_type, descriptor.unit);
-    const value = literalValue(declaration.value);
+    const value = constantValue(declaration.value, `property '${declaration.name}' must start from a constant, not an expression: write the expression where the value is used (for example visible: <expression>), or set the property at run time from the page or logic`);
     encodeLiteral(value, expected, declaration.value);
     declarations.set(declaration.name, { name: declaration.name, expected, value });
     symbols.types.set(`${rootId}.${declaration.name}`, expected);
@@ -1570,7 +1633,10 @@ function compileDocument(document, source, options = {}) {
     for (const [name, member] of fields) {
       if (name === "id") continue;
       const descriptor = component.members[name];
-      if (!descriptor) fail("unknown_property", member);
+      if (!descriptor) {
+        const placement = ["x", "y", "z"].includes(name) && component.members.position ? "; place a node with position: [x, y, z]" : "";
+        fail("unknown_property", member, `${child.type} has no member '${name}'${closestName(Object.keys(component.members), name)}${placement}`);
+      }
       if (descriptor.read_only) fail("readonly_property", member);
       if (descriptor.value_type === "object_ref") {
         const target = literalValue(member.value);
@@ -1581,7 +1647,9 @@ function compileDocument(document, source, options = {}) {
       if (["vector3_list", "ring_list", "asset_ref", "scalar_list"].includes(descriptor.value_type)) {
         // Create-only constants: no bindings, no expressions. Point lists are metres in author order;
         // asset references are project-relative paths resolved against the source project's asset_refs.
-        if (containsReference(member.value)) fail("constant_required", member.value);
+        if (containsReference(member.value)) {
+          fail("constant_required", member.value, `${child.type}.${name} is fixed when the node is created, so it takes literal values only, not references or expressions; generate the numbers into the source instead`);
+        }
         const raw = literalValue(member.value);
         let value;
         if (descriptor.value_type === "scalar_list") {
@@ -1721,7 +1789,9 @@ function compileDocument(document, source, options = {}) {
   }
   for (const { child, fields, id } of rawNodes.filter((item) => item.child.type === "Binding")) {
     const allowed = new Set(["id", "target", "property", "value", "when", "restoreMode"]);
-    for (const name of fields.keys()) if (!allowed.has(name)) fail("unknown_property", fields.get(name));
+    for (const name of fields.keys()) {
+      if (!allowed.has(name)) fail("unknown_property", fields.get(name), `Binding has no member '${name}'; it takes ${[...allowed].join(", ")}`);
+    }
     for (const name of ["target", "property", "value"]) if (!fields.has(name)) fail("required_property", child, `Binding.${name} is required`);
     const target = literalValue(fields.get("target").value);
     const property = literalValue(fields.get("property").value);
@@ -1923,7 +1993,7 @@ function compileDocument(document, source, options = {}) {
 
 export function compileSceneModule(source, options = {}) {
   if (typeof source !== "string" || !source.length) fail("invalid_source");
-  if (Buffer.byteLength(source) > 1024 * 1024) fail("source_budget");
+  if (Buffer.byteLength(source) > SOURCE_LIMITS.file_bytes) fail("source_budget");
   let document;
   try { document = parser.parse(source, { grammarSource: options.sourceName || "scene.ssdl" }); }
   catch (error) { fail(error.code || "syntax_error", error, error.message); }
@@ -1949,4 +2019,4 @@ export function compileSceneModuleProject(project, options = {}) {
   return compileDocument(expanded.document, entry.content, { ...shared, fragments });
 }
 
-export { PROFILE, PROFILE_DIGEST };
+export { PROFILE, PROFILE_DIGEST, SOURCE_LIMITS };

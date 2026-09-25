@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>山水都会 · Skyline Garden · SSWorld</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="/engine/SSmap.js"></script>
+  <script src="/runtime/qtloader.js"></script>
+  <script src="/runtime/integer-codec.js"></script>
+  <script src="/runtime/expression-runtime.js"></script>
+  <script src="/runtime/ssdl-builtin-catalog-v1.js"></script>
+  <script src="/runtime/ssdl-builtins.js"></script>
+</head>
+<body data-runtime="loading">
+  <div class="page-noise" aria-hidden="true"></div>
+  <header class="masthead">
+    <a class="brand" href="#showcase"><span class="brand-mark">SS</span><span>SSWorld</span></a>
+    <div class="masthead-center">SCENE · MODULE · RUNTIME</div>
+    <div class="runtime-chip"><span class="signal"></span><span id="status">SSEngine WebGPU · RIGHT-HANDED / Z-UP</span></div>
+  </header>
+  <main id="showcase" class="showcase">
+    <section class="brief">
+      <div>
+        <p class="kicker">SSWORLD / SCENEMODULE 1</p>
+        <h1>山水都会 · Skyline Garden</h1>
+        <p class="lead">Everything you see is declared in <code>scene.ssdl</code>. Compile and the page hot reloads the
+          next generation in place; the runtime keeps the previous one alive if the new one fails.</p>
+      </div>
+      <div class="principles">
+        <article><span class="principle-index">01</span><div><strong>Declare, do not script</strong><p>Geometry, materials, lights, animation and logic live in SSDL; the page only mounts them.</p></div></article>
+        <article><span class="principle-index">02</span><div><strong>Right-handed, Z up</strong><p>Local metres around the project anchor: +x east, +y north, +z up.</p></div></article>
+        <article><span class="principle-index">03</span><div><strong>Measure, do not squint</strong><p>Ask the engine for geometry, environment and geography readbacks instead of guessing from a screenshot.</p></div></article>
+      </div>
+      <div class="brief-footer">
+        <div><span id="generation">—</span><small>generation</small></div>
+        <div><span id="last-batch">—</span><small>last batch</small></div>
+        <div><span>Z-UP</span><small>local frame</small></div>
+      </div>
+    </section>
+    <section class="viewport-card">
+      <div class="viewport-heading"><div><p class="kicker">SSWORLD PREVIEW</p><h2>山水都会 · Skyline Garden</h2></div><div class="scene-badge"><span></span>live scene</div></div>
+      <!-- Nothing may cover the canvas: an overlay swallows the taps TapHandlers need, so the only
+           child besides #screen is the vignette, and it is pointer-events: none. -->
+      <div class="viewport"><div id="screen" aria-label="SSEngine WebGPU scene"></div><div class="scene-vignette" aria-hidden="true"></div></div>
+      <div class="control-panel">
+        <article class="view-note"><div class="section-label"><span>01 / SCENE</span><b>state</b></div><h3 id="logical-state">loading</h3><p id="hint">Connecting to SSEngine WebGPU…</p>
+          <div class="time-control">
+            <label for="time-slider">Time of day <output id="time-value" for="time-slider">—</output></label>
+            <input id="time-slider" type="range" min="0" max="1440" step="1" value="840" aria-label="time of day, 0 to 24 hours" disabled>
+            <span class="time-date" id="time-date">waiting for the scene…</span>
+          </div>
+        </article>
+        <article class="view-note"><div class="section-label"><span>02 / WORKFLOW</span><b>hot reload</b></div><h3>Edit &amp; compile</h3><p>Write <code>scene.ssdl</code>, compile, and this page adopts the new generation without losing the engine.</p></article>
+      </div>
+    </section>
+  </main>
+  <footer class="footer"><span>SSEngine · SSDL scene module</span><span>SSWORLD PREVIEW</span></footer>
+
+
+  <!-- Time of day, 00:00-24:00. The slider drives the scene's own declared properties, never the
+       engine directly: sceneDateTime (a string an Environment solves the sun from) and/or timeOfDay
+       (hours). A scene that declares neither leaves the slider disabled and says what to add. -->
+  <script>
+    (() => {
+      const slider = document.getElementById("time-slider");
+      const value = document.getElementById("time-value");
+      const date = document.getElementById("time-date");
+      const RECIPE = 'add `property string sceneDateTime: "2026-06-21T14:00:00+08:00"` and `Environment { dateTime: main.sceneDateTime; timeScale: 0 }` to scene.ssdl';
+      // The scene owns the calendar day and the UTC offset; the slider only moves the clock inside it.
+      let day = null, offset = "+08:00", driver = null, pending = null, busy = false;
+      const clock = (minutes) => String(Math.floor(minutes / 60)).padStart(2, "0") + ":" + String(minutes % 60).padStart(2, "0");
+
+      function adopt() {
+        let logic = null;
+        try { logic = window.SSWorld?.logical ? window.SSWorld.logical.read() : null; } catch (_) { logic = null; }
+        const properties = logic?.properties;
+        if (!properties) return false;
+        const iso = typeof properties.sceneDateTime === "string" ? properties.sceneDateTime : null;
+        const match = iso && /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::\d{2})?(Z|[+-]\d{2}:\d{2})?$/.exec(iso);
+        if (match) {
+          day = match[1];
+          offset = match[4] === "Z" ? "+00:00" : (match[4] || "+08:00");
+          slider.value = String(Number(match[2]) * 60 + Number(match[3]));
+          driver = "sceneDateTime";
+        } else if (typeof properties.timeOfDay === "number") {
+          slider.value = String(Math.round(Math.min(24, Math.max(0, properties.timeOfDay)) * 60));
+          driver = "timeOfDay";
+        } else {
+          slider.disabled = true;
+          value.textContent = "n/a";
+          date.textContent = "this scene has no time property — " + RECIPE;
+          return true;
+        }
+        slider.disabled = false;
+        value.textContent = clock(Number(slider.value));
+        date.textContent = day ? `${day} · UTC${offset}` : "hours, local solar day";
+        return true;
+      }
+
+      async function flush() {
+        if (busy || pending === null) return;
+        if (!window.SSWorld?.logical) { setTimeout(flush, 120); return; }
+        const minutes = pending; pending = null; busy = true;
+        try {
+          const writes = {};
+          // 24:00 is the next midnight, so it belongs to the following day.
+          if (driver === "sceneDateTime" && day) {
+            const rolled = minutes >= 1440 ? new Date(`${day}T00:00:00Z`).getTime() + 86400000 : null;
+            const isoDay = rolled ? new Date(rolled).toISOString().slice(0, 10) : day;
+            writes.sceneDateTime = `${isoDay}T${clock(minutes % 1440)}:00${offset}`;
+          }
+          const logic = window.SSWorld.logical.read();
+          if (typeof logic?.properties?.timeOfDay === "number") writes.timeOfDay = minutes / 60;
+          if (Object.keys(writes).length) await window.SSWorld.logical.writeBatch(writes);
+        } catch (error) {
+          date.textContent = `time write refused: ${error.message}`;
+        } finally {
+          busy = false;
+          if (pending !== null) requestAnimationFrame(flush);
+        }
+      }
+
+      const queue = () => { pending = Number(slider.value); value.textContent = clock(pending % 1440 || (pending === 1440 ? 0 : pending)); if (pending === 1440) value.textContent = "24:00"; requestAnimationFrame(flush); };
+      slider.addEventListener("input", queue);
+      slider.addEventListener("change", () => { pending = Number(slider.value); flush(); });
+      // The generation is not mounted when this runs, and a hot reload brings a new one: keep looking.
+      const poll = setInterval(() => { if (adopt() && driver) clearInterval(poll); }, 300);
+      window.addEventListener("beforeunload", () => clearInterval(poll));
+    })();
+  </script>
+
+  <script type="module">
+    import { SceneModuleHost } from "/runtime/scene-module-host.mjs";
+    import { SceneRuntimeBridge } from "/runtime/scene-runtime-bridge.mjs";
+
+    const moduleUrl = new URL("./scene.mjs", import.meta.url).href;
+    const manifestUrl = new URL("./showcase.manifest.json", import.meta.url).href;
+    let engineConfig;
+    let host;
+    let currentBridge = null;
+    let watchToken = null;
+    let loadPromise = null;
+    let pollInFlight = false;
+
+    const ui = {
+      state: document.getElementById("logical-state"),
+      generation: document.getElementById("generation"),
+      batch: document.getElementById("last-batch"),
+      hint: document.getElementById("hint"),
+      logicalLine: null, // installed by scene.mjs once a generation is mounted
+    };
+
+    // Runtime evidence for the ssworld MCP: errors since the last generation load, plus a status
+    // heartbeat the preview server keeps per project (POST /__ssworld/sync). Commands queued by
+    // ssworld_capture_frame arrive in the sync response and their results go back on the next sync.
+    const errors = [];
+    const client = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    // Published so a driver can address THIS page: the preview server otherwise answers with the most
+    // recently synced visible page, which is whichever browser the author happens to have open, and a
+    // probe then reads a window it never drove.
+    window.SSWorldPreviewClient = client;
+    let pendingResults = [];
+    function noteError(kind, message) {
+      const text = String(message).slice(0, 500);
+      const last = errors[errors.length - 1];
+      // A binding that fails on every frame repeats one message; count it instead of flooding the list.
+      if (last && last.kind === kind && last.message === text) { last.repeats = (last.repeats || 1) + 1; last.at = Date.now(); return; }
+      if (errors.length >= 20) errors.shift();
+      errors.push({ kind, message: text, at: Date.now() });
+    }
+    window.addEventListener("error", (event) => noteError("error", event.error?.message || event.message));
+    window.addEventListener("unhandledrejection", (event) => noteError("unhandledrejection", event.reason?.message || event.reason));
+    const consoleError = console.error.bind(console);
+    console.error = (...args) => { noteError("console.error", args.map((item) => item?.message || item).join(" ")); consoleError(...args); };
+
+    function pageStatus() {
+      return {
+        state: document.body.dataset.runtime,
+        generation: ui.generation.textContent,
+        last_batch: ui.batch.textContent,
+        hint: ui.hint.textContent,
+        status_line: document.getElementById("status").textContent,
+        engine_ready: Boolean(window.GlobalViewer),
+        errors: errors.slice(),
+        visibility: document.visibilityState,
+        client,
+        user_agent: navigator.userAgent,
+        canvas: (() => { const c = renderCanvas(); return c ? { width: c.width, height: c.height } : null; })(),
+        device_pixel_ratio: window.devicePixelRatio || 1,
+        // Which compiled scene the page is actually running (from the SceneModuleHost receipt).
+        loaded: window.SSWorld?.receipt ? { generation: window.SSWorld.receipt.generation ?? null, scene_ir_digest: window.SSWorld.receipt.scene_ir_digest ?? null } : null,
+        // Declared scene properties / State.when / host call errors, as the running generation holds them.
+        logic: (() => { try { return window.SSWorld?.logical ? window.SSWorld.logical.read() : null; } catch (error) { return { error: error.message }; } })(),
+      };
+    }
+
+    function cameraState() {
+      try {
+        const camera = window.GlobalViewer?.scene?.mainCamera;
+        if (!camera) return null;
+        const controller = camera.cameraController();
+        const carto = controller.positionCartographic;
+        const degrees = carto && typeof carto.toDegrees === "function" ? carto.toDegrees() : null;
+        // The controller reports heading/pitch/roll in radians; authors think in CameraView degrees.
+        const toDeg = (value) => Number.isFinite(value) ? value * 180 / Math.PI : null;
+        const wrap = (deg, low) => deg === null ? null : ((deg - low) % 360 + 360) % 360 + low;
+        const out = {
+          longitude: degrees?.longitude ?? degrees?.lon ?? null, latitude: degrees?.latitude ?? degrees?.lat ?? null,
+          height: degrees?.height ?? carto?.height ?? null,
+          heading: wrap(toDeg(controller.heading), 0), pitch: wrap(toDeg(controller.pitch), -180), roll: wrap(toDeg(controller.roll), -180),
+          fov: camera.fieldOfView, near_plane: camera.nearPlane, far_plane: camera.farPlane,
+          units: "degrees; heading 0 = north clockwise, pitch negative = down",
+        };
+        for (const handle of [degrees, carto]) if (handle && typeof handle.delete === "function") handle.delete();
+        return out;
+      } catch (error) { return { error: error.message }; }
+    }
+
+    // saveImage2Base64 resolves a wasm heap pointer to a QByteArray holding base64 PNG text; the
+    // buffer only lives inside the future's callback, so the text is copied out right there.
+    function awaitNativeFuture(future, timeoutMs, read) {
+      return new Promise((resolve) => {
+        let settled = false;
+        const finish = (outcome) => { if (!settled) { settled = true; resolve(outcome); } };
+        setTimeout(() => finish({ timedOut: true }), timeoutMs);
+        try {
+          future.then((pointer) => {
+            try { finish({ value: read(pointer) }); } catch (error) { finish({ failed: error.message }); }
+          });
+        } catch (error) { finish({ failed: error.message }); }
+      });
+    }
+    function readByteArrayText(S, pointer) {
+      const address = typeof pointer === "bigint" ? Number(pointer) : pointer;
+      if (!Number.isSafeInteger(address) || address <= 0) return null;
+      const array = S.ByteArray.fromPtr(address);
+      const typed = array && typeof array.data === "function" ? array.data() : null;
+      return typed && typed.length ? new TextDecoder().decode(new Uint8Array(typed)) : null;
+    }
+    // Structured look of a frame so an agent without vision can still reason about composition:
+    // luma percentiles, exposure tails, colour-class coverage overall and per 3x3 region, top colours.
+    function colorClass(r, g, b, luma) {
+      const max = Math.max(r, g, b), min = Math.min(r, g, b), sat = max ? (max - min) / max : 0;
+      if (luma > 200 && sat < 0.18) return "white";
+      if (luma < 40) return "dark";
+      if (sat < 0.15) return "neutral";
+      if (g >= r && g >= b && g - Math.max(r, b) > 12) return "green";
+      if (b >= r && b >= g && b - Math.max(r, g) > 12) return "blue";
+      if (r >= g && r >= b && r - Math.max(g, b) > 12) return r > 150 && g > 90 && b < 90 ? "yellow" : "red";
+      return "other";
+    }
+    const CLASSES = ["green", "blue", "white", "neutral", "dark", "red", "yellow", "other"];
+    async function pixelStats(dataUrl) {
+      const image = new Image();
+      await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(new Error("captured PNG could not be decoded")); image.src = dataUrl; });
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.drawImage(image, 0, 0);
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+      const width = canvas.width, height = canvas.height, total = width * height;
+      const colors = new Set();
+      const histogram = new Uint32Array(256);
+      const quantized = new Map();
+      const classCount = Object.fromEntries(CLASSES.map((name) => [name, 0]));
+      const regions = Array.from({ length: 9 }, () => ({ sum: [0, 0, 0], count: 0, classes: Object.fromEntries(CLASSES.map((name) => [name, 0])) }));
+      let nonBlack = 0, sum = 0, under = 0, over = 0;
+      for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const luma = (r * 299 + g * 587 + b * 114) / 1000;
+        sum += luma; histogram[Math.min(255, Math.round(luma))] += 1;
+        if (luma > 8) nonBlack += 1;
+        if (luma < 16) under += 1;
+        if (luma > 240) over += 1;
+        if (colors.size < 65536) colors.add((r << 16) | (g << 8) | b);
+        const q = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+        quantized.set(q, (quantized.get(q) || 0) + 1);
+        const cls = colorClass(r, g, b, luma);
+        classCount[cls] += 1;
+        const region = regions[Math.min(2, Math.floor((p / width) * 3 / height)) * 3 + Math.min(2, Math.floor((p % width) * 3 / width))];
+        region.sum[0] += r; region.sum[1] += g; region.sum[2] += b; region.count += 1; region.classes[cls] += 1;
+      }
+      const percentile = (q) => { let acc = 0; const target = total * q; for (let v = 0; v < 256; v += 1) { acc += histogram[v]; if (acc >= target) return v; } return 255; };
+      const share = (n, d) => Number((n / (d || 1)).toFixed(3));
+      const colormap = [...quantized.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([q, n]) => ({
+        rgb: "#" + [(q >> 8) & 15, (q >> 4) & 15, q & 15].map((v) => (v * 17).toString(16).padStart(2, "0")).join(""), share: share(n, total) }));
+      return {
+        width, height, distinct_colors: colors.size, non_black_ratio: nonBlack / total,
+        overexposed_ratio: over / total, under_exposed_ratio: share(under, total), over_exposed_ratio: share(over, total),
+        mean_luma: sum / total, luma: { p10: percentile(0.1), p50: percentile(0.5), p90: percentile(0.9) },
+        coverage: Object.fromEntries(CLASSES.map((name) => [name, share(classCount[name], total)])),
+        regions: { layout: "3x3 row-major, top-left first", cells: regions.map((region) => ({
+          mean_rgb: region.sum.map((v) => Math.round(v / (region.count || 1))),
+          ...Object.fromEntries(CLASSES.filter((name) => region.classes[name]).map((name) => [name, share(region.classes[name], region.count)])) })) },
+        colormap_top: colormap,
+      };
+    }
+    // Wait until the scene logic satisfies a condition ({state, equals?} or {property, equals? | min?/max?})
+    // so a capture can show a transient game state without editing initial values in the sources.
+    async function awaitLogic(spec, timeoutMs) {
+      const budget = Math.min(Math.max(Number(timeoutMs) || 5000, 0), 60000);
+      const started = Date.now();
+      const describe = spec.state !== undefined ? `State '${spec.state}' === ${JSON.stringify(spec.equals ?? true)}`
+        : `property '${spec.property}' ${spec.equals !== undefined ? `=== ${JSON.stringify(spec.equals)}` : `in [${spec.min ?? "-inf"}, ${spec.max ?? "+inf"}]`}`;
+      const fail = (code, reason, extra = {}) => Object.assign(new Error(`await ${describe}: ${reason}`), { code, ...extra });
+      for (;;) {
+        const logic = window.SSWorld?.logical ? window.SSWorld.logical.read() : null;
+        if (logic) {
+          if (spec.state !== undefined) {
+            if (!(spec.state in (logic.states || {}))) throw fail("await_invalid", `no such State (known: ${Object.keys(logic.states || {}).join(", ") || "none"})`);
+            if (logic.states[spec.state] === (spec.equals ?? true)) return { satisfied: true, waited_ms: Date.now() - started, condition: describe };
+          } else if (spec.property !== undefined) {
+            if (!(spec.property in (logic.properties || {}))) throw fail("await_invalid", `no such declared property (known: ${Object.keys(logic.properties || {}).join(", ") || "none"})`);
+            const value = logic.properties[spec.property];
+            const hit = spec.equals !== undefined ? JSON.stringify(value) === JSON.stringify(spec.equals)
+              : (spec.min === undefined || Number(value) >= spec.min) && (spec.max === undefined || Number(value) <= spec.max);
+            if (hit) return { satisfied: true, waited_ms: Date.now() - started, condition: describe };
+          } else throw fail("await_invalid", "needs state or property");
+        }
+        if (Date.now() - started >= budget) throw fail("await_timeout", `not satisfied within ${budget} ms`, { logic });
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      }
+    }
+
+    async function captureFrame(params = {}) {
+      const S = engineConfig;
+      if (!window.GlobalViewer || typeof S?.saveImage2Base64 !== "function" || !S?.ByteArray?.fromPtr) throw new Error("engine is not ready for capture");
+      const width = Math.min(Math.max(Math.trunc(params.width) || 960, 64), 4096);
+      const height = Math.min(Math.max(Math.trunc(params.height) || Math.round(width * 9 / 16), 64), 4096);
+      const awaited = params.await && typeof params.await === "object" ? await awaitLogic(params.await, params.await.timeout_ms) : null;
+      if (params.settle_ms) await new Promise((resolve) => setTimeout(resolve, Math.min(params.settle_ms, 10000)));
+      let last = "capture produced no image";
+      // The readback of a large scene takes much longer than a small one; the caller's timeout_ms is
+      // the budget for it, and attempts stop when that budget is gone rather than after a fixed count.
+      const readbackMs = Math.min(Math.max(Math.trunc(params.readback_ms) || 8000, 4000), 100000);
+      const deadline = performance.now() + readbackMs;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        if (attempt) await new Promise((resolve) => setTimeout(resolve, 300));
+        const remaining = deadline - performance.now();
+        if (attempt && remaining < 3000) break;
+        const outcome = await awaitNativeFuture(S.saveImage2Base64(width, height, "PNG"), Math.max(remaining, 4000), (pointer) => readByteArrayText(S, pointer));
+        if (outcome.timedOut) { last = "saveImage2Base64 timed out (is the page visible and painting?)"; continue; }
+        if (outcome.failed) { last = outcome.failed; continue; }
+        if (!outcome.value || !outcome.value.startsWith("iVBOR")) { last = "saveImage2Base64 did not return a PNG"; continue; }
+        const stats = await pixelStats(`data:image/png;base64,${outcome.value}`);
+        if (stats.distinct_colors < 2) { last = "captured frame has no pixel variation yet"; continue; }
+        return { png_base64: outcome.value, stats, camera: cameraState(), status: pageStatus(), ...(awaited ? { awaited } : {}) };
+      }
+      throw new Error(last);
+    }
+
+    function readLogic() {
+      if (!window.SSWorld?.logical) throw Object.assign(new Error(`scene logic is not loaded (runtime state '${document.body.dataset.runtime}')`), { code: "logic_unavailable" });
+      return window.SSWorld.logical.read();
+    }
+
+    // Set declared scene properties in one event transaction (same path as window.SSWorld.logical.write).
+    function writeLogic(params = {}) {
+      const set = params.set && typeof params.set === "object" ? params.set : null;
+      if (!set || !Object.keys(set).length) throw Object.assign(new Error("logic_write needs set: {property: value}"), { code: "logic_write_invalid" });
+      const before = readLogic();
+      const unknown = Object.keys(set).filter((name) => !(name in (before.properties || {})));
+      if (unknown.length) {
+        const states = Object.keys(before.states || {});
+        const hint = unknown.some((name) => states.includes(name)) ? "; a State is derived from its `when` expression and cannot be written: set a declared property it reads instead" : "";
+        throw Object.assign(new Error(`unknown declared property ${unknown.join(", ")} (known: ${Object.keys(before.properties || {}).join(", ") || "none"})${hint}`), { code: "logic_property_unknown", logic: before });
+      }
+      const receipt = window.SSWorld.logical.writeBatch(set);
+      const after = readLogic();
+      return { before, after, receipt: { batch_id: receipt.batch_id, status: receipt.status, ok: receipt.ok, evaluated: receipt.evaluated, committed: receipt.committed, changed: receipt.changed } };
+    }
+
+    // What the ENGINE actually holds for the environment, read back from the native components rather than
+    // echoed from the source: the adopted sun's real direction (as azimuth/elevation at the anchor), which
+    // light drives the atmosphere, and every environment component's live values (atmosphere, fog, cloud,
+    // sky light, post process).  "Why is the sky orange" is otherwise five compile+screenshot rounds of
+    // bisection, because nothing else in this tool can be asked what the engine received.
+    function readEnvironment() {
+      const runtime = currentBridge?.runtime;
+      if (!runtime) throw Object.assign(new Error(`no scene module is mounted (runtime state '${document.body.dataset.runtime}')`), { code: "environment_unavailable" });
+      const rad = Math.PI / 180, deg = 180 / Math.PI;
+      const anchor = runtime.anchor || { lon: 0, lat: 0, height: 0 };
+      const components = [];
+      for (const [id, component] of runtime.environmentComponents || []) {
+        const entry = { id, type: component.type || component.component_type, handle: component.handle ?? null,
+          authored: component.authorValues ? { ...component.authorValues } : null };
+        try { entry.engine_values = component.describe()?.values ?? null; }
+        catch (error) { entry.engine_values = null; entry.read_error = error.message; }
+        if (component.type === "DirectionalLight") {
+          entry.atmosphere_sun_light = component.authorValues?.atmosphereSunLight === true;
+          if (component.sunDirection) entry.requested_sun = { azimuth: component.sunAzimuth, elevation: component.sunElevation, direction: component.sunDirection };
+          if (component.sunDirectionLocked !== undefined) entry.sun_direction_locked = component.sunDirectionLocked;
+        }
+        components.push(entry);
+      }
+      // The engine's own sun vector, turned back into the azimuth/elevation an author writes.  The ENU
+      // basis below is the exact transpose of the one sunDirectionFromAnchor uses, so this is the inverse.
+      let sun = { readable: false, reason: "the engine sun exposes no direction() in this build" };
+      try {
+        const native = runtime.scene?.sun;
+        if (native && typeof native.direction === "function") {
+          const vector = native.direction();
+          const d = { x: vector.x, y: vector.y, z: vector.z };
+          if (typeof vector.delete === "function") vector.delete();
+          const lon = anchor.lon * rad, lat = anchor.lat * rad;
+          const east = d.x * Math.sin(lon) - d.y * Math.cos(lon);
+          const north = d.x * Math.sin(lat) * Math.cos(lon) + d.y * Math.sin(lat) * Math.sin(lon) - d.z * Math.cos(lat);
+          const up = -d.x * Math.cos(lat) * Math.cos(lon) - d.y * Math.cos(lat) * Math.sin(lon) - d.z * Math.sin(lat);
+          const elevation = Math.asin(Math.max(-1, Math.min(1, up))) * deg;
+          const azimuth = (Math.atan2(east, north) * deg + 360) % 360;
+          sun = { readable: true, direction: d, azimuth_deg: Number(azimuth.toFixed(2)), elevation_deg: Number(elevation.toFixed(2)),
+            note: "azimuth 0 = north, clockwise; elevation is degrees above the horizon at the project anchor" };
+          if (typeof native.intensity === "function") { try { sun.intensity = native.intensity(); } catch (_) {} }
+        }
+      } catch (error) { sun = { readable: false, reason: error.message }; }
+      // Post-process volumes are not environment components -- they live in their own facade, whose
+      // describe() is the only place the COMPOSED result shows up: `settings` is what this volume
+      // asked for, `effective_settings` is what the native volume ended up holding after the
+      // baseline and every volume's blend weight were folded in.  Reading the authored copy alone
+      // would pass even if nothing reached the engine.
+      const post_process = [];
+      for (const [id, volume] of runtime.postProcessVolumes || []) {
+        const entry = { id, type: "PostProcessVolume", handle: volume.handle ?? null,
+          authored: { ...(volume.authorValues || {}), settings: { ...(volume.authorSettings || {}) } } };
+        try {
+          const receipt = volume.describe();
+          entry.engine_values = { enabled: receipt.enabled, unbound: receipt.unbound, priority: receipt.priority,
+            blend_weight: receipt.blend_weight, settings: receipt.settings,
+            effective_settings: receipt.effective_settings, override_presence: receipt.override_presence,
+            native_present: receipt.native_present };
+        } catch (error) { entry.engine_values = null; entry.read_error = error.message; }
+        post_process.push(entry);
+      }
+      return { schema_version: "SSWorldEnvironmentReadback/1", anchor, engine_sun: sun, components, post_process };
+    }
+
+    // What the ENGINE holds for the geographic layers: whether the terrain arrived, how far the scene's
+    // local z = 0 sits above the ground under the anchor (turning terrain on moves the ground, not the
+    // scene), the imagery stack in draw order, and each tileset / GeoJSON layer's readiness and extent.
+    function readGeo() {
+      const runtime = currentBridge?.runtime;
+      if (!runtime) throw Object.assign(new Error(`no scene module is mounted (runtime state '${document.body.dataset.runtime}')`), { code: "geo_unavailable" });
+      if (typeof runtime.geoRead !== "function") throw Object.assign(new Error("this runtime predates the geographic components"), { code: "geo_unavailable" });
+      return runtime.geoRead();
+    }
+
+    // Sizes and boxes MEASURED from the engine (GeometryFacade.describe + SceneGraphFacade.describe),
+    // so "is it 6 m tall / half buried / overlapping the next one" is a number, not a screenshot.
+    function readGeometry(params) {
+      const runtime = currentBridge?.runtime;
+      if (!runtime) throw Object.assign(new Error(`no scene module is mounted (runtime state '${document.body.dataset.runtime}')`), { code: "geometry_unavailable" });
+      if (typeof runtime.geometryRead !== "function") throw Object.assign(new Error("this runtime predates the geometry readback"), { code: "geometry_unavailable" });
+      return runtime.geometryRead(params || {});
+    }
+
+    async function runCommand(command) {
+      try {
+        if (command.kind === "status") return { id: command.id, ok: true, status: pageStatus(), camera: cameraState() };
+        if (command.kind === "capture") return { id: command.id, ok: true, ...(await captureFrame(command.params)) };
+        if (command.kind === "logic_read") return { id: command.id, ok: true, logic: readLogic(), status: pageStatus() };
+        if (command.kind === "logic_write") return { id: command.id, ok: true, ...writeLogic(command.params), status: pageStatus() };
+        if (command.kind === "environment_read") return { id: command.id, ok: true, environment: readEnvironment(), status: pageStatus() };
+        if (command.kind === "geo_read") return { id: command.id, ok: true, geo: readGeo(), status: pageStatus() };
+        if (command.kind === "geometry_read") return { id: command.id, ok: true, geometry: readGeometry(command.params), status: pageStatus() };
+        return { id: command.id, ok: false, error: `unknown command ${command.kind}` };
+      } catch (error) {
+        return { id: command.id, ok: false, error: error.message, ...(error.code ? { code: error.code } : {}),
+          ...(error.receipt?.failure ? { failure: error.receipt.failure } : {}), ...(error.logic ? { logic: error.logic } : {}), status: pageStatus() };
+      }
+    }
+
+    let syncInFlight = false;
+    async function sync() {
+      if (syncInFlight) return;
+      syncInFlight = true;
+      if (ui.logicalLine && document.body.dataset.runtime === "ready") { try { ui.state.textContent = ui.logicalLine(); } catch (_) {} }
+      try {
+        const response = await fetch("/__ssworld/sync", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project: "SkylineGarden0919", client, status: pageStatus(), results: pendingResults }) });
+        pendingResults = [];
+        if (!response.ok) return;
+        const { commands = [] } = await response.json();
+        if (commands.length) {
+          for (const command of commands) pendingResults.push(await runCommand(command));
+          syncInFlight = false;
+          await sync();
+        }
+      } catch (_) {
+        // Static hosting without the ssworld preview server: no evidence channel, page still works.
+      } finally { syncInFlight = false; }
+    }
+
+    // Managed assets (Model / Texture sources) live under the project's assets/ directory and are fetched
+    // by the asset_id the compiler embedded into SceneIR, then verified against its size and digest.
+    // Keyed by asset_id AND content_digest: an asset_id is a stable file name, so a page-level cache keyed
+    // by it alone hands the engine the OLD bytes after the author replaces the file and hot-reloads, which
+    // trips the runtime's size/digest check and can only be cleared by a full page reload.  Adding the
+    // digest means a changed file always misses while an unchanged one still survives the reload.
+    const assetCache = new Map();
+    async function resolveManagedAsset(ref) {
+      const cacheKey = `${ref.asset_id}@${ref.content_digest}`;
+      if (!assetCache.has(cacheKey)) {
+        assetCache.set(cacheKey, (async () => {
+          const response = await fetch(`./${ref.asset_id}`, { cache: "no-store" });
+          if (!response.ok) throw new Error(`asset '${ref.asset_id}' request failed (${response.status}); put the file under the project's assets/ directory`);
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          if (bytes.byteLength !== ref.size_bytes) throw new Error(`asset '${ref.asset_id}' size mismatch (${bytes.byteLength} vs ${ref.size_bytes}); recompile after replacing the file`);
+          const hash = await crypto.subtle.digest("SHA-256", bytes);
+          const digest = "sha256:" + [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
+          if (digest !== ref.content_digest) throw new Error(`asset '${ref.asset_id}' digest mismatch; recompile after replacing the file`);
+          return bytes;
+        })().catch((error) => { assetCache.delete(cacheKey); throw error; }));
+      }
+      // Each consumer gets its own copy: the engine takes ownership of the buffer it is handed.
+      return new Uint8Array(await assetCache.get(cacheKey));
+    }
+
+    function showFailure(error) {
+      noteError("scene_module", error.message);
+      console.error(error, error.sceneModuleReceipt || "");
+      const retained = window.SSWorld?.ok === true;
+      document.body.dataset.runtime = retained ? "ready" : "failed";
+      ui.hint.textContent = error.message;
+      document.getElementById("status").textContent = retained
+        ? "Hot reload failed · the previous generation is still running"
+        : "Initial load failed";
+    }
+
+    function renderCanvas() {
+      return document.getElementById("qt-shadow-container")
+        ?.shadowRoot?.querySelector("canvas.qt-window-canvas") || null;
+    }
+
+    async function waitForRenderCanvas() {
+      for (let frame = 0; frame < 120; frame += 1) {
+        const canvas = renderCanvas();
+        if (canvas) return canvas;
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      throw new Error("SSEngine render canvas was not mounted");
+    }
+
+    function loadGeneration() {
+      if (loadPromise) return loadPromise;
+      loadPromise = (async () => {
+        errors.length = 0;
+        try {
+          const manifest = await fetch(manifestUrl, { cache: "no-store" }).then((response) => response.json());
+          const receipt = await host.loadAndAdopt({
+            scopeId: "ssworld-project",
+            url: moduleUrl,
+            manifest,
+            executionProfile: "trusted-local",
+          });
+          const bridge = currentBridge;
+          window.SSWorld = {
+            ok: true,
+            host,
+            receipt,
+            snapshot: () => host.snapshotGeneration("ssworld-project"),
+            // Scene logic of the running generation: declared properties, State.when, host call errors.
+            logical: {
+              read: () => bridge.logicalState(),
+              write: (name, value) => { const out = bridge.writeLogical(name, value); if (ui.logicalLine) ui.state.textContent = ui.logicalLine(); return out; },
+              // Several properties in ONE transaction: a refused value rolls all of them back.
+              writeBatch: (values) => { const out = bridge.writeLogicalBatch(values); if (ui.logicalLine) ui.state.textContent = ui.logicalLine(); return out; },
+            },
+            reload: loadGeneration,
+            dispose: () => host.disposeScope("ssworld-project"),
+          };
+          document.getElementById("status").textContent = "SSEngine WebGPU · hot reload ready";
+        } catch (error) {
+          showFailure(error);
+        }
+      })().finally(() => { loadPromise = null; });
+      return loadPromise;
+    }
+
+    async function pollChanges() {
+      if (pollInFlight) return;
+      pollInFlight = true;
+      try {
+        const query = new URLSearchParams({ path: "projects/SkylineGarden0919" });
+        const response = await fetch(`/__ssdl_dev/version?${query}`, { cache: "no-store" });
+        if (!response.ok) {
+          const detail = await response.json();
+          if (detail.error === "compile_failed") showFailure(new Error(detail.message));
+          return;
+        }
+        const { token } = await response.json();
+        if (watchToken !== null && token !== watchToken) await loadGeneration();
+        watchToken = token;
+      } catch (_) {
+        // A plain static server is supported; it simply has no live reload endpoint.
+      } finally {
+        pollInFlight = false;
+      }
+    }
+
+    window.initScene = async () => {
+      const canvas = await waitForRenderCanvas();
+      host = new SceneModuleHost({
+        contextFactory: ({ scopeId, generation, executionProfile, manifest: moduleManifest }) => {
+          const builtinRuntime = window.SSEngineSSDLBuiltins.createRuntime({
+            Module: engineConfig,
+            viewer: window.GlobalViewer,
+            expressionRuntime: window.SSEngineSSDLExpressionRuntime,
+            anchor: { lon: 114.055, lat: 22.533, height: 20 },
+            modelScopeId: `${scopeId}:${generation}`,
+            resolveManagedAsset,
+          });
+          const runtime = new SceneRuntimeBridge(builtinRuntime, {
+            interactionRoot: document.getElementById("screen"),
+            scopeId,
+            generation,
+            executionProfile,
+            sceneIRDigest: moduleManifest.scene_ir_digest,
+            bindingIRDigest: moduleManifest.binding_ir_digest,
+            // api.scene.spawn() checks the project's own budgets, so a world that grows at runtime
+            // fails with the same numbers the compile receipt reported rather than at mount.
+            budgets: moduleManifest.budgets,
+            globals: window,
+            // A binding whose value the target refused rolls its whole batch back; surface it as a runtime
+            // error (ssworld_capture_frame maps `<node>.<property>` to the scene.ssdl line) instead of a silent freeze.
+            onBindingError: (entry) => noteError("binding_error",
+              `${entry.target ?? "?"}.${entry.property ?? "?"}: ${entry.code}: ${entry.message} [binding ${entry.binding ?? "?"}, batch rolled back]`),
+          });
+          // Terrain, tileset and GeoJSON loads finish long after mount, so their failures arrive here
+          // rather than as a thrown error; ssworld_capture_frame maps them back to the node.
+          builtinRuntime.on("geoerror", (entry) => noteError("geo_error",
+            `${entry.id}.${entry.type}: ${entry.code}: ${entry.message}`));
+          currentBridge = runtime;
+          return {
+            runtime,
+            ownedResources: [runtime],
+            viewer: window.GlobalViewer,
+            canvas,
+            interactionRoot: document.getElementById("screen"),
+            document,
+            window,
+            ui,
+            anchor: runtime.anchor,
+            // network.read: a GeoJsonLayer url and every imagery/terrain/tileset service is fetched from
+            // this page, so the generation is declaring that it reaches the network.
+            capabilities: ["scene.write", "scene.readback", "dom", "project.assets", "network.read"],
+            catalogDigest: builtinRuntime.capabilities().builtin_catalog_digest,
+            runtimeAbiDigest: builtinRuntime.capabilities().scene_module_runtime_abi_digest,
+            manifest: moduleManifest,
+            executionProfile,
+          };
+        },
+        minimumReadback: async (_record, snapshot) => snapshot,
+      });
+
+      await loadGeneration();
+      await pollChanges();
+      setInterval(pollChanges, 800);
+    };
+
+    sync();
+    setInterval(sync, 800);
+    (async () => {
+      try {
+        engineConfig = {
+          locateFile: (name) => name === "SSmap.wasm" ? "/engine/SSmap.wasm" : name,
+          qt: { entryFunction: window.SSmap_entry, containerElements: [document.getElementById("screen")] },
+        };
+        await qtLoad(engineConfig);
+      } catch (error) {
+        showFailure(error);
+      }
+    })();
+  </script>
+</body>
+</html>

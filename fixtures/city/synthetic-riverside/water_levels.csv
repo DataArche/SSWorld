@@ -1,0 +1,3 @@
+river_id,scenario,level_m,vertical_datum,synthetic
+river-1,baseline,10,synthetic_local,True
+river-1,rise_1m,11,synthetic_local,True

@@ -1,0 +1,27 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "survey-01",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.001527136
+        ]
+      },
+      "properties": {
+        "id": "survey-01",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "building_id": "building-01",
+        "width_m": 36,
+        "depth_m": 40,
+        "height_m": 15,
+        "description": "合成尺寸约束，非现场测量；暂无照片"
+      }
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": "SceneModuleManifest/1",
+  "scene_module_version": 1,
+  "name": "DaxiongHall0924",
+  "entry": "scene.mjs",
+  "execution_profiles": [
+    "trusted-local",
+    "agent-mcp"
+  ],
+  "resource_root": ".",
+  "scene_ir_version": 5,
+  "binding_ir_version": 2,
+  "compiler_profile": "SSDL/QML-Subset/0.3",
+  "compiler_profile_digest": "sha256:743f3aa004c95ad92ba6be1d78be744730fc8fd66c35349f08cdf74ce4d913ad",
+  "scene_ir_digest": "sha256:e14ea20a8d074bf2f3ab52ca9cabf831ed5b08901f03da3bef61b0e214a8a317",
+  "binding_ir_digest": "sha256:ba7e92a6f91cf6db75fd2b602011be021a5c29a288e380f7fb848d25b7f35dc2",
+  "module_digest": "sha256:583511e2b3f88444146b74a95df5e63f96b6226353c62e7dbb304c511a10a0bf",
+  "budgets": {
+    "native_objects": 4096,
+    "materials": 4096,
+    "textures": 32,
+    "prefabs": 1024,
+    "instances": 524288,
+    "bindings": 4096,
+    "handlers": 2048,
+    "timers": 256,
+    "timelines": 256,
+    "locators": 1024,
+    "particles": 50000
+  },
+  "catalog_digest": "sha256:77c77cf0ba617ccd33821fa0575700514180e9fa20ddfebb6ac6b1767620f59c",
+  "runtime_abi_digest": "sha256:0cb21cde9091cf7fb9788d301194ff85ef81e62432b0bea578e3168298a5b4c0",
+  "anchor": {
+    "lon": 121.55,
+    "lat": 29.87,
+    "height": 10
+  },
+  "source_digest": "sha256:d87b8b50074276a8c0a9673e89bf9c5d6c03de806b427b9851f39adb6078bace",
+  "compiled_at": "2026-09-24T16:50:18.040Z",
+  "host_interfaces_digest": null
+}

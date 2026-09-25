@@ -2299,6 +2299,10 @@
           "value_type": "scalar",
           "unit": "scalar"
         },
+        "settings.motionBlurTargetFPS": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
         "settings.vignetteIntensity": {
           "value_type": "scalar",
           "unit": "scalar"
@@ -3681,6 +3685,173 @@
         "landing"
       ],
       "note": "starts at the origin and climbs along +X, Z up; width spans -width/2..+width/2 in Y"
+    },
+    "ParticleEmitter": {
+      "members": {
+        "parent": {
+          "value_type": "object_ref",
+          "update_class": "create_only"
+        },
+        "position": {
+          "value_type": "vector3",
+          "unit": "m"
+        },
+        "rotation": {
+          "value_type": "vector3",
+          "unit": "deg"
+        },
+        "sprite": {
+          "value_type": "object_ref",
+          "update_class": "create_only",
+          "note": "a Texture id; omit for a solid soft dot. PNG/JPEG only; alpha or greyscale decides opacity, see opacitySource"
+        },
+        "opacitySource": {
+          "value_type": "string",
+          "update_class": "create_only",
+          "note": "alpha (default) | luminance - greyscale smoke/glow textures without an alpha channel need luminance"
+        },
+        "emitting": {
+          "value_type": "boolean",
+          "note": "false stops spawning and lets the live particles die; bind it to a State or Timer to switch an effect on and off"
+        },
+        "rate": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "particles per second, 0..5000"
+        },
+        "maxParticles": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "hard cap, default 500, max 20000; rate x lifetime.max must fit or the emitter clips"
+        },
+        "lifetime": {
+          "value_type": "vector2",
+          "unit": "scalar",
+          "note": "[min, max] seconds each particle lives"
+        },
+        "speed": {
+          "value_type": "vector2",
+          "unit": "scalar",
+          "note": "[min, max] m/s along direction"
+        },
+        "direction": {
+          "value_type": "vector3",
+          "unit": "scalar",
+          "note": "local axis particles leave along, default [0,0,1] (up)"
+        },
+        "spread": {
+          "value_type": "scalar",
+          "unit": "deg",
+          "note": "cone half-angle around direction, 0..180; 180 is a full sphere"
+        },
+        "shape": {
+          "value_type": "string",
+          "update_class": "create_only",
+          "note": "point | sphere | box | cone"
+        },
+        "shapeSize": {
+          "value_type": "vector3",
+          "unit": "m",
+          "note": "sphere: x is the radius; box: half extents; cone: x is the base radius"
+        },
+        "gravity": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "m/s2 pulling along -Z; 9.8 for water, ~1 for embers, negative for rising smoke"
+        },
+        "drag": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "per-second velocity damping, 0..10"
+        },
+        "size": {
+          "value_type": "vector2",
+          "unit": "m",
+          "note": "[at birth, at death] sprite edge length"
+        },
+        "sizeVariation": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "0..1 random +/- fraction of the birth size"
+        },
+        "colorStart": {
+          "value_type": "color"
+        },
+        "colorEnd": {
+          "value_type": "color"
+        },
+        "alphaStart": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "alphaEnd": {
+          "value_type": "scalar",
+          "unit": "scalar"
+        },
+        "rotationSpeed": {
+          "value_type": "vector2",
+          "unit": "deg",
+          "note": "[min, max] degrees per second of sprite spin"
+        },
+        "blend": {
+          "value_type": "string",
+          "update_class": "create_only",
+          "note": "alpha | additive | premultiplied; additive for fire/glow, alpha for smoke/rain"
+        },
+        "subImages": {
+          "value_type": "vector2",
+          "update_class": "create_only",
+          "note": "[columns, rows] of a flipbook texture"
+        },
+        "subImageMode": {
+          "value_type": "string",
+          "update_class": "create_only",
+          "note": "random | linear | linearBlend"
+        },
+        "softness": {
+          "value_type": "scalar",
+          "unit": "m",
+          "note": "NOT AVAILABLE on this engine build: any value above 0 is refused at compile time (particle_softness_unavailable). The depth fade reaches the engine but produces no visible change on real hardware; keep it 0 and keep the effect away from surfaces it would cut into"
+        },
+        "localSpace": {
+          "value_type": "boolean",
+          "update_class": "create_only",
+          "note": "true makes live particles follow the emitter when it moves"
+        },
+        "warmup": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "pre-simulate this many seconds on creation so the effect starts full"
+        },
+        "playbackSpeed": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "note": "1 is real time; 0 freezes the simulation (deterministic screenshots)"
+        },
+        "seed": {
+          "value_type": "scalar",
+          "unit": "scalar",
+          "update_class": "create_only",
+          "note": "0 is random; any other integer replays the same particles"
+        },
+        "maxDrawDistance": {
+          "value_type": "scalar",
+          "unit": "m"
+        },
+        "visible": {
+          "value_type": "boolean"
+        }
+      },
+      "factory": "createParticleEmitter",
+      "adapter": "particle",
+      "commands": [
+        "burst",
+        "restart",
+        "clear"
+      ],
+      "note": "one sprite emitter; particles are unlit, do not collide and do not cast shadows"
     }
   },
   "property_types": {

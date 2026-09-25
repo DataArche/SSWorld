@@ -1,0 +1,6 @@
+pragma spawnable
+Group {
+ id: root
+ property real level: 0
+ PointLight { id: front; position: [2.65,0,1.05]; lightColor: "#fff0d2"; intensity: 22000 * level; attenuationRadius: 15; sourceRadius: 0.12; castShadows: false; visible: level > 0.001 }
+}

@@ -43,6 +43,10 @@ export const DEFAULT_BUDGETS = Object.freeze({
   // SceneGraphFacade.max_locators -- the engine's own number.  A Group is a native locator, so a
   // Group-heavy scene hits this long before it hits native_objects.
   locators: 1024,
+  // ParticleEmitter.maxParticles added up.  A single emitter is capped at 20000 natively; this is the
+  // scene-wide wall, and it is a simulation cost (one CPU tick per live particle per frame), so it is
+  // a reported ratio like native_objects rather than a hard compile error.
+  particles: 50000,
 });
 
 /** Engine ceilings that a manifest may not raise: the engine answers with these in capabilities(). */

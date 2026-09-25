@@ -1,0 +1,2315 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "n-100-100",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.000898315,
+          0.000898315
+        ]
+      },
+      "properties": {
+        "id": "n-100-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 100,
+        "y_m": 100,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-100-300",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.000898315,
+          0.002694946
+        ]
+      },
+      "properties": {
+        "id": "n-100-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 100,
+        "y_m": 300,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-100-500",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.000898315,
+          0.004491576
+        ]
+      },
+      "properties": {
+        "id": "n-100-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 100,
+        "y_m": 500,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-100-700",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.000898315,
+          0.006288207
+        ]
+      },
+      "properties": {
+        "id": "n-100-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 100,
+        "y_m": 700,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-100-900",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.000898315,
+          0.008084838
+        ]
+      },
+      "properties": {
+        "id": "n-100-900",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 100,
+        "y_m": 900,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-300-100",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.002694946,
+          0.000898315
+        ]
+      },
+      "properties": {
+        "id": "n-300-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 300,
+        "y_m": 100,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-300-300",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.002694946,
+          0.002694946
+        ]
+      },
+      "properties": {
+        "id": "n-300-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 300,
+        "y_m": 300,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-300-500",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.002694946,
+          0.004491576
+        ]
+      },
+      "properties": {
+        "id": "n-300-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 300,
+        "y_m": 500,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-300-700",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.002694946,
+          0.006288207
+        ]
+      },
+      "properties": {
+        "id": "n-300-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 300,
+        "y_m": 700,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-300-900",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.002694946,
+          0.008084838
+        ]
+      },
+      "properties": {
+        "id": "n-300-900",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 300,
+        "y_m": 900,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-400-100",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003593261,
+          0.000898315
+        ]
+      },
+      "properties": {
+        "id": "n-400-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 400,
+        "y_m": 100,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-400-300",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003593261,
+          0.002694946
+        ]
+      },
+      "properties": {
+        "id": "n-400-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 400,
+        "y_m": 300,
+        "z_m": 13,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-400-500",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003593261,
+          0.004491576
+        ]
+      },
+      "properties": {
+        "id": "n-400-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 400,
+        "y_m": 500,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-400-700",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003593261,
+          0.006288207
+        ]
+      },
+      "properties": {
+        "id": "n-400-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 400,
+        "y_m": 700,
+        "z_m": 13,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-400-900",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003593261,
+          0.008084838
+        ]
+      },
+      "properties": {
+        "id": "n-400-900",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 400,
+        "y_m": 900,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-600-100",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005389892,
+          0.000898315
+        ]
+      },
+      "properties": {
+        "id": "n-600-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 600,
+        "y_m": 100,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-600-300",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005389892,
+          0.002694946
+        ]
+      },
+      "properties": {
+        "id": "n-600-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 600,
+        "y_m": 300,
+        "z_m": 13,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-600-500",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005389892,
+          0.004491576
+        ]
+      },
+      "properties": {
+        "id": "n-600-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 600,
+        "y_m": 500,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-600-700",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005389892,
+          0.006288207
+        ]
+      },
+      "properties": {
+        "id": "n-600-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 600,
+        "y_m": 700,
+        "z_m": 13,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-600-900",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005389892,
+          0.008084838
+        ]
+      },
+      "properties": {
+        "id": "n-600-900",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 600,
+        "y_m": 900,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-700-100",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.006288207,
+          0.000898315
+        ]
+      },
+      "properties": {
+        "id": "n-700-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 700,
+        "y_m": 100,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-700-300",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.006288207,
+          0.002694946
+        ]
+      },
+      "properties": {
+        "id": "n-700-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 700,
+        "y_m": 300,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-700-500",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.006288207,
+          0.004491576
+        ]
+      },
+      "properties": {
+        "id": "n-700-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 700,
+        "y_m": 500,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-700-700",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.006288207,
+          0.006288207
+        ]
+      },
+      "properties": {
+        "id": "n-700-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 700,
+        "y_m": 700,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-700-900",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.006288207,
+          0.008084838
+        ]
+      },
+      "properties": {
+        "id": "n-700-900",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 700,
+        "y_m": 900,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-900-100",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.008084838,
+          0.000898315
+        ]
+      },
+      "properties": {
+        "id": "n-900-100",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 900,
+        "y_m": 100,
+        "z_m": 20.5,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-900-300",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.008084838,
+          0.002694946
+        ]
+      },
+      "properties": {
+        "id": "n-900-300",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 900,
+        "y_m": 300,
+        "z_m": 20.5,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-900-500",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.008084838,
+          0.004491576
+        ]
+      },
+      "properties": {
+        "id": "n-900-500",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 900,
+        "y_m": 500,
+        "z_m": 20.5,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-900-700",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.008084838,
+          0.006288207
+        ]
+      },
+      "properties": {
+        "id": "n-900-700",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 900,
+        "y_m": 700,
+        "z_m": 20.5,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "n-900-900",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.008084838,
+          0.008084838
+        ]
+      },
+      "properties": {
+        "id": "n-900-900",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 900,
+        "y_m": 900,
+        "z_m": 20.5,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-01",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.001347473
+        ]
+      },
+      "properties": {
+        "id": "exit-01",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 150,
+        "z_m": 12.2,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-01-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.00116781
+        ]
+      },
+      "properties": {
+        "id": "portal-01-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 130,
+        "z_m": 12.0,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-01-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "portal-01-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 210,
+        "z_m": 12.0,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-01-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001841546,
+          0.001347473
+        ]
+      },
+      "properties": {
+        "id": "bend-01-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 205,
+        "y_m": 150,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-01-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001841546,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "bend-01-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 205,
+        "y_m": 210,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-02",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.003144103
+        ]
+      },
+      "properties": {
+        "id": "exit-02",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 350,
+        "z_m": 12.2,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-02-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.00296444
+        ]
+      },
+      "properties": {
+        "id": "portal-02-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 330,
+        "z_m": 12.0,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-02-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "portal-02-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 410,
+        "z_m": 12.0,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-02-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001841546,
+          0.003144103
+        ]
+      },
+      "properties": {
+        "id": "bend-02-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 205,
+        "y_m": 350,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-02-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001841546,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "bend-02-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 205,
+        "y_m": 410,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-03",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.004940734
+        ]
+      },
+      "properties": {
+        "id": "exit-03",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 550,
+        "z_m": 12.2,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-03-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.004761071
+        ]
+      },
+      "properties": {
+        "id": "portal-03-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 530,
+        "z_m": 12.0,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-03-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "portal-03-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 610,
+        "z_m": 12.0,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-03-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001841546,
+          0.004940734
+        ]
+      },
+      "properties": {
+        "id": "bend-03-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 205,
+        "y_m": 550,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-03-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001841546,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "bend-03-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 205,
+        "y_m": 610,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-04",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.006737365
+        ]
+      },
+      "properties": {
+        "id": "exit-04",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 750,
+        "z_m": 12.2,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-04-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.006557702
+        ]
+      },
+      "properties": {
+        "id": "portal-04-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 730,
+        "z_m": 12.0,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-04-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "portal-04-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 180,
+        "y_m": 810,
+        "z_m": 12.0,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-04-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001841546,
+          0.006737365
+        ]
+      },
+      "properties": {
+        "id": "bend-04-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 205,
+        "y_m": 750,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-04-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001841546,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "bend-04-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 205,
+        "y_m": 810,
+        "z_m": 12.0,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-05",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.001347473
+        ]
+      },
+      "properties": {
+        "id": "exit-05",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 150,
+        "z_m": 10.799999999999999,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-05-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.00116781
+        ]
+      },
+      "properties": {
+        "id": "portal-05-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 130,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-05-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "portal-05-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 210,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-05-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003997503,
+          0.001347473
+        ]
+      },
+      "properties": {
+        "id": "bend-05-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 445,
+        "y_m": 150,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-05-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003997503,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "bend-05-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 445,
+        "y_m": 210,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-06",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.003144103
+        ]
+      },
+      "properties": {
+        "id": "exit-06",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 350,
+        "z_m": 10.799999999999999,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-06-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.00296444
+        ]
+      },
+      "properties": {
+        "id": "portal-06-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 330,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-06-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "portal-06-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 410,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-06-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003997503,
+          0.003144103
+        ]
+      },
+      "properties": {
+        "id": "bend-06-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 445,
+        "y_m": 350,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-06-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003997503,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "bend-06-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 445,
+        "y_m": 410,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-07",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.004940734
+        ]
+      },
+      "properties": {
+        "id": "exit-07",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 550,
+        "z_m": 10.799999999999999,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-07-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.004761071
+        ]
+      },
+      "properties": {
+        "id": "portal-07-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 530,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-07-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "portal-07-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 610,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-07-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003997503,
+          0.004940734
+        ]
+      },
+      "properties": {
+        "id": "bend-07-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 445,
+        "y_m": 550,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-07-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003997503,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "bend-07-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 445,
+        "y_m": 610,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-08",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.006737365
+        ]
+      },
+      "properties": {
+        "id": "exit-08",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 750,
+        "z_m": 10.799999999999999,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-08-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.006557702
+        ]
+      },
+      "properties": {
+        "id": "portal-08-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 730,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-08-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "portal-08-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 420,
+        "y_m": 810,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-08-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003997503,
+          0.006737365
+        ]
+      },
+      "properties": {
+        "id": "bend-08-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 445,
+        "y_m": 750,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-08-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003997503,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "bend-08-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 445,
+        "y_m": 810,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-09",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.001347473
+        ]
+      },
+      "properties": {
+        "id": "exit-09",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 150,
+        "z_m": 10.799999999999999,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-09-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.00116781
+        ]
+      },
+      "properties": {
+        "id": "portal-09-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 130,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-09-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "portal-09-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 210,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-09-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005434807,
+          0.001347473
+        ]
+      },
+      "properties": {
+        "id": "bend-09-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 605,
+        "y_m": 150,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-09-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005434807,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "bend-09-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 605,
+        "y_m": 210,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-10",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.003144103
+        ]
+      },
+      "properties": {
+        "id": "exit-10",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 350,
+        "z_m": 10.799999999999999,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-10-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.00296444
+        ]
+      },
+      "properties": {
+        "id": "portal-10-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 330,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-10-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "portal-10-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 410,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-10-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005434807,
+          0.003144103
+        ]
+      },
+      "properties": {
+        "id": "bend-10-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 605,
+        "y_m": 350,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-10-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005434807,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "bend-10-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 605,
+        "y_m": 410,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-11",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.004940734
+        ]
+      },
+      "properties": {
+        "id": "exit-11",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 550,
+        "z_m": 10.799999999999999,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-11-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.004761071
+        ]
+      },
+      "properties": {
+        "id": "portal-11-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 530,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-11-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "portal-11-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 610,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-11-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005434807,
+          0.004940734
+        ]
+      },
+      "properties": {
+        "id": "bend-11-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 605,
+        "y_m": 550,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-11-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005434807,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "bend-11-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 605,
+        "y_m": 610,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-12",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.006737365
+        ]
+      },
+      "properties": {
+        "id": "exit-12",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 750,
+        "z_m": 10.799999999999999,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-12-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.006557702
+        ]
+      },
+      "properties": {
+        "id": "portal-12-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 730,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-12-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "portal-12-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 580,
+        "y_m": 810,
+        "z_m": 10.6,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-12-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005434807,
+          0.006737365
+        ]
+      },
+      "properties": {
+        "id": "bend-12-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 605,
+        "y_m": 750,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-12-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005434807,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "bend-12-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 605,
+        "y_m": 810,
+        "z_m": 10.6,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-13",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.001347473
+        ]
+      },
+      "properties": {
+        "id": "exit-13",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 150,
+        "z_m": 14.7,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-13-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.00116781
+        ]
+      },
+      "properties": {
+        "id": "portal-13-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 130,
+        "z_m": 14.5,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-13-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "portal-13-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 210,
+        "z_m": 14.5,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-13-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007231438,
+          0.001347473
+        ]
+      },
+      "properties": {
+        "id": "bend-13-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 805,
+        "y_m": 150,
+        "z_m": 15.75,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-13-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007231438,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "bend-13-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 805,
+        "y_m": 210,
+        "z_m": 15.75,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-14",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.003144103
+        ]
+      },
+      "properties": {
+        "id": "exit-14",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 350,
+        "z_m": 14.7,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-14-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.00296444
+        ]
+      },
+      "properties": {
+        "id": "portal-14-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 330,
+        "z_m": 14.5,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-14-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "portal-14-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 410,
+        "z_m": 14.5,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-14-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007231438,
+          0.003144103
+        ]
+      },
+      "properties": {
+        "id": "bend-14-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 805,
+        "y_m": 350,
+        "z_m": 15.75,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-14-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007231438,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "bend-14-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 805,
+        "y_m": 410,
+        "z_m": 15.75,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-15",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.004940734
+        ]
+      },
+      "properties": {
+        "id": "exit-15",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 550,
+        "z_m": 14.7,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-15-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.004761071
+        ]
+      },
+      "properties": {
+        "id": "portal-15-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 530,
+        "z_m": 14.5,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-15-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "portal-15-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 610,
+        "z_m": 14.5,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-15-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007231438,
+          0.004940734
+        ]
+      },
+      "properties": {
+        "id": "bend-15-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 805,
+        "y_m": 550,
+        "z_m": 15.75,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-15-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007231438,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "bend-15-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 805,
+        "y_m": 610,
+        "z_m": 15.75,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "exit-16",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.006737365
+        ]
+      },
+      "properties": {
+        "id": "exit-16",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 750,
+        "z_m": 14.7,
+        "kind": "building_exit"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-16-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.006557702
+        ]
+      },
+      "properties": {
+        "id": "portal-16-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 730,
+        "z_m": 14.5,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-16-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "portal-16-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 780,
+        "y_m": 810,
+        "z_m": 14.5,
+        "kind": "parcel_portal"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-16-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007231438,
+          0.006737365
+        ]
+      },
+      "properties": {
+        "id": "bend-16-south",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 805,
+        "y_m": 750,
+        "z_m": 15.75,
+        "kind": "junction"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bend-16-north",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007231438,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "bend-16-north",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "x_m": 805,
+        "y_m": 810,
+        "z_m": 15.75,
+        "kind": "junction"
+      }
+    }
+  ]
+}

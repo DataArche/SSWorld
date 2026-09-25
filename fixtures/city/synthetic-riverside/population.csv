@@ -1,0 +1,17 @@
+building_id,group_id,count,time_period,departure_delay_s,mode,synthetic
+building-01,group-01,33,weekday_08:00,60,walk,True
+building-02,group-02,36,weekday_08:00,60,walk,True
+building-03,group-03,39,weekday_08:00,60,walk,True
+building-04,group-04,42,weekday_08:00,60,walk,True
+building-05,group-05,45,weekday_08:00,60,walk,True
+building-06,group-06,48,weekday_08:00,60,walk,True
+building-07,group-07,51,weekday_08:00,60,walk,True
+building-08,group-08,54,weekday_08:00,60,walk,True
+building-09,group-09,57,weekday_08:00,60,walk,True
+building-10,group-10,60,weekday_08:00,60,walk,True
+building-11,group-11,63,weekday_08:00,60,walk,True
+building-12,group-12,66,weekday_08:00,60,walk,True
+building-13,group-13,69,weekday_08:00,60,walk,True
+building-14,group-14,72,weekday_08:00,60,walk,True
+building-15,group-15,75,weekday_08:00,60,walk,True
+building-16,group-16,78,weekday_08:00,60,walk,True

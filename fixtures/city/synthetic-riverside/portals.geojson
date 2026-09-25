@@ -1,0 +1,933 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "portal-01-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.00116781
+        ]
+      },
+      "properties": {
+        "id": "portal-01-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-01",
+        "building_id": "building-01",
+        "node_id": "portal-01-a",
+        "elevation_m": 12.0,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-01-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "portal-01-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-01",
+        "building_id": "building-01",
+        "node_id": "portal-01-b",
+        "elevation_m": 12.0,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-02-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.00296444
+        ]
+      },
+      "properties": {
+        "id": "portal-02-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-02",
+        "building_id": "building-02",
+        "node_id": "portal-02-a",
+        "elevation_m": 12.0,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-02-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "portal-02-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-02",
+        "building_id": "building-02",
+        "node_id": "portal-02-b",
+        "elevation_m": 12.0,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-03-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.004761071
+        ]
+      },
+      "properties": {
+        "id": "portal-03-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-03",
+        "building_id": "building-03",
+        "node_id": "portal-03-a",
+        "elevation_m": 12.0,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-03-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "portal-03-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-03",
+        "building_id": "building-03",
+        "node_id": "portal-03-b",
+        "elevation_m": 12.0,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-04-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.006557702
+        ]
+      },
+      "properties": {
+        "id": "portal-04-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-04",
+        "building_id": "building-04",
+        "node_id": "portal-04-a",
+        "elevation_m": 12.0,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-04-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.001616968,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "portal-04-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-04",
+        "building_id": "building-04",
+        "node_id": "portal-04-b",
+        "elevation_m": 12.0,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-05-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.00116781
+        ]
+      },
+      "properties": {
+        "id": "portal-05-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-05",
+        "building_id": "building-05",
+        "node_id": "portal-05-a",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-05-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "portal-05-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-05",
+        "building_id": "building-05",
+        "node_id": "portal-05-b",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-06-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.00296444
+        ]
+      },
+      "properties": {
+        "id": "portal-06-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-06",
+        "building_id": "building-06",
+        "node_id": "portal-06-a",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-06-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "portal-06-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-06",
+        "building_id": "building-06",
+        "node_id": "portal-06-b",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-07-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.004761071
+        ]
+      },
+      "properties": {
+        "id": "portal-07-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-07",
+        "building_id": "building-07",
+        "node_id": "portal-07-a",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-07-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "portal-07-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-07",
+        "building_id": "building-07",
+        "node_id": "portal-07-b",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-08-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.006557702
+        ]
+      },
+      "properties": {
+        "id": "portal-08-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-08",
+        "building_id": "building-08",
+        "node_id": "portal-08-a",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-08-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.003772924,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "portal-08-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-08",
+        "building_id": "building-08",
+        "node_id": "portal-08-b",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-09-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.00116781
+        ]
+      },
+      "properties": {
+        "id": "portal-09-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-09",
+        "building_id": "building-09",
+        "node_id": "portal-09-a",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-09-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "portal-09-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-09",
+        "building_id": "building-09",
+        "node_id": "portal-09-b",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-10-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.00296444
+        ]
+      },
+      "properties": {
+        "id": "portal-10-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-10",
+        "building_id": "building-10",
+        "node_id": "portal-10-a",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-10-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "portal-10-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-10",
+        "building_id": "building-10",
+        "node_id": "portal-10-b",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-11-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.004761071
+        ]
+      },
+      "properties": {
+        "id": "portal-11-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-11",
+        "building_id": "building-11",
+        "node_id": "portal-11-a",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-11-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "portal-11-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-11",
+        "building_id": "building-11",
+        "node_id": "portal-11-b",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-12-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.006557702
+        ]
+      },
+      "properties": {
+        "id": "portal-12-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-12",
+        "building_id": "building-12",
+        "node_id": "portal-12-a",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-12-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.005210229,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "portal-12-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-12",
+        "building_id": "building-12",
+        "node_id": "portal-12-b",
+        "elevation_m": 10.6,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-13-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.00116781
+        ]
+      },
+      "properties": {
+        "id": "portal-13-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-13",
+        "building_id": "building-13",
+        "node_id": "portal-13-a",
+        "elevation_m": 14.5,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-13-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.001886462
+        ]
+      },
+      "properties": {
+        "id": "portal-13-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-13",
+        "building_id": "building-13",
+        "node_id": "portal-13-b",
+        "elevation_m": 14.5,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-14-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.00296444
+        ]
+      },
+      "properties": {
+        "id": "portal-14-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-14",
+        "building_id": "building-14",
+        "node_id": "portal-14-a",
+        "elevation_m": 14.5,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-14-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.003683093
+        ]
+      },
+      "properties": {
+        "id": "portal-14-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-14",
+        "building_id": "building-14",
+        "node_id": "portal-14-b",
+        "elevation_m": 14.5,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-15-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.004761071
+        ]
+      },
+      "properties": {
+        "id": "portal-15-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-15",
+        "building_id": "building-15",
+        "node_id": "portal-15-a",
+        "elevation_m": 14.5,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-15-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.005479723
+        ]
+      },
+      "properties": {
+        "id": "portal-15-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-15",
+        "building_id": "building-15",
+        "node_id": "portal-15-b",
+        "elevation_m": 14.5,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-16-a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.006557702
+        ]
+      },
+      "properties": {
+        "id": "portal-16-a",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-16",
+        "building_id": "building-16",
+        "node_id": "portal-16-a",
+        "elevation_m": 14.5,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "portal-16-b",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.007006859,
+          0.007276354
+        ]
+      },
+      "properties": {
+        "id": "portal-16-b",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "parcel_id": "parcel-16",
+        "building_id": "building-16",
+        "node_id": "portal-16-b",
+        "elevation_m": 14.5,
+        "modes": [
+          "walk",
+          "car"
+        ],
+        "direction": "both",
+        "walk_capacity_person_s": 1.0,
+        "car_capacity_vehicle_s": 0.15,
+        "open": true
+      }
+    }
+  ]
+}

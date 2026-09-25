@@ -1,7 +1,7 @@
 ---
 name: ssworld
 description: "Use when the user wants a 3D scene, digital twin, building, city block, geographic layout, map basemap, terrain, 3D Tiles city or GeoJSON overlay, 3D animation or interactive 3D object — anything to be built, edited or previewed as a real-time 3D world on a real globe. Drives the ssworld MCP server (SSDL language on the SSEngine WebGPU runtime)."
-version: 1.21.0
+version: 1.25.0
 author: SSWorld
 license: Apache-2.0
 metadata:
@@ -11,556 +11,186 @@ metadata:
 
 # SSWorld: authoring previewable 3D worlds in SSDL
 
-When the user asks for a 3D scene, a model, a building, a city, a digital twin, a 3D animation or a clickable 3D object, **reach straight for the `ssworld` MCP tools**. Do not ask whether to use them first, and do not fall back to three.js, Blender or hand-written HTML.
+When the user asks for a 3D scene, model, building, city, digital twin, 3D animation or clickable 3D object, **reach straight for the `ssworld` MCP tools** — do not ask first, and do not fall back to three.js, Blender or hand-written HTML.
 
-What you deliver: editable `.ssdl` sources, a preview page they can open, and a screenshot you have actually looked at. Answer in the language the user wrote in. Get a picture on screen first, then iterate against the picture.
-
-**Order of work is fixed: plan, then component files, then `scene.ssdl`, then compile, then inspect, then look.** The plan is not optional and it is not a sentence in your head — see "Plan before you write". Agents that skip it hand over a 600-line `scene.ssdl` of copy-pasted boxes, and that is a failed delivery even when it renders.
+Deliver editable `.ssdl` sources, a preview page, and a screenshot you have actually looked at. Answer in the user's language. The design is yours to invent: there is no reference to match and no match score to report. Get a picture on screen early, then iterate against the picture.
 
 ## 30 seconds
 
 ```
 ssworld_project_create {"name":"MyScene"}      // create + compile
 ssworld_catalog {"components":["Box","DirectionalLight"],"detail":"compact"}  // look properties up, never guess
-(write the build plan in your reply)            // parts table: Model / Prefab+Instances / Group / own .ssdl file  — NO source write before this exists
-ssworld_source_write LampPost.ssdl, Tower.ssdl  // component files FIRST
-ssworld_source_write scene.ssdl                 // then the skeleton: camera, lights, environment, ground, instantiations
-ssworld_compile                                 // compile, check ok
-ssworld_scene_inspect                           // by_file + leaf_children.by_type: the plan gate (below)
+(state a short build plan in your reply)        // see "Structure"
+ssworld_source_write Tower.ssdl, scene.ssdl     // component files, then the skeleton
+ssworld_compile                                 // check ok
+ssworld_scene_inspect                           // structure and budget, no render needed
 ssworld_preview                                 // take viewer_url, open it with open_preview
 ssworld_capture_frame                           // screenshot, judge from the image
 ```
 
-Every tool returns `next: {action, reason}`. Follow it.
+Every tool returns `next: {action, reason}`. Follow it. In Hermes the full tool name is `mcp__ssworld__<name>`.
 
-## Tools (16; in Hermes the full name is `mcp__ssworld__<name>`)
+## Tools
 
-### Projects
-| Tool | What it does |
-|------|--------------|
-| `ssworld_project_list` | Existing projects and their paths on disk. Call it first when the user says "change that scene from before" |
-| `ssworld_project_create` | `{"name":"MyScene","longitude":114.06,"latitude":22.54,"height":150}`. The name must start with a letter and contain only letters, digits, `_` and `-`. Pass the coordinates (WGS84 degrees / metres) when the scene has a real location, otherwise the default anchor is used. Pass `"template":"empty"` to start from nothing, or `"template":"geo"` when the scene needs a basemap, terrain or 3D Tiles |
-| `ssworld_engine_status` | Whether the engine is installed; `{"install":true}` downloads it now (~54 MB). Use it when `ssworld_preview` reports `engine_not_installed` |
+| Tool | Use |
+|------|-----|
+| `ssworld_project_list` / `ssworld_project_create` | Find or create a project. Create takes `name` (letter first; letters, digits, `_`, `-`), optional `longitude`/`latitude`/`height` for a real location, and `template: "empty"` or `"geo"` (basemap/terrain/3D Tiles). Never overwrite a user's project |
+| `ssworld_engine_status` | `{"install":true}` downloads the engine (~54 MB) when preview says `engine_not_installed` |
+| `ssworld_catalog` | **The contract. Read it before writing code.** `{"components":[...],"detail":"compact"}` gives names, types, units, required members and `member_notes`. Pass the returned `catalog_digest` as `if_digest` to skip unchanged replies |
+| `ssworld_source_read` | Source + `digest`; `{"mode":"metadata"}`, `{"node":"sun"}`, `{"file":"*"}` |
+| `ssworld_source_write` | Whole-file write (`expected_digest: "new"` for a new file). Also writes `host_interfaces.json` and `logic.mjs` |
+| `ssworld_source_patch` | One unique `old_string` replacement (`replace_all` for several) |
+| `ssworld_source_batch` | **Preferred for multi-site edits**: atomic, `validate: "compile"` rolls back on a failed compile. `{"edits":[{"node_id":"sun","set":{"intensity":1.7}},{"old_string":"…","new_string":"…"}]}`; ids/enums/expressions go through `{"raw":"…"}` |
+| `ssworld_compile` | Errors as `file:line:column: code: message`; on success `node_count`, budget `usage`, `logic` |
+| `ssworld_scene_inspect` | Anything knowable without rendering: budget, largest subtrees, `by_file`, `leaf_children.by_type`, geometry bounds, the requested camera |
+| `ssworld_preview` | `viewer_url`; `page.connected` / `page.clients` |
+| `ssworld_capture_frame` | Screenshot + pixel stats, `receipt`, `runtime.errors`, camera deviation. Options: `width`/`height`, `settle_ms`, `client`, `await` (`{"state":"x"}` / `{"property":"p","min":…}`), `stable: {}` (wait until brightness settles). Use `"detail":"brief"` inside iteration loops |
+| `ssworld_logic_read` | Page logic **and whether the scene module loaded at all** (`runtime.state`, mapped `runtime.errors`, properties, States, invalid bindings). Use it instead of a screenshot when something may have failed to load |
+| `ssworld_logic_write` | Set declared properties in one transaction to stage a state for a screenshot — do not edit initial values in source for that |
+| `ssworld_environment_read` | What the engine actually received for sun, sky, fog, clouds, sky light, post-process and your lights |
+| `ssworld_geo_read` | Terrain loaded?, `anchor_above_terrain_m`, imagery draw order, Tileset/GeoJSON readiness |
+| `ssworld_geometry_read` | Measured sizes, world bounds, `ground` (`on`/`buried`/`above`), mesh facts, `overlaps: true` |
 
-### Reading the contract
-| Tool | What it does |
-|------|--------------|
-| `ssworld_catalog` | **Read this before writing code.** `{}` lists every component; `{"components":["Box","SpotLight"],"detail":"compact"}` returns property names, types, units, required members and `member_notes` for several components at once. The reply carries a `catalog_digest`; pass it back as `if_digest` next time and you get `unchanged` when nothing moved |
+You may also edit project files with the host's file tools; `ssworld_compile` always rebuilds from disk (you just lose the digest lock).
 
-### Editing sources (always pass `expected_digest`; on a conflict re-read rather than overwrite)
-| Tool | What it does |
-|------|--------------|
-| `ssworld_source_read` | Source plus `digest`. For a large scene start with `{"mode":"metadata"}` to get only the digest; `{"node":"sun"}` reads one node; `{"file":"*"}` reads every file. Past 100 000 characters you get `has_more`/`next_offset` |
-| `ssworld_source_write` | Whole-file write (a new file takes `expected_digest: "new"`). Writes `.ssdl`, `host_interfaces.json` and `logic.mjs` |
-| `ssworld_source_patch` | One replacement; `old_string` must be unique including whitespace. Add `replace_all` for several |
-| `ssworld_source_batch` | **Preferred for multi-site edits.** One atomic batch — if any edit fails nothing is written: `{"expected_digest":"…","validate":"compile","edits":[{"node_id":"sun","set":{"intensity":1.7}},{"node_id":"view","set":{"fov":48},"unset":["farPlane"]},{"old_string":"…","new_string":"…"}]}`. With `validate: compile` a failing compile rolls the batch back. Values are JSON numbers, strings, booleans or `[x,y,z]`; ids, enums and binding expressions go through `{"raw":"photoView"}` |
+## Components at a glance
 
-You may also edit the project's `.ssdl` files directly with the host's file tools — `ssworld_compile` always rebuilds from disk — you just lose the digest lock.
+Pick from here, then read exact properties with `ssworld_catalog`. **Never guess property names from QML or three.js.**
 
-### Compiling and inspecting
-| Tool | What it does |
-|------|--------------|
-| `ssworld_compile` | On failure: `scene.ssdl:line:column: code: message`. On success: `node_count`, budget `usage` and `logic` (declared properties, States, host calls) |
-| `ssworld_scene_inspect` | **Anything you can learn without rendering, learn here instead of spending a screenshot.** Budget ratios, the largest subtrees, leaves counted by type, how many nodes each file contributes, geometry bounds (lowest floor / highest roof) and the camera the scene asks for (including the heading/pitch implied by `lookAt`) |
+| Group | Components | Must-know |
+|-------|-----------|-----------|
+| Skeleton | `Scene` `Group` `Camera` `CameraView` | Only `Scene` or `Group` can be a parent — **never geometry** (compiles, then fails to load) |
+| Primitives | `Box` `Sphere` `Cylinder` `Cone` `Capsule` `Plane` | UVs, take textures. **Centred on `position`**: a Box of height h sits on the ground at `z: h/2` |
+| Procedural | `HeightField` `Lathe` `Tube` `Sweep` `Loft` `Torus` `Roof` `Stairs` `Mesh` | Constant parameters, ≤ 65535 vertices per node. `smooth: "catmullrom"` rounds, `flat: true` keeps hard corners (not both). `Mesh` is the escape hatch — try Loft/Sweep first |
+| Flat shapes | `Polygon` `ExtrudedPolygon` `Polyline` | Own `color`/`opacity`. `Polygon` has planar UVs and tangents (textures, normal maps and water work). `ExtrudedPolygon` gets UVs only with `bevel`/`taper`/`axis`. Neither can be a Prefab source |
+| Assets | `Model` `Texture` | glb ≤ 32 MiB, images ≤ 8 MiB, under `assets/`. A Model keeps its own materials (no recolouring) and is one pick target |
+| Materials | `PrincipledMaterial` `UnlitMaterial` `WaterMaterial` | One material per `target`. See Materials |
+| Instancing | `Prefab` `Instances` | One native object per batch. See Instancing |
+| Lights | `DirectionalLight` `PointLight` `SpotLight` `RectLight` `SkyLight` | See Lights |
+| Environment | `SkyAtmosphere` `ExponentialHeightFog` `VolumetricCloud` `PostProcessVolume` | Euler-degree `rotation`. **Cloud distances are kilometres.** Cloud members follow UE / Ultra Dynamic Sky names |
+| Time and sky | `Environment` `SunSky` | `Environment` is the clock and astronomy solver: `dateTime` (ISO-8601 **with offset**), `timeScale`, owns the sun direction and sky-light capture |
+| Animation | `NumberAnimation` `Vector3dAnimation` `RotationAnimation` `QuaternionAnimation` `ColorAnimation` `ParallelAnimation` `SequentialAnimation` `PauseAnimation` `Behavior` | `duration` in ms, `loops: Animation.Infinite` |
+| Geography | `Globe` `ImageryLayer` `Tileset` `GeoJsonLayer` | Geographic world only. See Geography |
+| Logic and input | `State` `Timer` `TapHandler` `HoverHandler` `KeyHandler` `PointerHandler` | See Logic |
+| Text | `Label` | Page-rasterised billboard at a WGS84 anchor; any browser font incl. CJK; `fontSize` is screen pixels |
+| Particles | `ParticleEmitter` | CPU sprites, metres/seconds/degrees; unlit, no collision, no shadow; `softness` > 0 refused |
 
-### Preview and capture
-| Tool | What it does |
-|------|--------------|
-| `ssworld_preview` | Returns `viewer_url`. `page.connected` says whether a page is open; `page.clients` lists every browser currently syncing |
-| `ssworld_capture_frame` | Screenshots an open page. Returns the image, pixel statistics, `receipt`, `framing`, `runtime.errors`, camera `effective/requested/deviation` and `logic`. Optional `width`/`height`/`settle_ms`/`client`/`await` (`{"state":"corner"}` or `{"property":"p","min":0.3,"max":0.5}` — the shot waits for the condition). **Use `"detail":"brief"` inside an iteration loop**: it keeps the verdict, errors, luma, the 3×3 regions and the image path, and drops the several thousand tokens of framing, receipt, camera and colour coverage |
+## Structure
 
-### Runtime logic
-| Tool | What it does |
-|------|--------------|
-| `ssworld_logic_read` | Reads page logic **and whether the module loaded at all** without a screenshot: `runtime.state`, `runtime.errors` (already mapped to `scene.ssdl:line`), property values, States, `bindings.invalid`, `binding_errors`. When the scene module dies, a screenshot only shows you the default globe view — use this instead and save the image |
-| `ssworld_environment_read` | **Asks the engine what it actually received**, so you do not have to bisect with screenshots: the true direction of the adopted sun (read back from the native sun and converted to azimuth/elevation at the anchor, with the deviation from what the scene asked for), which light drives the atmosphere, and the current native values of every environment component (`SkyAtmosphere`, fog, cloud, `SkyLight`, post-process, your own lights). "Why is the sky orange" and "where is the sun really" are one call away |
-| `ssworld_geo_read` | **Asks the engine what it holds for the geographic layers**: whether the terrain provider actually loaded, `anchor_above_terrain_m` (how far the scene's local `z: 0` sits above the ground under the anchor — turning terrain on moves the ground, not the scene), the imagery layers in real draw order with their `native_index`, and each `Tileset` / `GeoJsonLayer`'s readiness, extent and feature count. "Why is there no basemap" and "where did my buildings go" are one call away |
-| `ssworld_geometry_read` | **Measures the scene from the engine** so a size, a position or a collision is a number and not a squint: every geometry node's and Model's `dimensions` (object axes), world position/rotation/scale composed through the live scene graph (bindings and animations count), axis-aligned `world_bounds` (`tight` or an envelope), `ground` (`on` / `buried` / `above` z = 0), and the mesh facts the engine measured (vertex/triangle counts, `closed`, `manifold`, `area_m2` / `volume_m3`). Groups report the union of their descendants, Instances their native union, `scene.world_bounds` the whole extent. `overlaps: true` lists intersecting boxes largest first, `ids: [...]` narrows, `detail: "brief"` trims. A Box/Sphere/Cylinder is **centred on its position**: a Box of height 6 at `z: 0` reads back `buried` by 3 m |
-| `ssworld_logic_write` | Writes several declared properties in one transaction: `{"set":{"p":0.4,"pace":0.0025}}`. Use it to put a game into a particular state before a screenshot — **do not edit the initial values in the source for that**. If any value is rejected the whole batch rolls back (`logical_write_rejected`); States are derived and cannot be written, so write the properties they read |
+State a brief plan before the first write: the parts, what each is built from, how many copies, which file. Then:
 
-## The 56 built-in components at a glance
+- **Organic things (cars, people, trees, furniture) → a glb `Model`**, not a stack of primitives.
+- **Six or more static copies → `Prefab` + `Instances`.** Each instance has its own position, yaw/rotation and scale, so "they differ" is no excuse for hand-written copies.
+- **Parts that move together → a `Group` root**; bind only the Group's transform.
+- **Anything reused, or any unit over ~30 lines → its own `.ssdl` file** (`Tower.ssdl`, used as `Tower { id: east; height: 120 }`, differences exposed as `property`). Keep `scene.ssdl` a skeleton: camera, lights, environment, ground, instantiations.
+- Past ~500 instances, generate the source from a script in the project.
 
-Pick a shape from this table, then read the exact properties with `ssworld_catalog`. **Never guess property names from QML or three.js experience.**
+Check after the first compile with `ssworld_scene_inspect`: if `scene.ssdl` holds most nodes (`by_file`) or one geometry type appears 6+ times directly under `Scene` (`leaf_children.by_type`), restructure now — it is cheap before the user starts editing.
 
-| Group | Components | Notes |
-|-------|-----------|-------|
-| **Skeleton** | `Scene` `Group` `Camera` `CameraView` | A parent can only be `Scene` or `Group`. Geometry cannot be a parent |
-| **Primitives** | `Box` `Sphere` `Cylinder` `Cone` `Capsule` `Plane` | All carry UVs and take textures. Box width/depth/height map to X/Y/Z. Capsule `height` includes both hemispheres (so `> 2 * radius`) and `segments` is a multiple of four |
-| **Procedural geometry** | `HeightField` `Lathe` `Tube` `Sweep` `Loft` `Torus` `Roof` `Stairs` `Mesh` | Parameters must be constants; at most 65535 vertices per node. **These eight (all but `Mesh`) plus `Plane` are the only ones with tangents**, so `normalMap` and `WaterMaterial` only work on them. `smooth: "catmullrom"` (+ `samples`, default 4) rounds a `Lathe` profile, a `Tube`/`Sweep` path and the columns of a `Loft`; `flat: true` on a `Sweep` / `Lathe` keeps the section's corners hard (a square beam stays square) at twice the vertices; `HeightField` takes `noise: "fbm"; seed: 7` instead of a heights list |
-| | *which one?* | `Tube` = round section along a path. `Sweep` = any section along a path: the profile is drawn in XZ as `[x, 0, z]` (x right, z up, looking along the path), closed by default, with `twist` / `scaleEnd` / `cap`, or `closedProfile: false` for a strip. `Loft` = rings bottom to top (`resample: true` when rings differ in point count, `closed: true` to close the body on itself). `Torus` = `radius` + `tube`. `Roof` = gable / hip / shed on a **3..64 point simple polygon** with `pitch`, `overhang`, `thickness`: a convex quadrilateral takes `ridge`, any other outline (L, U, T, a footprint with a notch) is planned from its straight skeleton and takes `gables` (edge indices, edge i = point i -> point i + 1; omitted = every edge whose plane is a triangle) for gable and `lowEdge` for shed. `Stairs` = `steps`/`rise`/`run`/`width` climbing +X from the origin. `Mesh` = flat `vertices` + `faces` lists, the escape hatch for a script-generated shape — think Loft/Sweep first |
-| | `Polygon` `ExtrudedPolygon` `Polyline` | Flat polygon / extrusion / polyline. They carry their own `color` and `opacity`. **No UVs, so no textures**, and they cannot be a Prefab source. `ExtrudedPolygon` also takes `bevel` (top chamfer), `taper` (top inset, refused when it would eat an edge) and `axis: "x"` / `"y"` (a triangle outline becomes a ramp, a pentagon a gabled block); any of the three builds the block as a generated mesh with UVs, still without normal maps |
-| **Assets** | `Model` `Texture` | glb ≤ 32 MiB, images ≤ 8 MiB, both under the project's `assets/`, at most 64 per project |
-| **Materials** | `PrincipledMaterial` `UnlitMaterial` `WaterMaterial` | `target` points at geometry; one material per target. `PrincipledMaterial` is the lit PBR lane (`baseColorMap` / `metallicRoughnessMap` / `normalMap` / `emissiveMap`). **`UnlitMaterial` skips lighting, shadows and reflections entirely** — `baseColor` goes straight to the frame — which is the lane for markers, legends, holograms, signage and flat blocking; it carries only `baseColor` / `opacity` / `baseColorMap` / `uvScale` / `emissiveColor` (the PBR members are refused, not ignored), and `emissiveColor` (0..16) is how it crosses the bloom threshold since `baseColor` cannot exceed 1. **`WaterMaterial` is a prebuilt water surface, not a general material**: `baseColor` is the shallow colour and `deepColor` the colour reached after `depthFadeDistance` metres (default 150) — that fade reads the scene depth texture, so **there must be geometry under the water or `deepColor` never shows**. `waveIntensity` (0..4, default 0.103333, 0 = flat mirror) plus `flowDirection`/`flowSpeed` drive a built-in scrolling normal map; there is no texture slot and no `normalMap`. It needs tangents (`Plane`/`HeightField`/`Lathe`/`Tube`/`Loft`), is always translucent and two-sided whatever `opacity` says, and **animates with the clock** — set `flowSpeed: 0` before comparing screenshots |
-| **Instancing** | `Prefab` `Instances` | A whole batch is one native object. The source may be geometry or a Model |
-| **Lights** | `DirectionalLight` `PointLight` `SpotLight` `RectLight` `SkyLight` | The sun is `DirectionalLight { atmosphereSunLight: true }`. `SkyLight` is the ambient half: the engine captures the sky into a cubemap, convolves it into the diffuse ambient and reuses it as the sky reflected in water and metal, and that capture only runs while `realTimeCapture` is on (engine default on, so it tracks the sun unless someone writes `realTimeCapture: false`) |
-| **Environment** | `SkyAtmosphere` `ExponentialHeightFog` `VolumetricCloud` `PostProcessVolume` | On environment components `rotation` is Euler degrees `[x,y,z]`, not a quaternion. **`VolumetricCloud` distances are KILOMETRES** (the UE unit): `layerBottomAltitude: 1.8; layerHeight: 0.5`, never 1800/500 — metre values are refused (`cloud_kilometres_expected`). The cloud LOOK is the rest of `VolumetricCloud`: every one of those members is named after its UE / Ultra Dynamic Sky input (`minimumErosion`, `hightFrequencyNoiseAmount` — the UE spelling — `extinctionScaleTop`, `noisePosition`, and `phaseG`/`phaseG2`/`phaseBlend`/`multiScattering*` from the UE `VolumetricAdvancedMaterialOutput` node), so a cloudscape tuned in Unreal transfers value by value; the defaults are the UDS factory look. For a single coverage knob use `Environment.cloudCoverage` |
-| **Time and sky** | `Environment` `SunSky` | `Environment` is the scene clock and the real astronomy solver: `dateTime` (ISO-8601 **with an offset**) + `latitude`/`longitude` put the sun, moon and stars where they really were. `timeScale` is simulated seconds per real second (`3600` = an hour a second, `0` = frozen). Scene-global: no parent, one per scene. It **owns the sun direction**, so it cannot coexist with `DirectionalLight { sunAzimuth }` or `SunSky` (`multiple_writer`) — pin the sun with `Environment.sunAzimuthOverride` / `sunElevationOverride` instead. `SunSky` is the UE spelling of one fixed instant (`month`/`day`/`solarTime`/`timeZone`) and freezes the clock. `fogGetsColorFromAtmosphere` (default `true`) makes the height fog take its colour from the atmosphere, so night is dark and sunset is red; set it `false` to keep whatever colour is authored on `ExponentialHeightFog`. `cloudCoverage` uses the UDS scale (`0..3`, factory `1.14`): it thickens the cloud deck AND the height fog with it (`fogDensityClear` -> `fogDensityCloudy`, the UDS curve); `windDirection` (0 = north, clockwise) and `windSpeed` drift the clouds. All of these are opt-in — omit them and the clouds and fog stay exactly as authored, which is what you want when those values came out of Unreal. It also **owns the sky light capture**: it forces `SkyLight`'s capture on and keeps it running, so the ambient light and the sky reflected in water and metal follow the clock too (`SkyLight.realTimeCapture: false` beside it is refused as `sky_light_capture_owned`), with about five frames of lag after a sudden sky change |
-| **Animation** | `NumberAnimation` `Vector3dAnimation` `RotationAnimation` `QuaternionAnimation` `ColorAnimation` | `duration` in milliseconds, `loops: Animation.Infinite`, `running` is bindable |
-| | `ParallelAnimation` `SequentialAnimation` `PauseAnimation` `Behavior` | A group animation costs one timeline for the whole group |
-| **Geography** | `Globe` `ImageryLayer` `Tileset` `GeoJsonLayer` | The only components in the **geographic** world (longitude/latitude on the ellipsoid). Direct children of `Scene`, no position/parent/rotation, no animations. See below |
-| **Logic and input** | `State` `Timer` `TapHandler` `HoverHandler` `KeyHandler` `PointerHandler` | `PointerHandler` is the mouse: `pressed`, `screenX`/`screenY`, `hit` + `hitX`/`hitY`/`hitZ` (the ground point under the cursor, in the anchor's local metres), `wheelDelta`, and `onMoved` / `onDragged` / `onPressed` / `onReleased` / `onWheel`. Every readable member is a scalar or a boolean, because that is what a binding can consume — guard the hit point with `hit`, which is `false` when the cursor is over empty sky |
-| **Text** | `Label` | Text at a WGS84 anchor on a camera-facing billboard. The **page** rasterises it with Canvas 2D and hands the engine a bitmap, so no font file is shipped and CJK/emoji come out as glyphs. `fontSize` `bold` `italic` `underline` `fontColor` `backgroundColor` `strokeColor` are drawn by the page; `lineToGround` (the drop line to the terrain) by the engine. `text` takes newlines for several lines |
-
-## Plan before you write — a gate, not advice
-
-Most bad deliveries have the same shape: no plan, one `scene.ssdl`, every lamp post typed out by hand, every building a fresh stack of boxes. Compiling and rendering does not excuse it; the user cannot edit such a file and the budget dies at the second street. So:
-
-**Rule 0. Write the plan into your reply before the first `ssworld_source_write`.** One table and one file list, visible to the user. If the request changes mid-way, update the plan before the code. A plan looks like this:
-
-| Part | Built from | Copies | Placement | File |
-|------|-----------|--------|-----------|------|
-| lamp post | `Cylinder` + `Sphere`, own material | 240 | `Prefab` + `Instances` grid 20 × 12 | `LampPost.ssdl` |
-| office tower | `Box` shaft + `Lathe` crown, `property` height/colour | 6 | six instantiations | `Tower.ssdl` |
-| pine tree | `assets/pine.glb` `Model` as Prefab source | 160 | `Instances` positions + `rotations_z` + `scales_uniform` | `scene.ssdl` |
-| plaza water | `Plane` + `WaterMaterial` | 1 | — | `scene.ssdl` |
-| camera, sun, sky, fog, ground | — | 1 | — | `scene.ssdl` |
-
-Files: `scene.ssdl` (skeleton, ~80 lines), `LampPost.ssdl`, `Tower.ssdl`.
-
-Then decide each row with these five rules. They are thresholds, not taste.
-
-**1. Is there a model for it? Then use `Model`.** Cars, people, trees, furniture, sculpture — organic shapes should not be assembled from primitives; a dozen boxes neither look right nor fit the budget. The cost: a Model brings its own materials and **does not accept `baseColor` or `emissiveColor`**, so recolouring means building your own geometry.
-
-**2. Six or more STATIC copies of anything is `Prefab` + `Instances`. No exceptions.** (Anything created or removed while the page runs goes the other way: a `pragma spawnable` component for whole parts, a dynamic `Instances` batch for repeated ones — see "Building a world that changes".) 240 street lamps are one native object and one draw call; 240 hand-written nodes are 240 of each, and `usage.native_objects` tells on you. "But each one is rotated / a different size" is not a reason to hand-write: every instance carries its own yaw (`rotations_z`), full rotation (`rotations`) and size (`scales_uniform` / `scales`) — see Instancing. Build the source from `Cylinder`/`Lathe`/`Tube`/`Loft` if you want to recolour it, or hand it a glb if you want the real shape. Three to five copies with real differences (a different height, a different colour) are instantiations of a component file (rule 4), not a Prefab.
-
-**3. Do several parts move or rotate together? Make a `Group` the root.** Headlights on a car body, rotors on a fuselage — wrap them in a Group, write the attachments as fixed metric constants in local coordinates, and bind only the Group's own `position`/`rotation`. That saves unrolling quaternions into world coordinates every frame.
-
-**4. Anything that appears twice, or any unit over ~30 lines, is its own `.ssdl` file.** PascalCase filename (`Tower.ssdl`), instantiated from the entry as `Tower { id: eastTower; position: [...]; height: 120 }`. Expose the differences as `property`. **`scene.ssdl` is a skeleton**: camera, lights, environment, ground, and one screenful of instantiations and `Instances` batches. Past ~150 lines it is wrong, and "I will split it later" never happens — write the component files **first**, then the skeleton that uses them.
-
-**5. Picture first, detail second.** Block the composition, camera and lighting out with a dozen masses and confirm with a screenshot. Past ~500 instances generate the source from a script in the project (`gen_*.py`) rather than typing it.
-
-In one line: **use a glb rather than assembling primitives; instance rather than repeating a glb; group what moves together; split what gets reused.**
-
-**The gate: check your own work with `ssworld_scene_inspect` after the first compile.** It is a compile-time fact, not a screenshot, so it costs nothing:
-
-- `by_file` — if `scene.ssdl` contributes most of the nodes of a scene that has more than a handful of parts, rule 4 was skipped. Split before adding detail.
-- `leaf_children.by_type` — a geometry type counted **6 or more** times directly under `Scene`, with no `Instances` node in the scene, is rule 2 skipped. Turn those siblings into one Prefab + one `Instances` now; every later edit would otherwise be made N times.
-- `budget.native_objects` growing with the number of copies is the same failure seen from the other side: an `Instances` batch costs **0** additional native objects, however many rows it has.
-
-Restructuring after a screenshot is cheap; restructuring after the user has started editing the file is not. Do it at this gate.
+Inside a component, read a property by bare name or `root.x`. Values flow into a component, not out: from outside you cannot read an instance's properties or inner nodes.
 
 ## SSDL semantics
 
-### Coordinates and units
-- **Right-handed Z-up, metres**: X east, Y north, Z up. `position` is the centre, so a box sitting on the ground needs `z = height/2`. The origin is the project anchor (its longitude/latitude).
-- **Units are about the decimal point, not dimensional analysis**: `length`, `degrees`, `radians` and `real` all share one fixed-point lane, and only `duration` (milliseconds) uses another. Mixing them is not an error; values are taken at face value. That is why `position: [x + 2*qx*qw*11, …]` compiles. The cost: nobody warns you about a wrong unit.
-- **List values may span lines**: a newline after `sections: [`, one ring per line, comments inside the brackets — all compile (since 0.9.8). A property still ends at a newline or `;`, so spanning lines only works inside `[ ]`.
-- **`#rrggbb` is read as sRGB** (the value your colour picker gives you): the runtime converts sRGB to linear before handing it to the engine, so the screen shows the colour you picked and reading it back gives the same hex. Before 0.9.8 that step was missing and every flat colour came out roughly three times too bright. Native materials keep only 8 bits of **linear** light per channel, so very dark colours drift by a level or two (`#16260f` reads back as `#16260d`).
-- **Geometry `rotation` is a quaternion `[x,y,z,w]`** (w last; identity is `[0,0,0,1]`). θ degrees about Z is `[0, 0, sin(θ/2), cos(θ/2)]`. To make something turn, use `RotationAnimation`. Environment components use Euler degrees instead.
+### Coordinates and values
+- **Right-handed Z-up metres**: X east, Y north, Z up; origin at the project anchor.
+- **Geometry `rotation` is a quaternion `[x,y,z,w]`**; θ° about Z is `[0,0,sin(θ/2),cos(θ/2)]`. Environment components use Euler degrees.
+- Units are not type-checked (`length`, `degrees`, `real` share one lane; `duration` is ms) — nobody warns about a wrong unit.
+- `#rrggbb` is sRGB. List values may span lines inside `[ ]`; otherwise a property ends at newline or `;`.
 
+### Geography
+Two coordinate worlds that do not mix. `Globe` (≤ 1; `terrain`, usually `lighting: false`), `ImageryLayer` (≤ 8; `xyz` needs `{x}{y}{z}`; draw order = declaration order), `Tileset` (≤ 4; `offset.z` is the usual height fix; `geometricErrorScale` is the LOD dial) and `GeoJsonLayer` (≤ 8; one `geometry` kind per layer) are **direct children of `Scene`, with no position/parent/rotation, and cannot be animated**. Everything else is local metres around the anchor.
 
-### Geography: the globe under every scene
-
-Every SSDL scene already stands on a real Earth — the project anchor puts the local origin at a longitude
-and latitude — but until you say so, that Earth is a plain coloured sphere. Four components address it.
-
-```ssdl
-Scene {
-  id: shenzhen
-  Globe { id: earth; terrain: "https://tiles.example.com/terrain/"; lighting: false }
-  ImageryLayer { id: base; source: "https://tiles.example.com/sat/{z}/{x}/{y}.jpg"; webMercator: true; maximumLevel: 18 }
-  ImageryLayer { id: roads; kind: "wms"; source: "https://gis.example.com/wms?layers=roads"; alpha: 0.8 }
-  Tileset { id: city; source: "https://tiles.example.com/futian/tileset.json"; offset: [0, 0, -12] }
-  GeoJsonLayer { id: parks; source: "assets/parks.geojson"; geometry: "polygon"; fillColor: "#2e7d32"; opacity: 0.6 }
-  Box { id: tower; width: 40; depth: 40; height: 200; position: [0, 0, 100] }   // still local metres
-  CameraView { id: overview; longitude: 114.0579; latitude: 22.5526; height: 800; pitch: -30 }
-  Camera { id: cam; initialView: overview }
-}
-```
-
-**Two coordinate worlds, and they do not mix.** The four components above live in the geographic world
-(longitude/latitude on the ellipsoid); every other node lives in local metres around the anchor. So a
-geographic layer is always a **direct child of `Scene`**, has **no `position`, `parent` or `rotation`**,
-and **cannot be animated** (`geo_hierarchy_invalid` / `property_not_animatable` if you try). Ordinary
-bindings on their live members do work: `alpha`, `visible`, and a `Tileset`'s `offset`/`rotation`/`scale`.
-
-- **`Globe`** — at most one. `terrain: "default"` is the engine's own; any http(s) URL is a terrain-tile
-  directory. `lighting: false` is usually what you want once a basemap is on, or the sun tints the imagery.
-- **`ImageryLayer`** — `kind: "xyz"` (default; `source` must carry `{x}` `{y}` `{z}`), `"wms"`, `"arcgis"`
-  or `"single"` (one image over a required `rectangle: [west, south, east, north]` in degrees). **Draw
-  order is declaration order** — the first layer is the base map — and there is no `zIndex`. At most 8.
-- **`Tileset`** — 3D Tiles (or a Gaussian splat set with `splat: true`). `offset`/`rotation`/`scale` are a
-  transform of the *tileset's own root*, so `offset.z` is the height correction most datasets need. This
-  engine has **no `maximumScreenSpaceError`**: `geometricErrorScale` (0.2–12, default 1) is the LOD dial
-  and lower loads finer tiles. At most 4 (each holds ~512 MiB of tile cache).
-- **`GeoJsonLayer`** — one layer draws **one** kind of feature: `geometry: "polygon" | "line" | "point"`.
-  The document is either a managed `assets/*.geojson` (`source`, ≤ 8 MiB, its geometry checked against
-  `geometry` at compile time) or a remote `url` the **page** fetches — so a cross-origin server without
-  `Access-Control-Allow-Origin` reports `geojson_fetch_failed` instead of leaving a silently empty layer.
-  Every style member is create-only; only `visible` can be bound. At most 8. Polygons are filled: with
-  `extrudeHeightField` they become solid blocks, without it a flat plane (the native default draws only
-  the outlines, and SSDL never leaves it there).
-
-**Terrain moves the ground, not your scene.** Local `z: 0` stays at the anchor's ellipsoid height, so a
-scene built flat can end up buried in a hillside or floating over a valley the moment terrain loads. Call
-`ssworld_geo_read` and read `anchor_above_terrain_m`; if it is not near zero, fix the **anchor height** in
-`showcase.manifest.json` rather than moving every node.
-
-**No basemap ships with this server.** A tile service carries terms of use and often a key, and neither is
-ours to accept for you. Ask the user for the URL, or start from `"template":"geo"`, which lays out the
-node with a placeholder to fill in.
-
-**Frame it geographically.** A `CameraView` with `longitude`/`latitude`/`height` is in the same world as
-the layers, so it aims at a tileset or a rectangle directly; `position`/`lookAt` are local metres and are
-for framing the objects you built.
-
-### Measure before you judge
-A screenshot answers "does it look right"; it cannot tell 5.8 m from 6 m, and it hides a box that is
-half underground behind the one in front of it. After a compile, call `ssworld_geometry_read` and read
-the numbers the engine holds:
-
-- `nodes[].dimensions` is the object's size in its own axes (width x, depth y, height z after scale);
-  `world_bounds.size` is the axis-aligned box in scene metres, `tight: false` means an envelope of a
-  rotated or composite node.
-- `ground` says where the bottom of each node sits relative to `z: 0`. **Box, Sphere, Cylinder, Cone and
-  Capsule are centred on their `position`**, so a Box of height `h` belongs at `z: h/2`; `buried` with
-  `depth_m: h/2` is the classic sign that it was written at `z: 0`.
-- `overlaps: true` lists intersecting boxes with the overlap volume; adjoining walls that should share
-  a face show up with a size near zero on one axis.
-- `groups[].world_bounds` is what a Group actually spans, `scene.world_bounds` what the whole scene
-  spans — use it to place the `CameraView` (`lookAt` the centre, stand back about 1.5x the diagonal).
-
-Read it once more after you fix something: the values come from the scene graph, so a binding or an
-animation that moved a node is reflected, and a `Model` is measured only once its state is `ready`.
+- **No basemap ships with the server** (terms and keys are the user's). Ask for a URL or start from `template: "geo"`.
+- **Terrain moves the ground, not your scene**: check `ssworld_geo_read.anchor_above_terrain_m`; fix the anchor height in `showcase.manifest.json`, not every node.
+- A `CameraView` with `longitude`/`latitude`/`height` frames geographic content; `position`/`lookAt` frame local content.
+- A blank basemap is usually the URL — check `ssworld_geo_read` and `geo_error` entries in `runtime.errors`.
 
 ### Camera
-```ssdl
-CameraView { id: v; position: [60, -80, 40]; lookAt: [0, 0, 12]; fov: 50 }
-Camera { id: cam; initialView: v }
-```
-- `fov` is the **horizontal** field of view. The vertical fov follows the aspect ratio, so a wide frame shows less sky.
-- `lookAt` derives heading and pitch; you can also set `heading` (0 = north, clockwise), `pitch` (negative looks down) and `roll` explicitly.
-- `nearPlane`/`farPlane` are recomputed by the engine every frame from the camera height; writing them has no effect.
-- `longitude`/`latitude`/`height` and `position` are alternatives, not a pair. For a street-level camera use z 1.5–3 m and fov 45–60.
-- **For a chase camera, bind the pose directly**: `position`, `heading`, `pitch`, `roll`, `fov` and the geographic triple are all bindable and animatable. Angles are always degrees. `label`, `duration`, `lookAt` and the clip planes stay one-shot scene-setup values.
+`CameraView { id: v; position: [60,-80,40]; lookAt: [0,0,12]; fov: 50 }` + `Camera { initialView: v }`. `fov` is **horizontal**. `heading` 0 = north, clockwise; `pitch` negative looks down. `nearPlane`/`farPlane` are recomputed by the engine (writing them does nothing). Pose members are bindable for chase cameras.
 
 ### Lights
-- **`DirectionalLight` has two modes.** With `atmosphereSunLight: true` it adopts the sky's sun and only `intensity`, `lightColor`, `castShadows`, `temperature`, `indirectLightingIntensity`, `volumetricScatteringIntensity`, `sunAzimuth` and `sunElevation` may be written; members such as `lightSourceAngle` belong to a standalone light, and the wrong combination is a compile-time `runtime_unsupported`.
-- **`intensity` is a dimensionless multiplier** (default 1), not lux.
-- **Watch the conversion on point/spot/rect lights**: with `intensityUnits: "Lumens"` the engine divides a point light by about 795.8, so `intensity: 5.5, intensityUnits: "Lumens"` is roughly 0.007 and the frame is nearly black. When in doubt leave `intensityUnits` out and use 1–4 for neon and street lamps. Indoors 600–3000 lm per lamp is plenty; tens of thousands trigger lens glare (a string of blobs symmetric about the screen centre is not a second lamp).
-- **Tint the sky through the sun; never touch the scattering terms.** On `SkyAtmosphere`, `rayleighScattering`, `mieScattering`, `mieAbsorption`, `otherAbsorption` and `skyLuminanceFactor` are UE's **normalised direction vectors** (the magnitude lives in the neighbouring `*Scale`). The engine's default `rayleighScattering` is `[0.175, 0.410, 1.000]` — blue weighted 5.7× red, which is the entire reason the sky is blue. Writing any "neutral-looking" vector raises red and turns the sky orange-brown; copying the physical coefficients `[0.0058, 0.0136, 0.0331]` divides the whole term by 30 and turns it orange-brown too. **All five members are refused at compile time** (`sky_scattering_refused`). For warmth write the sun's `lightColor`; for a warm low horizon lower `sunElevation`; for ground bounce use `groundAlbedo`; for haze use `ExponentialHeightFog`; for overall grade use `PostProcessVolume`.
-- **`temperature` is an unnormalised multiplier**, normalised by luminance rather than by the largest component, so it changes brightness as well as hue: 3000K = `(1.77, 0.85, 0.27)`, 4000K = `(1.41, 0.92, 0.53)`, 5000K = `(1.22, 0.96, 0.76)`, 6500K = `(1.04, 0.98, 1.04)` (the neutral default), 8000K = `(0.95, 0.99, 1.24)`. On a sun with `atmosphereSunLight: true` that multiplier covers the whole sky — "golden dusk, 3500K" gives you an orange-brown sky from edge to edge. Write `lightColor` for warmth and leave `temperature` near 6500.
-- **`SpotLight` and `RectLight` emit along their own -X**: `[0,0,0]` faces west, `[0,0,90]` south, `[0,0,180]` east, `[0,0,270]` north, `[0,-90,0]` straight down, `[0,90,0]` up. `attenuationRadius` is metres, cone angles are degrees.
+- The sun is `DirectionalLight { atmosphereSunLight: true }` and is the **only directional light drawn**; a second one lights nothing and re-tints the sun. Moonlight is `Environment.moonIntensity`.
+- `intensity` is a multiplier. On point/spot/rect lights **leave `intensityUnits` out** and use 1–4; `"Lumens"` divides by ~800 and the frame goes black.
+- **Warm the scene with the sun's `lightColor` or a lower `sunElevation`**, not `temperature` (it also changes brightness and tints the whole sky orange-brown). Scattering vectors on `SkyAtmosphere` are refused.
+- `SpotLight`/`RectLight` emit along their own **-X**: `[0,-90,0]` points straight down.
+- `Environment.sunIntensity` (default 6) is absolute — nothing auto-exposes.
 
-### Materials and textures
-Three material kinds, and the choice is about **lighting**, not looks. One target carries one material of one kind.
-
-```ssdl
-// 1. PrincipledMaterial — the lit PBR lane. baseColor is relit by sun, sky and shadows, so the hex you wrote is not the hex on screen.
-Texture { id: brick; source: "assets/brick.png" }
-Box { id: wall; width: 12; depth: 0.4; height: 6; position: [0, 0, 3] }
-PrincipledMaterial { id: m; target: wall; baseColorMap: brick; uvScale: [0.25, 0.25]; roughness: 0.8 }
-
-// 2. UnlitMaterial — no lighting, shadows or reflections: baseColor goes straight to the frame.
-//    Markers, legends, holograms, signage, flat blocking, anything whose colour is data.
-Box { id: zoneA; width: 30; depth: 30; height: 0.2; position: [40, 0, 0.1] }
-UnlitMaterial { target: zoneA; baseColor: "#ff3b30"; opacity: 0.6; emissiveColor: [3, 0.6, 0.6] }
-
-// 3. WaterMaterial — a prebuilt water surface. Needs tangents (Plane/HeightField/Lathe/Tube/Loft) and geometry UNDER it.
-Plane { id: lake; width: 200; depth: 120; position: [0, -80, 0.05] }
-Box { id: lakeBed; width: 200; depth: 120; height: 4; position: [0, -80, -2] }
-PrincipledMaterial { target: lakeBed; baseColor: "#3a3527"; roughness: 1 }
-WaterMaterial { target: lake; baseColor: "#2f6f8f"; deepColor: "#0b2a3a"; depthFadeDistance: 6; waveIntensity: 0.25; flowDirection: 30; flowSpeed: 0.4 }
-```
-- **`UnlitMaterial`** carries only `baseColor` / `opacity` / `baseColorMap` / `uvScale` / `emissiveColor`; the PBR members (`metalness`, `roughness`, `normalMap`, `metallicRoughnessMap`, `emissiveMap`) are **refused at compile time**, not ignored. It is still tone mapped and post processed, so it is not a pixel-exact UI colour. `baseColor` cannot exceed 1, so `emissiveColor` (0..16) is how it crosses the bloom threshold. `opacity < 1` keeps the unlit path through the translucent pass. Read the catalog: `ssworld_catalog {"components":["UnlitMaterial"]}`.
-- **`WaterMaterial`** is not a general material. `baseColor` is the shallow colour, `deepColor` the colour reached after `depthFadeDistance` metres of water (default 150 — far too deep for a pond; use 3–10). That fade reads the scene depth texture, so **without geometry under the surface `deepColor` never shows**. `waveIntensity` (0..4, default 0.103333, `0` = flat mirror) plus `flowDirection` (compass degrees, one number) / `flowSpeed` (>= 0, default 1) drive a built-in scrolling normal map; there is **no texture slot and no `normalMap`**. `metalness` / `roughness` / `specular` / `uvScale` tune the built-in shading. It is always translucent and two-sided whatever `opacity` says, and it **animates with the clock** — set `flowSpeed: 0` before comparing two screenshots. Read the catalog: `ssworld_catalog {"components":["WaterMaterial","Plane"]}`.
-- `uvScale` multiplies the UV, so smaller values repeat the texture more densely.
-- **Roughness maps go through `metallicRoughnessMap`** (linear space, G = roughness, B = metalness, multiplied by the scalars on the material). That is what separates wet patches from dry ones on a road after rain.
-- **Normal maps go through `normalMap` + `normalScale`** (0..2). **Only `Plane`, `HeightField`, `Lathe`, `Tube` and `Loft` carry tangents**; a normal map on a Box, Sphere or Cylinder is a compile-time `material_requires_tangent`, and so is a `WaterMaterial` on one. To give a wall relief, lay a flat HeightField grid instead of a Box.
-- **Emission goes through `emissiveMap` / `emissiveColor`**, which need UVs but not tangents, so every primitive can use them. `emissiveColor` is a **multiplier**, not a 0..1 colour: each component goes up to 16, and you need roughly 2–6 to cross `settings.bloomThreshold` and actually glow. Emission does not light its surroundings — add a light for that.
-- Identical image content counts once against the texture budget even under different paths and on several objects. The same image used as both a colour map and a metallic-roughness map counts twice, because the colour spaces differ.
+### Materials
+- **`PrincipledMaterial`**: lit PBR (`baseColorMap`, `metallicRoughnessMap` G=roughness B=metal, `normalMap`, `emissiveMap`). The hex you write is relit, so it is not the hex on screen.
+- **`UnlitMaterial`**: colour straight to the frame — markers, legends, signage, data colours. Only `baseColor`/`opacity`/`baseColorMap`/`uvScale`/`emissiveColor`.
+- **`WaterMaterial`**: a prebuilt water surface. `deepColor` appears after `depthFadeDistance` metres (default 150 — use 3–10 for a pond) and **needs geometry under the surface**. `waveIntensity`/`flowDirection`/`flowSpeed` drive built-in waves; it animates with the clock.
+- **Tangents** (for `normalMap` and `WaterMaterial`) exist only on `Plane`, `Polygon`, `HeightField`, `Lathe`, `Tube`, `Sweep`, `Loft`, `Torus`, `Roof`, `Stairs`.
+- `emissiveColor` is a multiplier up to 16; ~2–6 crosses the bloom threshold. Emission lights nothing around it.
+- `uvScale` multiplies UVs (smaller = denser repeat).
 
 ### Instancing
-Every instance has its own **position, rotation and scale** — `Instances` is not a position-only batch, so "each copy is different" is never a reason to hand-write nodes.
 ```ssdl
-Cylinder { id: lampPost; radius: 0.12; height: 6; position: [0, 0, 3]; visible: false }
-PrincipledMaterial { target: lampPost; baseColor: "#2a2a30"; metalness: 0.8 }
-Prefab { id: pfLamp; source: lampPost }
-// grid placement: one batch, 240 rows, all facing the same way
-Instances { id: lamps; prefab: pfLamp; placement: "grid"; origin: [0,0,3]; spacing: [18,40]; columns: 20; count: 240 }
-// explicit placement: one position, one yaw and one size per row
-Instances { id: parkLamps; prefab: pfLamp; positions: [[0,0,3],[12,0,3],[24,0,3]]; rotations_z: [0, 90, 45]; scales_uniform: [1, 1, 1.2] }
+Cylinder { id: post; radius: 0.12; height: 6; position: [0,0,3]; visible: false }
+Prefab { id: pfPost; source: post }
+Instances { id: lamps; prefab: pfPost; placement: "grid"; origin: [0,0,3]; spacing: [18,40]; columns: 20; count: 240 }
+Instances { id: trees; prefab: pfPine; positions: [[0,0,0],[12,4,0]]; rotations_z: [0,137]; scales_uniform: [1,1.3] }
 ```
-Giving `positions` implies explicit placement, and it needs **at least two**.
+- Placements: `grid`, explicit `positions` (≥ 2), `ring` (`center`/`radius`/`count`/`faceCenter`), `along_path` (`path` + `step` or `count`, `alignToPath`).
+- Per-instance `rotations_z` (degrees) / `rotations` / `scales_uniform` / `scales` (each in (0, 10]); one list entry per instance; pick one rotation and one scale form.
+- **The source still renders** (give it `visible: false`) and **its own rotation is not baked in**.
+- A glb `Model` can be a source (do not delete it while the Prefab lives). Never a `Polygon` family node.
+- ≤ 512 per batch, 2048 per Prefab. A Group holding a batch is **frozen** (moving it is refused).
 
-Two more placements do the arithmetic for you:
+### Logic
 ```ssdl
-// ring: 12 lamps on a 30 m circle, each turned so its +X faces the centre
-Instances { id: plaza; prefab: pfLamp; placement: "ring"; center: [0, 0, 3]; radius: 30; count: 12; faceCenter: true }
-// along_path: one lamp every 18 m along a kerb line, each turned along the kerb
-Instances { id: kerb; prefab: pfLamp; placement: "along_path"; path: [[0,0,3],[120,0,3],[120,80,3]]; step: 18; alignToPath: true }
+property real score: 0          // real / bool / string / length / degrees / duration / radians
+State { id: stWin; name: "win"; when: score >= 8 }
+TapHandler { onTapped: { score = score + 1; } }
 ```
-`along_path` takes `step` (metres of arc length) **or** `count`, never both, and `smooth: "catmullrom"` rounds the path before spacing. `faceCenter` / `alignToPath` set every yaw themselves, so they exclude `rotations` / `rotations_z` / `rotation_z`. A member from another placement mode is `placement_invalid` at compile time, and so is a batch over 512.
+- Arithmetic only (no string concatenation, no arrays). Maths: `min max clamp lerp abs sign floor ceil round mod sqrt hypot sin cos atan2 hash01` (angles in degrees). **No `random()`** — use `hash01(seed)`.
+- Reference a State by **id** (`stWin.when`), not by name. States are derived; write the properties they read.
+- A handler's assignments and each frame's bindings are single transactions. A rejected binding value invalidates that binding silently — check `logic.bindings.invalid` / `runtime.errors`.
+- **Every compile hot-reloads and resets logic properties** — restage with `ssworld_logic_write`.
+- Input: `KeyHandler { key: "ArrowUp" }` (read `pressed` for continuous, `onPressed` for discrete); `PointerHandler` gives `pressed`, `screenX/Y`, `hit` + `hitX/Y/Z` (local metres; read only while `hit` is true), `wheelDelta`.
+- A `Model` is one pick target; its inner glb nodes cannot be addressed from SSDL.
 
-**A Model works as a source too**: `Model { id: car; source: "assets/car.glb" }` plus `Prefab { id: pfCar; source: car }` gives a fleet sharing the glb's own geometry and materials. Two rules apply only to Model sources: the source Model **must finish loading first** (the compiler guarantees Models are built before every other node, so just write it normally), and **you must not delete that Model while the Prefab is alive** (instances *borrow* its geometry, so deleting it is a dangling pointer and the runtime refuses outright). A multi-material glb costs one draw call per primitive and `draw_calls` reports that honestly; a geometry source is always 1.
-
-**Turning and resizing the copies.** A batch of 160 pines all facing the same way reads as wallpaper, so give every instance its own yaw and size:
-```ssdl
-Instances { id: pines; prefab: pfPine; positions: [[-24,26,0],[-53,-1,0],[-30,46,0]]; rotations_z: [0,137,58]; scales_uniform: [1,1.3,0.85] }
-```
-- `rotations_z` — one yaw in **degrees** about Z per instance, the common case for anything standing on the ground.
-- `rotations` — one `[rx, ry, rz]` degree triple per instance when you need tipping too, applied roll-X, then pitch-Y, then yaw-Z.
-- `scales_uniform` — one number per instance; `scales` — one `[sx, sy, sz]` per instance. Every component must be in **(0, 10]**.
-- `rotation_z` and `scale` spell one value for the **whole batch** instead of a list.
-- Lists need exactly one entry per instance, and they work under `placement: "grid"` too (`count` is the length they must match).
-- Pick one of `rotations` / `rotations_z` / `rotation_z`, and one of `scales` / `scales_uniform` / `scale`. Writing two is refused rather than silently combined.
-
-**A batch lives in the frame of whatever it was written inside.** `positions` are read in the
-enclosing `Group`'s (or component file's) metres, exactly like every sibling node, and the chain is
-folded into the rows when the batch is built. Because those rows are create-only, that fold is a
-snapshot: a `Group` with a batch under it is **frozen** — moving, turning or scaling it afterwards
-(`ssworld_logic_write`, a `Binding`, a `Behavior`) is refused with `transform_frozen_by_instances`
-instead of leaving the batch behind. Move the batch out to the scene root if its frame has to move.
-A `GeoAnchor` is a different coordinate world and cannot hold a batch at all.
-
-Limits: the source must be geometry or a Model, never a `Polygon`; **the source node still renders itself**, so give it `visible: false` if you do not want to see it; **the source node's own `rotation` is not baked in**, so a pose you want on every copy belongs in `rotation_z` / `rotation`, not on the source; `seed` does not currently jitter positions; at most 512 per batch and 2048 per Prefab. Every member of `Instances` is a one-shot scene-setup value and cannot be bound or animated.
-
-### Scene logic
-Declare properties on the `Scene` root instead of using "eight lamps" as state:
-```ssdl
-property real score: 0        // types: real / bool / string / length / degrees / duration / radians
-State { id: stWin; name: "win"; when: score >= 8 && misses < 3 }
-```
-- Handlers write `score = score + 1`; expressions support `+ - * / === !== < <= > >= && || ! ?:`. **Arithmetic only — there is no string concatenation.**
-- **The assignments inside one handler are a single transaction**; if any fails the batch rolls back.
-- **Bindings are also one transaction per frame**: if any bound value is rejected by its target (a negative `width`, a wrong type, a native refusal) the batch rolls back, that binding is invalidated, the values it drove stop changing, and the page throws nothing — you only get a `binding_error` in `runtime.errors` and an entry in `logic.bindings.invalid`. Write piecewise paths with `clamp`/`lerp`/`min`/`max` against a progress property rather than chains of `?:`, and keep every branch inside the target's legal range.
-- **A `State` is referenced in expressions by `id`, not by `name`**: write `stWin.when`; `win.when` is an `unknown_reference`. Giving both the same spelling is the least trouble.
-- A `State` is derived from `when` and cannot be written; write the properties it reads.
-- **Every compile hot-reloads and resets logic properties to their initial values** (`ssworld_compile` returns `hot_reload.logic_reset`). Do not compile in the middle of a test, or restore the situation afterwards with `ssworld_logic_write`.
-
-**Gameplay maths**: `min`/`max`/`clamp`/`lerp`, `abs` `sign` `floor` `ceil` `round`, `mod` (the remainder takes the dividend's sign), `sqrt`, `hypot`, `sin` and `cos` (**degrees** when no unit is given), `atan2(y,x)` (returns degrees), `hash01(seed)`.
-- Distance tests can be written either way: `hypot(dx, dy) < 4` and `dx*dx + dy*dy < 16` both work.
-- **There is no `random()`**: bindings re-evaluate every frame, so true randomness would read back differently each time. For variation use `hash01(integer seed)` — same seed, same result, range `[0,1)`: `height: 2 + hash01(i) * 3`.
-- Heading to a forward vector: `position: [x + sin(heading)*6, y + cos(heading)*6, z]`.
-
-### Input
-```ssdl
-KeyHandler { id: kThrust; key: "ArrowUp"; onPressed: { throttle = 1; } onReleased: { throttle = 0; } }
-KeyHandler { id: kBoost; key: " " }
-State { id: boosting; name: "boosting"; when: kBoost.pressed }
-```
-`key` is the `KeyboardEvent.key` value (`"ArrowUp"`, letters case-insensitive, `" "` for space, `"Enter"`), one key per handler. **Read `pressed` for continuous actions (throttle, steering); use `onPressed` for discrete ones (fire, switch view).** The listener sits on the window, calls `preventDefault` for the keys it claims, force-releases on blur, and ignores the operating system's key repeat by default (set `autoRepeat: true` if you want it).
-
-```ssdl
-PointerHandler { id: cursor; onWheel: { zoom = clamp(zoom + cursor.wheelDelta * 0.01, 1, 40); } }
-Box { id: marker; width: 2; depth: 2; height: 0.2; visible: cursor.hit
-  position: [cursor.hitX, cursor.hitY, cursor.hitZ + 0.1] }
-```
-`PointerHandler` is the mouse on the canvas: `pressed` (`button`: 0 left, 1 middle, 2 right), `screenX`/`screenY` in canvas pixels, `hit` plus `hitX`/`hitY`/`hitZ` for the point under the cursor **in the anchor's local metres** — the same frame every `position` is written in, so it composes directly with `api.scene.spawn({ at: [...] })` — and `wheelDelta` for the last wheel step. **`hit` is the guard** — `hitX/Y/Z` keep the last point that WAS hit rather than going to a sentinel, so read them only while `hit` is true. It force-releases `pressed` when the pointer leaves the canvas, so a drag cannot latch on. Host JS gets the same pick from `api.input.ray(screenX, screenY)` -> `{ hit, point, worldPoint, normal, distance, target }`, where `point` is those same local metres and `worldPoint` is the engine's raw earth-centred value.
-
-Continuous gestures (dragging out a road, snapping to a grid, a preview that follows the cursor) belong in `logic.mjs`, driven by `api.input.ray`; keep the SSDL side to reading `pressed` and `hit` for highlighting. Gamepads still have no component: listen in `index.html` and call `window.SSWorld.logical.write("name", value)` or `.writeBatch({a:1,b:2})`.
-
-**A `Model` is one pick target, and the objects inside the glb cannot be addressed at all.** The engine raycasts *tracked nodes*, and a whole glb is one tracked node: a tap anywhere on it reports the `Model`'s own handle, so a `TapHandler` nested in the Model fires (verified on real hardware — a click on a car glb took its nested handler from 0 to 1, and 329 picks across a 563-node scene resolved to a declared node every time, with no glb leaf ever reported). What you cannot do is tell a door from a wheel: there is no sub-node handle, no child of a `Model` in SSDL, and animation reaches only its transform and visibility.
-
-**The escape hatch: mint your own handle for a part of the glb.** The atomicity above is the SSDL surface, not the engine. The loader names every glTF node on the entity it creates, and from `index.html` / `logic.mjs` you can walk to it and hand it a handle of your own:
-
-```js
-const rt = window.SSWorld.host.scopes.get("ssworld-project").current.context.runtime.runtime;
-// 1. Find the Model's entity. Its objectName is `ssdl:<scope>:<node id>:<incarnation>`.
-let modelRoot = null;
-window.GlobalViewer.scene.rootEntity.travalHierarchy((e) => {
-  if (!modelRoot && e.objectName.includes(":carPlayer:")) modelRoot = e;
-});
-// 2. Its subtree is the glb, one entity per glTF node, under the original authored names.
-const parts = new Map();
-modelRoot.travalHierarchy((e) => { if (e.objectName && e.renderer) parts.set(e.objectName, e); });
-// -> Headlights, Bottom, Rear_bumper, FL_WHEEL, FR_WHEEL, RL_WHEEL, RR_WHEEL, Logos, Exhaust
-// 3. Publish one into the scene node table under a handle you choose. NOTE the argument shape:
-//    a BARE handle string, not the JSON request every other op on this facade takes.
-rt.sceneGraphFacade.adoptEntity("external:part/FL_WHEEL", parts.get("FL_WHEEL"));
-// -> { ok: true, adopted: true, kind: "external", node_handle: "external:part/FL_WHEEL", frame: "z_up" }
-```
-
-An adopted part is a first-class node: `pick` reports its handle, and `setTransform` / `setVisible` / `reparent` accept it (`target_kinds` is `geometry`, `locator`, `external`). `withdraw` gives it back. Verified on real hardware with `src/ssdl/tools/probe_model_entities.py`: before adopting, a pick grid over a car glb reported `external:ssdl-model:6` and nothing else; after adopting four named parts, `external:part/Rear_bumper` was reported directly and **the Model's own handle stopped appearing at all**.
-
-That last sentence is the cost, and it is a trap: **an adopted part takes over attribution, so a `TapHandler` nested on that `Model` silently stops firing over it** (the runtime fires only when the pick handle equals the target's handle). Adopt parts or keep the whole-model handler, not both on the same surface. Four more limits worth knowing before you build on this: SSDL has no component for adopted handles, so wire the click yourself in `index.html` (`pick` on your own listener, map handle to part, then `window.SSWorld.logical.write(...)` to push it into scene logic); a glTF node whose mesh is shared with other nodes is folded into GPU instancing and **no entity is created**, so it cannot be adopted; exporters routinely emit empty or duplicate names (`""`, `RootNode`, `Plane.013`), so check what your glb actually contains before keying logic off a name; and `childEntities()` is registered but not callable from JS — `travalHierarchy` is the only traversal that works.
-
-Three ways to get part-level interaction without leaving SSDL:
 ### Animation
-- Easing is `easing.type: "Easing.InOutSine"` — the enum must be fully qualified; `easing: "InOutSine"` is an `unknown_property`. (The equivalent member on `Behavior` is spelled `easing`.)
-- `Behavior` eases every change of its target property over `duration`; put it on a property that changes each frame and it lags by roughly speed × duration. **Use it for discrete jumps only; bind continuous motion directly.**
-- `Group` and `Model` can only animate `position`, `rotation`, `scale` and `visible`; a material animation pointing at them is a compile-time `property_not_animatable`.
-- **There is a hard ceiling of 256 native timelines**: every top-level animation takes one and never gives it back, a `ParallelAnimation`/`SequentialAnimation` takes one for itself and all its children, and a `Behavior` takes one only while a transition is running. Going over is `animation_budget`; watch `usage.timelines`.
+- Easing: `easing.type: "Easing.InOutSine"` (fully qualified). `Behavior` is for discrete jumps; bind continuous motion directly.
+- `Group` and `Model` animate only `position`/`rotation`/`scale`/`visible`.
+- ≤ 256 native timelines (each top-level animation or animation group takes one). Watch `usage.timelines`.
 
-### Host JS
-When a rule needs JS, go through a host interface — **do not move geometry into JS**:
-1. `host_interfaces.json`: `{"Game":{"methods":{"hit":{"args":[{"name":"targetId","type":"string"}]}}}}`
-2. `logic.mjs`: `export function createHostInterfaces(api) { return { Game: { hit({targetId}) { api.logical.write("score", n); } } }; }`
-3. SSDL: `TapHandler { onTapped: { Game.hit(targetId: "balloonA"); } }`
+### Host JS and a changing world
+When a rule needs JS, declare it in `host_interfaces.json`, implement it in `logic.mjs` (`export function createHostInterfaces(api) { … }`), and call it from SSDL (`Game.hit(targetId: "a")`). Write state back with `api.logical.write`. Do not move geometry into JS.
 
-An undeclared interface, method or argument is a compile-time `host_interface_unknown` / `host_method_unknown` / `host_arg_missing`; a missing implementation makes the page refuse to load (`host_interface_missing`). Callbacks are synchronous and return nothing, so state changes go through `api.logical.write`; anything thrown lands in `logic.host_call_errors`.
+To create and remove things at runtime, **SSDL says what a part is; host JS says how many**:
+- A part: a `.ssdl` file with `pragma spawnable`, a single `Group` root, defaulted properties, no scene singletons, no key/pointer handlers, no `Model`. Spawn it with `api.scene.spawn("House", {floors}, {at, heading, tag})` → `{handle}`; also `dispose`, `move`, `moveBatch`, `set`, `list`, `onTap`, `budget`.
+- Many identical copies whose count changes: an `Instances` batch declared with `positions: []`, rewritten with `api.instances.set("cars", {positions, rotations_z})`.
+- Spawns share the static budget, run ≤ 64 per frame, and are replayed after a hot reload (check `spawn_failures` in `ssworld_logic_read`). Handles die with their generation; rebuild maps inside `createHostInterfaces`.
 
-### Building a world that changes
+### Environment, exposure and night
+- **Do not touch exposure members** on `PostProcessVolume`: any of them turns eye adaptation on and the frame re-exposes (+~6 stops; night lamps blow out).
+- Night: `Environment { moonIntensity: 4 }` (default reads as black), lamps at intensity 1–4, windows/signs via `emissiveColor` 2–6.
+- `Environment.cloudCoverage` also drives the height fog and overrides `ExponentialHeightFog` density; leave it out unless you want weather.
+- After moving the clock, capture with `stable: {}` — the frame takes up to ~30 s to settle.
+- For reproducible screenshots freeze motion: `VolumetricCloud.cloudSpeed: 0`, `WaterMaterial.flowSpeed: 0`, particle `playbackSpeed: 0` (+ `warmup` and `seed`). Restore them before delivery.
+- The starter scene's `timeOfDay` / `sceneDateTime` properties feed the preview's time slider; keep them if you want it.
 
-A scene whose contents are fixed at compile time is a picture. A world where buildings go up, cars
-drive off and a player places things is the same SSDL plus **one extra step**: mark the part
-`pragma spawnable` and let `logic.mjs` decide how many there are, where, and when.
-
-The split is fixed and it is the whole idea: **SSDL says what a part IS; host JS says how many there
-are.** SSDL has no `spawn` statement, no `for`, no `if` and no list properties, and it is not getting
-them — bindings re-evaluate every frame under a one-frame-one-transaction rule, and a collection in
-that expression is a performance and semantics trap. JS already holds collections; it is the
-simulation layer.
-
-**1. The part, declaratively (`House.ssdl`):**
-```ssdl
-pragma spawnable
-Group {
-  id: root
-  property length width: 8
-  property real floors: 3
-  property string tint: "#c8b49a"
-  Box { id: shell; width: width; depth: width; height: floors * 3; position: [0, 0, floors * 1.5]
-    PrincipledMaterial { id: paint; baseColor: tint } }
-}
-```
-Five rules, all refused at compile time as `spawnable_invalid`:
-1. the root is a single `Group` — it is the locator `spawn` positions, hides and releases;
-2. every `property` is `real` / `bool` / `string` / `length` / `degrees` / `duration` **with a
-   default** (the default is what the fragment's budget and its 65535-vertex limit are checked
-   against, so `required property` is refused here);
-3. no scene singletons (`Camera`, `Environment`, `SkyAtmosphere`, `Globe`, `DirectionalLight`, a
-   geographic layer, …) and no `KeyHandler` / `PointerHandler` — those claim the whole window;
-4. `TapHandler` / `HoverHandler` inside the part are fine, and so is an `Instances` batch whose
-   `Prefab` the part carries itself;
-5. no `Model` — a glb loads asynchronously and `api.scene.spawn` returns a live handle in one turn.
-
-**2. The world, in `logic.mjs`:**
-```js
-export function createHostInterfaces(api) {
-  const lots = new Map();
-  return { Town: {
-    build({ lot, floors }) {
-      const { handle } = api.scene.spawn("House", { floors }, { at: [lot * 14, 0, 0], heading: 90, tag: `lot:${lot}` });
-      lots.set(lot, handle);
-    },
-    demolish({ lot }) { api.scene.dispose(lots.get(lot)); lots.delete(lot); },
-  } };
-}
-```
-The surface: `spawn(name, params, { at, heading, parent, tag, visible })` -> `{ handle, budget, queued }`,
-`dispose(handle)` (idempotent), `move(handle, { at, heading })`, `moveBatch([{ handle, at }, …])` (one
-transaction), `setVisible`, `set(handle, name, value)`, `list({ tag })`, `onTap(handle, fn)` /
-`onHover(handle, fn)`, `budget()`, `snapshot()` / `restore(log)`, `fragments()`.
-
-What to expect:
-- **`set` only changes a parameter that is still changeable.** A parameter feeding a `create_only`
-  member (`Box.width`, any geometry size) is baked in when the node is built, so changing `floors`
-  means `dispose` + `spawn` and `set` says so (`spawn_parameter_immutable`). `ssworld_scene_inspect`
-  lists which parameters are `mutable`.
-- **Dynamic and static objects share ONE budget.** `spawn` checks static + already spawned + this
-  copy and refuses with `spawn_budget` before anything is built. `ssworld_scene_inspect.dynamic`
-  reports the cost of one copy and how many more fit; `ssworld_logic_read` reports what a running
-  page actually holds.
-- **64 spawns per frame.** Past that a spawn comes back `queued: true` and lands on a later frame, so
-  dropping 500 buildings in one loop costs eight frames instead of killing the mount.
-- **A hot reload replays the spawn log.** Editing a file remounts the whole scene, and the page
-  replays what host JS had spawned so the city does not vanish under its author. An entry the edited
-  component no longer accepts comes back as `spawn_replay_failed` in `ssworld_logic_read` — check
-  there after changing a spawnable component's parameters.
-
-**3. Repeated things that come and go: a dynamic `Instances` batch.** Declare the batch statically
-with an empty list, then rewrite its rows from JS. The `Prefab`, its material and its budget stay
-static; only the rows move.
-```ssdl
-Prefab { id: carSource; source: carBody }
-Instances { id: cars; prefab: carSource; placement: "explicit"; positions: [] }
-```
-```js
-api.instances.set("cars", { positions: rows, rotations_z: headings });   // <= 512 rows per batch
-```
-`positions: []` renders nothing until the first `set`. Each `set` releases the previous batch and
-builds a new one, so it is a whole-batch rewrite, not a per-row update; the 512-per-batch and
-2048-per-Prefab ceilings are unchanged, and going over is refused rather than clamped.
-
-**Which one?** A part with its own geometry, materials, lights and local behaviour -> `pragma
-spawnable`. Many copies of one identical shape whose count changes -> a dynamic `Instances` batch.
-Many copies of one identical shape that never changes -> a plain static `Instances` batch, as before.
-
-### Post-processing
-All 33 knobs are open: `settings.bloomThreshold`, `autoExposureMinBrightness`/`MaxBrightness`, `lowPercent`/`highPercent`, `histogramLogMin`/`Max`, `toneCurveAmount`, `temperature`, `ambientOcclusion*` and the rest. **To stop a night scene's exposure drifting with the number of neon signs**, set `autoExposureMinBrightness` and `MaxBrightness` to the same value (that locks exposure) and grade with `autoExposureBias` (the multiplier is 2^bias).
-
-### Odds and ends
-- **Anonymous nodes are fine**: without an `id` the compiler injects a file-scoped name. Still, name sibling nodes of the same type inside a custom component file explicitly, so `ssworld_scene_inspect` and `ssworld_logic_write` can point at them precisely.
-- Use meaningful ids (`civicRoof`, `eastTower`), not `b123`.
-- **Default budgets**: 4096 native objects / 4096 material shells / 32 distinct images / 4096 bindings / 2048 handlers / 256 timers / 256 timelines / 1024 Group locators / 1024 Prefabs / 524288 instance rows. A project can raise the guardrails in `showcase.manifest.json`, but not the four the engine owns — distinct images, timers, timelines and Group locators are clamped to the engine's own ceilings, because a scene past them compiles and then fails to mount.
-- **Where scale actually runs out** (measured, not guessed): 6401 native objects + 409 600 instance rows still render at 61 fps. What breaks first is `ssworld_capture_frame`: the offscreen readback dies of a wasm out-of-bounds somewhere between 4001 objects (captures fine) and 5001 (does not), so a scene past ~4000 objects **runs but cannot be screenshotted**. Build big scenes out of `Prefab` + `Instances` rather than individual nodes: 409 600 instance rows cost 200 native objects and capture fine. Also give a large scene a real `timeout_ms` (default 30000) — the readback is the slow part.
-
-The smallest interactive example, which is also the starter scene `ssworld_project_create` writes:
-```ssdl
-Scene {
-  id: main
-  // The page's time slider (00:00-24:00) writes these; Environment solves the sun from dateTime.
-  property real timeOfDay: 14
-  property string sceneDateTime: "2026-06-21T14:00:00+08:00"
-  Environment { id: sky; dateTime: main.sceneDateTime; timeScale: 0 }
-  CameraView { id: startView; position: [60, -80, 40]; lookAt: [0, 0, 12]; fov: 50 }
-  Camera { id: mainCamera; initialView: startView }
-  State { id: selected; name: "selected"; when: false }
-  Box {
-    id: cube; width: 24; depth: 24; height: 24; position: [0, 0, 12]
-    PrincipledMaterial { baseColor: selected.when ? "#ffb454" : "#4288db"; roughness: 0.3; metalness: 0.5 }
-    TapHandler { onTapped: { selected.when = !selected.when; } }
-  }
-  RotationAnimation { target: cube; property: "rotation"; from: 0; to: 360;
-    duration: 8000; running: !selected.when; loops: Animation.Infinite }
-}
-```
-
-**The preview page has a time-of-day slider** wired to those two declared properties: it writes `sceneDateTime` (keeping the scene's own calendar day and UTC offset, so only the clock moves) and, when declared, `timeOfDay` in hours. Keep the properties and the slider drives your scene; delete them and the slider disables itself and says what to add. Pinning your own sun (`DirectionalLight` with `sunAzimuth`/`sunElevation`, or `Environment.sunAzimuthOverride`) is the other legitimate choice — then the day never moves, which is what a fixed architectural shot wants.
+## Budgets and scale
+- Defaults: 4096 native objects, 4096 material shells, 32 distinct images, 256 timers/timelines, 1024 Group locators, 64 `Model` nodes, 64 MiB of images, 16 nesting levels.
+- Source: 4 MiB per file, 16 MiB per project. `Mesh` data (~42 B/vertex) dominates; big shapes belong in a glb.
+- Past ~4000 native objects a scene still runs but **`ssworld_capture_frame` fails**; build big scenes from `Instances` (400 000 rows cost ~200 objects).
 
 ## Reading a capture
+1. **`receipt.in_sync`** — false means a stale frame; recompile/recapture as `next` says. Never report from a stale frame.
+2. **`runtime.errors`** — non-empty means a runtime failure at the given `file:line`; the camera in that frame is the engine default.
+3. **The image** — judge composition and framing; without vision use `stats` (luma percentiles, 3×3 `regions`, `colormap_top`).
 
-**Check `receipt.in_sync` first.** False means the frame belongs to an older compile or the source on disk has changed since; `staleness` says which. Recompile and recapture as `next` tells you — **never report from a stale frame**.
+`render_verified: true` only means "not black, no errors". `reference_match` is always `not_evaluated` — never invent a score. On `page_not_open`, open `viewer_url` (a minimised window produces no frames). On a capture timeout check `status.visibility` and do not hammer the service.
 
-**Then check `runtime.errors`.** A non-empty list is a runtime failure: compiling is not running. Each entry carries `source.file:line:column`, so go fix that line. In this state `camera.source` becomes `engine_default`, so the pose in that frame is not your CameraView — do not judge the composition from it.
+## Traps that do not announce themselves
+- `HeightField.heights` counts **corners**: `(columns+1)*(rows+1)` values.
+- A `Lathe` radius of 0 or repeated path points are refused (`mesh_degenerate`); use a small positive radius for a point.
+- `rate × lifetime` above `maxParticles` (default 500) silently clips the emitter — size `maxParticles` first. Rain uses `gravity: 0` and a constant `speed`.
+- A `drive_preview` click does not reach page listeners; test interaction in a real browser over CDP.
+- Do not compare budget numbers across categories; trust the compile receipt.
 
-**Then look at the image.** With vision, judge the composition, whether the camera is aimed correctly and whether things are in frame. Without it, read `stats`:
-- `luma.p10/p50/p90` plus `under_exposed_ratio`/`over_exposed_ratio` for exposure
-- `coverage` and `regions.cells` (3×3, starting top-left) — green/blue/white/neutral shares answer "is there greenery along the bottom, is the top actually sky"
-- `colormap_top` for the dominant colours
-
-**Easy misreadings:**
-- The `nearPlane`/`farPlane` entries in `camera.deviation` come from the engine recomputing the clip planes each frame; they do not mean your parameters were ignored. A large `heading_error_deg` or `position_error_m` does.
-- `render_verified: true` only means "ready, no errors, the frame is not black". Whether it is *right* is a question for the image.
-- `reference_match` is always `not_evaluated`: the tool does no reference-image comparison. **Do not invent a match score.**
-- On `page_not_open`, open `viewer_url` with `open_preview` first (the window must be visible — a minimised one produces no frames) and then capture.
-- On `saveImage2Base64 timed out`, check `status.visibility`: `"hidden"` means the page was switched away and the browser throttled rAF, which is not a scene problem — close and reopen the preview panel. Capturing a large scene repeatedly can drag the MCP service to `unreachable`; it recovers on its own in about a minute, so do not hammer it. Sizes above 1200×900 also time out easily on a large scene.
-- With both the desktop panel and your own browser open, read `receipt.client` to see which page the frame came from (the default is the most recently synced visible one; `client` selects explicitly).
-
-For an animated scene capture two moments (different `settle_ms`), and recapture after moving the camera.
-
-## Traps
-
-- **Geometry cannot be a parent.** Hanging a Cone under a Box **compiles** and then fails to load: `SceneObject.parent must be a live Scene, Group or GeoAnchor from the same runtime`. Use a `Group` root for a multi-part unit, or have the generator flatten the parts into siblings under Scene with absolute coordinates.
-- **Degenerate meshes take the whole scene module down, and are now refused at compile time.** A radius of 0 in a `Lathe` `profile` (trying to make a point), exactly repeated adjacent points, a `Tube` or `Sweep` path that doubles back on itself or repeats a point, two identical adjacent `Loft` rings, a `Mesh` face with zero area — these used to fail the entire module with `GeometryFacade.createMesh: triangle is degenerate` without naming a node. Now the compiler reports `mesh_degenerate` with the node and the index. Use a small positive radius (say 0.02) instead of 0 for a point. A `Sweep` profile or extrusion outline that crosses itself, a `Roof` footprint that crosses itself, and a `taper` / `bevel` that would eat an edge are `mesh_invalid` with the edge named. And to be clear: **a vertical first segment of a `Tube` is fine** — the frame switches reference axis automatically once `|tangent.z| >= 0.9`.
-- **`flat` and `smooth: "catmullrom"` are opposite intentions.** `flat: true` makes every profile edge a hard crease; `smooth` rounds the profile first, so the two together give a rounded outline with a crease at every resampled sample -- faceted, not smooth, and at twice the vertices. Use `flat` for a square beam, a hexagonal post, a stepped moulding; leave it off for anything the profile already rounds.
-- **A polygon `Roof` that is refused names one edge -- look there first.** The straight skeleton is planned edge by edge, so `simplify the footprint near edge k` means edge `k` of the footprint *as you wrote it* (edge i runs from point i to point i + 1): usually a sliver edge a few centimetres long, or two edges that nearly double back. Drop that point, or split the outline into two roofs. The same numbering is what `gables` and `lowEdge` take, and `gables` can only name an edge whose roof plane is a triangle -- the refusal lists the ones that are.
-- **`HeightField.heights` counts grid corners, not cells.** `columns: 2; rows: 2` is four quads with **nine** corners, so it needs nine values, not four: `(columns+1)*(rows+1)`. Writing `columns*rows` values is the single most common `mesh_invalid`. Row-major, first row at `-depth/2` (south), first value at `-width/2` (west), and the whole list on one line. To cover a `width`-by-`depth` patch at a spacing of `s`, use `columns: width/s; rows: depth/s`.
-- **A `Label` is drawn by the browser, not the engine.** The page rasterises `text` with Canvas 2D at the device pixel ratio and hands the engine the bitmap, so the font is whatever the browser has (CJK and emoji included) and nothing is shipped with the package. Two consequences to plan for: the styling members are baked into the bitmap at creation, so changing `text` redraws it; and `fontSize` is CSS pixels on screen, not metres in the world, so a label keeps its size as the camera pulls back. For a caption that must not move with the camera at all, an `index.html` overlay (`pointer-events: none`, or it swallows clicks) is still the better tool.
-- **An orange-brown sky means a scattering term or the sun's colour temperature was touched.** The five scattering vectors are now a compile-time `sky_scattering_refused` (see Lights); `temperature` is still writable but drags brightness along with hue. A bare `SkyAtmosphere` plus the sun's `lightColor` is the only tinting path confirmed on real hardware.
-- **Accepting an interactive scene requires a real browser.** The desktop preview panel's `drive_preview` reports `clicked`/`pressed`, but the page's own `click`/`keydown` listeners never fire once (synthetic input is not delivered), so using it to accept mouse/keyboard gameplay gives false negatives. The panel is for looking at the picture. To assert the interaction path, drive a real Chrome over CDP with `Input.dispatchMouseEvent` / `Input.dispatchKeyEvent` and read the state back from `logic.properties`.
-- **A spawned object comes back from the LOG after a hot reload, not from the page's memory.** Editing any file remounts the whole scene and the page replays the spawn log into the new generation. So a change to a spawnable component's parameters (renaming one, changing its type) silently drops every copy that used it — read `ssworld_logic_read` and look at `dynamic.spawn_failures` after such an edit, not just at the picture.
-- **A handle from a previous generation is dead.** `spawn` hands back a string that is only valid in the generation that made it; host JS holding one across a hot reload gets `scene_module_generation_stale`. `logic.mjs` is re-imported for every generation, so its module state resets with it — rebuild the maps in `createHostInterfaces`, do not cache them elsewhere.
-- **Editing a file under `assets/` hot-reloads as is** — the page keys its asset cache on content digests.
-- **Nesting is limited to 16 levels** (`scene_depth_exceeded`) and a scene mounts at most **64 `Model` nodes** (`model_budget`) and 64 MiB of distinct images in total (`texture_budget`) — all three are the engine's own ceilings and all three are compile errors now. For many copies of one glb, use it as a `Prefab` source instead of mounting a Model per placement.
-- **A basemap that never appears is usually the URL, not the scene.** `ssworld_geo_read` says whether the terrain loaded and where each layer sits in the stack; imagery failures show up as `runtime.errors` of kind `geo_error` in `ssworld_capture_frame`. An `xyz` `source` without `{x}` `{y}` `{z}` is a compile error, not a blank map.
-- **Do not compare budget numbers across categories**: native objects, material shells and distinct images are counted separately, the compiler only reports usage, and the real texture gate is at runtime. A generator script's own node estimate runs 2–10% off; trust the compile receipt.
-
-## What is genuinely missing — do not work around it
-
-There is no particle system, no audio, no colliders or physics (write the distance tests yourself), and logic properties have neither arrays nor string concatenation (eight targets means eight boolean properties, and HUD text is assembled on the page side). Creating and destroying objects at runtime IS available now, but only from host JS and only for a `pragma spawnable` component or a dynamic `Instances` batch (see "Building a world that changes") — SSDL itself will never grow a `spawn` statement, a loop or a list property.
-
-`GeoAnchor` **does not exist** in SSDL 0.3 and writing it is an `unknown_type`; a scene has exactly **one**
-anchor, given to `ssworld_project_create`, and every local node is placed in metres around it. The
-geographic components address the globe itself, not a second local origin.
-
-Not available on the geographic layers either: 3D Tiles feature styling, per-feature picking, flattening
-and clipping; GeoJSON icons and ground projection; and the tile services that need a key or a coordinate
-shift (Tianditu, AMap/gcj02, Baidu/bd09, SuperMap, Mapbox).
-
-Never delete or overwrite an existing project of the user's; `ssworld_project_create` errors on a duplicate name.
+## Not available
+No audio, physics or colliders; no arrays or string concatenation in logic; no GPU/mesh/ribbon particles; no `GeoAnchor` (one anchor per scene); no 3D Tiles feature styling/picking/clipping; no keyed or shifted tile services (Tianditu, AMap, Baidu, SuperMap, Mapbox). Do not work around these.
 
 ## Always finish with
-
-The project name and source path, the list of `.ssdl` files and what each holds, the `viewer_url`, the screenshot path (`capture_path`) and **what you saw in it**, any runtime errors, and which parts you did not verify.
+Project name and path, the `.ssdl` files and what each holds, the `viewer_url`, the screenshot path and **what you saw in it**, any runtime errors, and what you did not verify.

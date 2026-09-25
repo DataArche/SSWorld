@@ -1,0 +1,55 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "bank-west",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.00413225,
+            0.0
+          ],
+          [
+            0.00413225,
+            0.008983153
+          ]
+        ]
+      },
+      "properties": {
+        "id": "bank-west",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "crest_elevation_m": 10.6,
+        "kind": "bank"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "bank-east",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            0.004850903,
+            0.0
+          ],
+          [
+            0.004850903,
+            0.008983153
+          ]
+        ]
+      },
+      "properties": {
+        "id": "bank-east",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "crest_elevation_m": 10.6,
+        "kind": "bank"
+      }
+    }
+  ]
+}

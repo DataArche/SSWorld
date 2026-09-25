@@ -1,0 +1,83 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "west-terrace",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.0,
+              0.0
+            ],
+            [
+              0.003413598,
+              0.0
+            ],
+            [
+              0.003413598,
+              0.008983153
+            ],
+            [
+              0.0,
+              0.008983153
+            ],
+            [
+              0.0,
+              0.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "west-terrace",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "cover": "mixed_urban",
+        "impervious_fraction": 0.7
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "east-slope",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.006557702,
+              0.0
+            ],
+            [
+              0.008983153,
+              0.0
+            ],
+            [
+              0.008983153,
+              0.008983153
+            ],
+            [
+              0.006557702,
+              0.008983153
+            ],
+            [
+              0.006557702,
+              0.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "east-slope",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "cover": "grass",
+        "impervious_fraction": 0.1
+      }
+    }
+  ]
+}

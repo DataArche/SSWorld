@@ -69,6 +69,12 @@ test("WaterMaterial is gated on the same tangent frame as normalMap", async (t) 
   writeFileSync(path.join(projectDir("waterOnPlane"), "scene.ssdl"),
     `Scene {\n  id: main\n  Plane { id: host; width: 40; depth: 40 }\n${water}}\n`, "utf8");
   assert.equal((await compileNamed("waterOnPlane")).ok, true);
+
+  // A lake or river outline is a Polygon: the native polygon ships planar UVs and the (+X) frame.
+  await createProject("waterOnPolygon", { template: "empty" });
+  writeFileSync(path.join(projectDir("waterOnPolygon"), "scene.ssdl"),
+    `Scene {\n  id: main\n  Polygon { id: host; outer: [[-20,-5],[20,-5],[25,5],[-20,5]] }\n${water}}\n`, "utf8");
+  assert.equal((await compileNamed("waterOnPolygon")).ok, true);
 });
 
 test("the gate keys off the host geometry, not the material", () => {
@@ -81,7 +87,7 @@ test("the gate keys off the host geometry, not the material", () => {
   const problems = checkRuntimeSupport({ nodes }).filter((item) => item.code === "material_requires_tangent");
   assert.equal(problems.length, 1);
   assert.equal(problems[0].node, "surface");
-  assert.match(problems[0].message, /Plane\/HeightField\/Lathe\/Tube\/Loft\/Sweep\/Torus\/Roof\/Stairs/);
+  assert.match(problems[0].message, /Plane\/Polygon\/HeightField\/Lathe\/Tube\/Loft\/Sweep\/Torus\/Roof\/Stairs/);
   assert.deepEqual([...TANGENT_CAPABLE_TYPES].sort(),
-    ["HeightField", "Lathe", "Loft", "Plane", "Roof", "Stairs", "Sweep", "Torus", "Tube"]);
+    ["HeightField", "Lathe", "Loft", "Plane", "Polygon", "Roof", "Stairs", "Sweep", "Torus", "Tube"]);
 });

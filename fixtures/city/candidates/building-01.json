@@ -1,0 +1,251 @@
+{
+  "schema_version": "SSWorldCityCandidateVectors/1",
+  "note": "Frozen candidates shared by the Node city service (src/ssdl/mcp/src/city/recipes.mjs) and the Python modeller (ssdl_city.modelling). Both are checked against this file, so the two cannot drift apart without one of them going red.",
+  "dataset": "synthetic-riverside-v1",
+  "cases": [
+    {
+      "generator_id": "footprint_extrusion",
+      "generator_version": "1",
+      "parameters": {
+        "floor_height_m": 3
+      },
+      "seed": 0,
+      "building_id": "building-01",
+      "footprint": [
+        [
+          162,
+          150
+        ],
+        [
+          198,
+          150
+        ],
+        [
+          198,
+          190
+        ],
+        [
+          162,
+          190
+        ]
+      ],
+      "height_m": 15,
+      "candidate": {
+        "kind": "parametric",
+        "nodes": [
+          {
+            "type": "ExtrudedPolygon",
+            "role": "mass",
+            "outer": [
+              [
+                162,
+                150
+              ],
+              [
+                198,
+                150
+              ],
+              [
+                198,
+                190
+              ],
+              [
+                162,
+                190
+              ]
+            ],
+            "height": 15
+          }
+        ],
+        "dimensions": {
+          "height_m": 15,
+          "floors": 5,
+          "floor_height_m": 3
+        }
+      },
+      "candidate_digest": "sha256:24e6829a53d7e382ae94a5ba499b41e8037bc21d9a8093d4009619dcd5eca710"
+    },
+    {
+      "generator_id": "footprint_extrusion_roof",
+      "generator_version": "1",
+      "parameters": {
+        "floor_height_m": 3,
+        "roof_style": "hip",
+        "roof_pitch_deg": 25,
+        "roof_overhang_m": 0.4
+      },
+      "seed": 0,
+      "building_id": "building-01",
+      "footprint": [
+        [
+          162,
+          150
+        ],
+        [
+          198,
+          150
+        ],
+        [
+          198,
+          190
+        ],
+        [
+          162,
+          190
+        ]
+      ],
+      "height_m": 15,
+      "candidate": {
+        "kind": "parametric",
+        "nodes": [
+          {
+            "type": "ExtrudedPolygon",
+            "role": "mass",
+            "outer": [
+              [
+                162,
+                150
+              ],
+              [
+                198,
+                150
+              ],
+              [
+                198,
+                190
+              ],
+              [
+                162,
+                190
+              ]
+            ],
+            "height": 6.606
+          },
+          {
+            "type": "Roof",
+            "role": "roof",
+            "outer": [
+              [
+                162,
+                150
+              ],
+              [
+                198,
+                150
+              ],
+              [
+                198,
+                190
+              ],
+              [
+                162,
+                190
+              ]
+            ],
+            "style": "hip",
+            "pitch": 25,
+            "overhang": 0.4,
+            "base_z": 6.606
+          }
+        ],
+        "dimensions": {
+          "height_m": 15,
+          "wall_height_m": 6.606,
+          "roof_height_m": 8.394,
+          "floors": 2
+        }
+      },
+      "candidate_digest": "sha256:902be04e24e332ecd940adb8a07be2fca9a08f5ee52f4eba0f48c27df88d3b1a"
+    },
+    {
+      "generator_id": "podium_tower",
+      "generator_version": "1",
+      "parameters": {
+        "podium_height_m": 6,
+        "tower_inset_m": 4,
+        "floor_height_m": 3
+      },
+      "seed": 0,
+      "building_id": "building-01",
+      "footprint": [
+        [
+          162,
+          150
+        ],
+        [
+          198,
+          150
+        ],
+        [
+          198,
+          190
+        ],
+        [
+          162,
+          190
+        ]
+      ],
+      "height_m": 15,
+      "candidate": {
+        "kind": "parametric",
+        "nodes": [
+          {
+            "type": "ExtrudedPolygon",
+            "role": "podium",
+            "outer": [
+              [
+                162,
+                150
+              ],
+              [
+                198,
+                150
+              ],
+              [
+                198,
+                190
+              ],
+              [
+                162,
+                190
+              ]
+            ],
+            "height": 6
+          },
+          {
+            "type": "ExtrudedPolygon",
+            "role": "tower",
+            "outer": [
+              [
+                162,
+                150
+              ],
+              [
+                198,
+                150
+              ],
+              [
+                198,
+                190
+              ],
+              [
+                162,
+                190
+              ]
+            ],
+            "height": 9,
+            "base_z": 6,
+            "taper": 4
+          }
+        ],
+        "dimensions": {
+          "height_m": 15,
+          "podium_height_m": 6,
+          "tower_inset_m": 4,
+          "floors": 5
+        }
+      },
+      "candidate_digest": "sha256:b5d1483a2c5216ca066d4d1797c93694caedcd00480fd58842786a2454888e32"
+    }
+  ]
+}

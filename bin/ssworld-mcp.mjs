@@ -25,6 +25,28 @@ switch (command) {
     await serveForever(Number(flags.port || PREVIEW_PORT));
     break;
   }
+  case "city": {
+    // The city demo: import the shipped real-site dataset, serve it, and play the delivery chain
+    // (route -> close a door -> rebuild a building -> raise the river -> evacuate) while a browser
+    // watches. The preview server this starts is the one serveForever reuses below, so the page
+    // stays up after the chain has played.
+    const { cityDemo } = await import("../src/city/demo.mjs");
+    const toMs = (value, fallback) => (value === undefined ? fallback : Math.max(0, Number(value) * 1000));
+    const summary = await cityDemo({
+      project: flags.project ? String(flags.project) : undefined,
+      dataset: flags.dataset ? String(flags.dataset) : null,
+      port: flags.port ? Number(flags.port) : null,
+      reset: Boolean(flags.reset), replay: Boolean(flags.replay),
+      play: !flags["no-play"], serve: !flags["no-serve"],
+      pause: toMs(flags.pause, 6000), waitForPageMs: toMs(flags.wait, 120000),
+      log: (line) => process.stderr.write(`${line}\n`),
+    });
+    if (flags.json) process.stdout.write(JSON.stringify(summary, null, 2) + "\n");
+    if (flags["no-serve"] || flags.exit) break;
+    const { serveForever } = await import("../src/preview.mjs");
+    await serveForever(Number(flags.port || PREVIEW_PORT));
+    break;
+  }
   case "engine": {
     const { ensureEngine } = await import("../src/engine.mjs");
     const status = await ensureEngine({ log: (line) => process.stderr.write(`${line}\n`) });
@@ -49,6 +71,6 @@ switch (command) {
     process.stdout.write(`${PACKAGE.name} ${PACKAGE.version}\n`);
     break;
   default:
-    process.stderr.write(`usage: ssworld-mcp [serve|install [--client=claude,codex,hermes,cursor,dsh] [--no-engine] [--local]|engine|preview [--port=N]|doctor|version]\n`);
+    process.stderr.write(`usage: ssworld-mcp [serve|install [--client=claude,codex,hermes,cursor,dsh] [--no-engine] [--local]|engine|preview [--port=N]|city [--project=riverside] [--dataset=DIR] [--port=N] [--reset] [--pause=S] [--wait=S] [--no-play] [--exit] [--json]|doctor|version]\n`);
     process.exit(command === "--help" || command === "help" ? 0 : 2);
 }

@@ -1,0 +1,44 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "river-1",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.00413225,
+              0.0
+            ],
+            [
+              0.004850903,
+              0.0
+            ],
+            [
+              0.004850903,
+              0.008983153
+            ],
+            [
+              0.00413225,
+              0.008983153
+            ],
+            [
+              0.00413225,
+              0.0
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "id": "river-1",
+        "quality_status": "authored",
+        "synthetic": true,
+        "source_ref": "generate_demo.py:v1",
+        "name": "合成河道",
+        "baseline_level_m": 10.0
+      }
+    }
+  ]
+}

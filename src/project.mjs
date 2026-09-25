@@ -1,9 +1,9 @@
 // Project workspace under $SSWORLD_HOME/projects/<name>: create, list, read, write, compile.
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { PROJECTS_ROOT, TEMPLATE_ROOT } from "./paths.mjs";
-import { compileProject, buildSourceProject, CompileError, HOST_INTERFACES_FILE } from "./compile.mjs";
+import { compileProject, buildSourceProject, CompileError, HOST_INTERFACES_FILE, SOURCE_LIMITS } from "./compile.mjs";
 import { locateNode, editNodeInText } from "./diagnose.mjs";
 import { pageValues, renderTemplate } from "./page.mjs";
 import { DEFAULT_BUDGETS } from "./budgets.mjs";
@@ -97,18 +97,105 @@ const GEO_SCENE = `Scene {
 }
 `;
 
+// A campfire: the particle starting point. Two emitters over a fire pit, switched by tapping it.
+// Particle lengths are metres and lifetimes seconds -- the same units as the rest of the scene.
+const CAMPFIRE_SCENE = `Scene {
+  id: main
+  property string sceneDateTime: "2026-06-21T19:40:00+08:00"
+  // The moon is the only light at night; its default intensity (0.2) reads as black.
+  Environment { id: sky; dateTime: main.sceneDateTime; timeScale: 0; moonIntensity: 4 }
+
+  // Tapping the pit blows the fire out. \`emitting\` only stops SPAWNING, so the flames already in
+  // the air finish burning down instead of vanishing - which is why it is bound, not a visibility flag.
+  State { id: fire; name: "lit"; when: true }
+
+  // The template copies nine particle sprites into assets/. All of them carry a real alpha channel
+  // except noise.png, which is greyscale and needs \`opacitySource: "luminance"\`.
+  Texture { id: emberTex; source: "assets/glowdot.png" }
+  Texture { id: smokeTex; source: "assets/smoke.png" }
+
+  Plane { id: ground; width: 60; depth: 60; position: [0, 0, 0]
+    PrincipledMaterial { baseColor: "#2f2a24"; roughness: 0.95 }
+  }
+  Cylinder { id: pit; radius: 0.8; height: 0.3; position: [0, 0, 0.15]
+    PrincipledMaterial { baseColor: fire.when ? "#3a2b22" : "#2a2522"; roughness: 0.9 }
+    TapHandler { onTapped: { fire.when = !fire.when; } }
+  }
+
+  // Flames: additive, because fire ADDS light rather than covering what is behind it. They are born
+  // in a 0.35 m disc (shape "cone", shapeSize x is the base radius), rise, and are pulled UP by a
+  // negative gravity - hot air, not falling embers. warmup: 1 pre-simulates a second so the fire is
+  // already burning on the first frame instead of igniting in front of the viewer.
+  ParticleEmitter {
+    id: flames; position: [0, 0, 0.35]; sprite: emberTex; blend: "additive"
+    emitting: fire.when; rate: 120; maxParticles: 400
+    lifetime: [0.6, 1.2]; speed: [1.0, 2.2]; spread: 15
+    shape: "cone"; shapeSize: [0.35, 0, 0]
+    gravity: -0.5; size: [0.7, 0.15]; sizeVariation: 0.3
+    colorStart: "#ffb347"; colorEnd: "#5a1a00"; alphaStart: 1; alphaEnd: 0
+    warmup: 1
+  }
+
+  // Smoke: alpha-blended, slow, large, and spinning a little so no two puffs look stamped from the
+  // same sprite. drag bleeds the launch speed off so it stalls and spreads instead of climbing forever.
+  ParticleEmitter {
+    id: smoke; position: [0, 0, 1.2]; sprite: smokeTex; blend: "alpha"
+    emitting: fire.when; rate: 12; maxParticles: 120
+    lifetime: [4, 7]; speed: [0.4, 0.9]; spread: 25
+    gravity: -0.15; drag: 0.4
+    size: [0.8, 3.5]; colorStart: "#5c5c5c"; colorEnd: "#2a2a2a"
+    alphaStart: 0.35; alphaEnd: 0; rotationSpeed: [-10, 10]
+  }
+
+  // Rain, for when you want it. Note what it does NOT do: it leaves gravity at 0 and uses a constant
+  // speed, because real rain falls at terminal velocity - under gravity a drop keeps accelerating and
+  // is kilometres down before its lifetime is out. Size maxParticles from rate x lifetime max
+  // (2500 x 3.5 = 8750) or the emitter silently clips and reads as "rate is being ignored".
+  // ParticleEmitter {
+  //   id: rain; position: [0, 0, 30]; blend: "alpha"
+  //   shape: "box"; shapeSize: [40, 40, 0]; direction: [0, 0, -1]; spread: 2
+  //   speed: [9, 11]; gravity: 0; lifetime: [3, 3.5]; rate: 2500; maxParticles: 9000
+  //   size: [0.03, 0.03]; colorStart: "#c8d8ff"; alphaStart: 0.6
+  // }
+
+  CameraView { id: startView; position: [6, -7, 3]; lookAt: [0, 0, 1.2]; fov: 50 }
+  Camera { id: mainCamera; initialView: startView }
+}
+`;
+
+/**
+ * The particle sprites the campfire template draws with. They are copied, not linked: a project is a
+ * self-contained directory the author edits and the page fetches by content digest, and only the
+ * templates that reference them pay the ~180 KB - an empty project should not arrive with nine PNGs.
+ */
+function copyTemplateAssets(directory) {
+  const source = path.join(TEMPLATE_ROOT, "assets");
+  if (!existsSync(source)) return;
+  const target = path.join(directory, "assets");
+  mkdirSync(target, { recursive: true });
+  for (const item of readdirSync(source, { withFileTypes: true })) {
+    if (item.isFile()) copyFileSync(path.join(source, item.name), path.join(target, item.name));
+  }
+}
+
 export async function createProject(name, { anchor = DEFAULT_ANCHOR, title, template = "starter" } = {}) {
-  if (!["starter", "empty", "geo"].includes(template)) throw new Error(`unknown template '${template}'; use 'starter', 'empty' or 'geo'`);
+  if (!["starter", "empty", "geo", "campfire"].includes(template)) throw new Error(`unknown template '${template}'; use 'starter', 'empty', 'geo' or 'campfire'`);
   const directory = projectDir(name, { mustExist: false });
   if (existsSync(directory)) throw new Error(`project '${name}' already exists; pick another name or edit it with ssworld_source_write`);
   mkdirSync(directory, { recursive: true });
   const values = pageValues(name, { title, anchor });
-  for (const file of readdirSync(TEMPLATE_ROOT)) {
-    const raw = readFileSync(path.join(TEMPLATE_ROOT, file), "utf8");
-    writeFileSync(path.join(directory, file), file === "style.css" ? raw : renderTemplate(raw, values), "utf8");
+  for (const item of readdirSync(TEMPLATE_ROOT, { withFileTypes: true })) {
+    // assets/ is binary and belongs to whichever template actually references it - see below.
+    if (!item.isFile()) continue;
+    const raw = readFileSync(path.join(TEMPLATE_ROOT, item.name), "utf8");
+    writeFileSync(path.join(directory, item.name), item.name === "style.css" ? raw : renderTemplate(raw, values), "utf8");
   }
   if (template === "empty") writeFileSync(path.join(directory, "scene.ssdl"), EMPTY_SCENE, "utf8");
   if (template === "geo") writeFileSync(path.join(directory, "scene.ssdl"), renderTemplate(GEO_SCENE, values), "utf8");
+  if (template === "campfire") {
+    writeFileSync(path.join(directory, "scene.ssdl"), CAMPFIRE_SCENE, "utf8");
+    copyTemplateAssets(directory);
+  }
   const manifestPath = path.join(directory, "showcase.manifest.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   manifest.name = name;
@@ -215,6 +302,12 @@ export async function readSource(name, file = "scene.ssdl", { mode = "content", 
   return { project: name, ...readOne(file), files };
 }
 
+function checkSourceSize(file, bytes) {
+  if (bytes > SOURCE_LIMITS.file_bytes) {
+    throw Object.assign(new Error(`${file} would be ${(bytes / 1048576).toFixed(2)} MiB; one source file takes at most ${SOURCE_LIMITS.file_bytes / 1048576} MiB. Split it into components, or turn repeated geometry into a Prefab + Instances`), { code: "source_budget" });
+  }
+}
+
 function commitSource(target, data) {
   mkdirSync(path.dirname(target), { recursive: true });
   const temporary = `${target}.${process.pid}.tmp`;
@@ -237,7 +330,7 @@ export function patchSource(name, file, oldString, newString, expectedDigest, { 
   if (occurrences > 1 && !replaceAll) throw Object.assign(new Error(`old_string occurs ${occurrences} times in ${file}; include more surrounding context or pass replace_all: true`), { code: "patch_ambiguous", extra: { occurrences, digest } });
   const patched = replaceAll ? text.split(oldString).join(newString) : text.replace(oldString, () => newString);
   const data = Buffer.from(patched, "utf8");
-  if (data.length > 1024 * 1024) throw new Error("source exceeds 1 MiB");
+  checkSourceSize(file, data.length);
   commitSource(target, data);
   const line = text.slice(0, text.indexOf(oldString)).split("\n").length;
   return { ok: true, project: name, file, digest: digestOf(data), replaced: occurrences, first_line: line, compiled: false, next_action: "call ssworld_compile" };
@@ -251,7 +344,7 @@ export function writeSource(name, file, content, expectedDigest) {
     throw new Error(expectedDigest === "new" ? "file already exists; read it first and pass its digest" : "source changed since it was read; call ssworld_source_read again before editing");
   }
   const data = Buffer.from(content, "utf8");
-  if (data.length > 1024 * 1024) throw new Error("source exceeds 1 MiB");
+  checkSourceSize(file, data.length);
   commitSource(target, data);
   return { ok: true, project: name, file, digest: digestOf(data), compiled: false, next_action: "call ssworld_compile" };
 }
@@ -321,7 +414,7 @@ export async function batchEdit(name, { edits, expectedDigests = {}, expectedDig
     }
   });
   const changed = [...texts.entries()].filter(([, slot]) => slot.text !== slot.before.toString("utf8"));
-  for (const [, slot] of changed) if (Buffer.byteLength(slot.text, "utf8") > 1024 * 1024) throw new Error("source exceeds 1 MiB");
+  for (const [file, slot] of changed) checkSourceSize(file, Buffer.byteLength(slot.text, "utf8"));
   const restore = () => { for (const [file, slot] of changed) commitSource(sourcePath(directory, file), slot.before); };
   try { for (const [file, slot] of changed) commitSource(sourcePath(directory, file), Buffer.from(slot.text, "utf8")); }
   catch (error) { restore(); throw Object.assign(new Error(`write failed, previous sources restored: ${error.message}`), { code: "write_failed" }); }

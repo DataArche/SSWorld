@@ -337,6 +337,17 @@
     };
   }
 
+  // [min, max] 这一类成员（lifetime / speed / size / rotationSpeed）是两分量的，
+  // 在此之前只有 create_only 的 uvScale / spacing 用过 vector2，从没进过逻辑槽。
+  function vector2(value, fallback, field) {
+    const candidate = Array.isArray(value) ? { x: value[0], y: value[1] } : (value || fallback);
+    invariant(candidate && typeof candidate === "object", `${field} must be a two-component vector`);
+    return {
+      x: finite(candidate.x, `${field}.x`),
+      y: finite(candidate.y, `${field}.y`),
+    };
+  }
+
   function nodePosition(spec, field) {
     const position = vector3(spec.position, { x: 0, y: 0, z: 0 }, `${field}.position`);
     for (const axis of ["x", "y", "z"]) {
@@ -617,6 +628,9 @@
     return Object.assign(new Error(message), { code });
   }
 
+  /** Waits between Texture read attempts: four tries spanning ~4 s cover a generator rewriting its assets. */
+  const TEXTURE_LOAD_RETRY_DELAYS_MS = Object.freeze([250, 1000, 3000]);
+
   function nativeLogicalDescriptor(property) {
     if (UNSUPPORTED_REBUILD_BINDINGS.has(property)) {
       throw codedError("binding_update_class_unsupported",
@@ -680,6 +694,7 @@
       invariant(typeof value === "string", `${field} must be a string`);
       normalized = value;
     } else if (descriptor.value_type === "vector3") normalized = vector3(value, null, field);
+    else if (descriptor.value_type === "vector2") normalized = vector2(value, null, field);
     else if (descriptor.value_type === "quaternion") normalized = quaternion(value, field);
     else throw codedError("type_mismatch");
     if (descriptor.validate) descriptor.validate(normalized, field);
@@ -710,8 +725,10 @@
       const encoded = safeCanonicalInteger(value, "binding scalar", descriptor.divisor);
       return { type: "scalar", unit: descriptor.unit, value: encoded };
     }
-    const components = descriptor.value_type === "vector3"
-      ? [value.x, value.y, value.z] : [value.x, value.y, value.z, value.w];
+    const components = descriptor.value_type === "vector2"
+      ? [value.x, value.y]
+      : descriptor.value_type === "vector3"
+        ? [value.x, value.y, value.z] : [value.x, value.y, value.z, value.w];
     const items = components.map((component, index) => ({
       type: "scalar", unit: descriptor.unit,
       value: safeCanonicalInteger(component, `binding component[${index}]`, descriptor.divisor),
@@ -746,9 +763,11 @@
       if (item?.type !== "scalar" || !Number.isSafeInteger(item.value)) throw codedError("type_mismatch");
       return item.value / descriptor.divisor;
     });
-    const candidate = descriptor.value_type === "vector3"
-      ? { x: values[0], y: values[1], z: values[2] }
-      : { x: values[0], y: values[1], z: values[2], w: values[3] };
+    const candidate = descriptor.value_type === "vector2"
+      ? { x: values[0], y: values[1] }
+      : descriptor.value_type === "vector3"
+        ? { x: values[0], y: values[1], z: values[2] }
+        : { x: values[0], y: values[1], z: values[2], w: values[3] };
     return normalizeLogical(descriptor, candidate, field);
   }
 
@@ -5005,22 +5024,61 @@
         "Texture.source");
       this.references = new Set();
       this.loadPromise = null;
+      /** Labels of the consumers waiting on the current load, for the failure report. */
+      this.waiting = new Set();
       this.disposed = false;
       runtime.textures.set(id, this);
     }
 
-    load() {
+    /**
+     * Fetch and verify the bytes. A project file caught mid-rewrite (a generator truncates, then writes) reads
+     * back short or with the wrong digest, so a failed read is retried before it counts; the final failure is
+     * reported once per load cycle as "asseterror", naming every consumer that was waiting, because the
+     * consumers upload in the background and would otherwise leave the engine drawing untextured.
+     */
+    load(consumer) {
       invariant(!this.disposed, "Texture is disposed");
       invariant(typeof this.runtime.resolveManagedAsset === "function",
         "Texture requires a managed asset resolver");
+      if (consumer) this.waiting.add(consumer);
       if (!this.loadPromise) {
-        this.loadPromise = this.runtime.resolveAsset(this.source, "Texture.source")
-          .catch((error) => {
-            this.loadPromise = null;
-            throw error;
+        this.loadPromise = this.loadWithRetry().then((bytes) => {
+          this.waiting.clear();
+          return bytes;
+        }, (error) => {
+          this.loadPromise = null;
+          const consumers = [...this.waiting];
+          this.waiting.clear();
+          if (this.disposed) throw error;
+          const failure = codedError("texture_load_failed",
+            `Texture '${this.id}' (${this.source.asset_id}) could not be loaded after ${error.attempts} attempt(s): ${error.message}`);
+          failure.cause = error;
+          failure.reported = true;
+          this.runtime.noteAssetError({
+            texture: this.id, asset: this.source.asset_id, consumers,
+            code: failure.code, message: failure.message, attempts: error.attempts,
           });
+          throw failure;
+        });
       }
       return this.loadPromise;
+    }
+
+    async loadWithRetry() {
+      for (let attempt = 1; ; attempt += 1) {
+        try {
+          return await this.runtime.resolveAsset(this.source, "Texture.source");
+        } catch (error) {
+          const retryIn = TEXTURE_LOAD_RETRY_DELAYS_MS[attempt - 1];
+          if (this.disposed || retryIn === undefined) throw Object.assign(error, { attempts: attempt });
+          this.runtime.emit("assetretry", Object.freeze({
+            texture: this.id, asset: this.source.asset_id, attempt, retry_in_ms: retryIn,
+            message: error?.message || String(error),
+          }));
+          await new Promise((resolve) => this.runtime.setTimeout(resolve, retryIn));
+          if (this.disposed) throw Object.assign(error, { attempts: attempt });
+        }
+      }
     }
 
     snapshot() {
@@ -5040,6 +5098,300 @@
   function sameModelIdentity(left, right) {
     return left && right && left.node === right.node
       && left.owner_scope_id === right.owner_scope_id && left.incarnation === right.incarnation;
+  }
+
+
+  /*
+   * ParticleEmitter -- one sprite emitter per component.
+   *
+   * The native side owns every unit conversion (m -> cm and so on); this class owns the DEFAULTS.
+   * The registry refuses to invent one for you, so every member below is materialised here and sent
+   * whole on create, which is also what makes describe().values a complete read-back.
+   */
+  const PARTICLE_DEFAULTS = Object.freeze({
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
+    opacitySource: "alpha",
+    emitting: true,
+    rate: 20,
+    maxParticles: 500,
+    lifetime: { x: 1, y: 2 },
+    speed: { x: 1, y: 2 },
+    direction: { x: 0, y: 0, z: 1 },
+    spread: 15,
+    shape: "point",
+    shapeSize: { x: 0, y: 0, z: 0 },
+    gravity: 0,
+    drag: 0,
+    size: { x: 0.25, y: 0.25 },
+    sizeVariation: 0,
+    colorStart: "#ffffff",
+    colorEnd: "#ffffff",
+    alphaStart: 1,
+    alphaEnd: 0,
+    rotationSpeed: { x: 0, y: 0 },
+    blend: "alpha",
+    subImages: { x: 1, y: 1 },
+    subImageMode: "random",
+    softness: 0,
+    localSpace: false,
+    warmup: 0,
+    playbackSpeed: 1,
+    seed: 0,
+    maxDrawDistance: 0,
+    visible: true,
+  });
+
+  // create_only mirrors the catalog entry; the facade refuses these in update() too, so the two
+  // sides fail the same way instead of one of them silently accepting a write.
+  const PARTICLE_CREATE_ONLY = Object.freeze(new Set([
+    "parent", "sprite", "opacitySource", "maxParticles", "shape", "blend",
+    "subImages", "subImageMode", "localSpace", "warmup", "seed",
+  ]));
+
+  const PARTICLE_MEMBER_TYPES = Object.freeze({
+    position: ["vector3", "m"], rotation: ["vector3", "deg"], opacitySource: ["string", null],
+    emitting: ["boolean", null], rate: ["scalar", "scalar"], maxParticles: ["scalar", "scalar"],
+    lifetime: ["vector2", "scalar"], speed: ["vector2", "scalar"], direction: ["vector3", "scalar"],
+    spread: ["scalar", "deg"], shape: ["string", null], shapeSize: ["vector3", "m"],
+    gravity: ["scalar", "scalar"], drag: ["scalar", "scalar"], size: ["vector2", "m"],
+    sizeVariation: ["scalar", "scalar"], colorStart: ["color", null], colorEnd: ["color", null],
+    alphaStart: ["scalar", "scalar"], alphaEnd: ["scalar", "scalar"],
+    rotationSpeed: ["vector2", "deg"], blend: ["string", null], subImages: ["vector2", "scalar"],
+    subImageMode: ["string", null], softness: ["scalar", "m"], localSpace: ["boolean", null],
+    warmup: ["scalar", "scalar"], playbackSpeed: ["scalar", "scalar"], seed: ["scalar", "scalar"],
+    maxDrawDistance: ["scalar", "m"], visible: ["boolean", null],
+  });
+
+  function particleMemberValueDescriptor(property) {
+    const entry = PARTICLE_MEMBER_TYPES[property];
+    invariant(entry, `member_unsupported: ParticleEmitter.${property}`);
+    invariant(!PARTICLE_CREATE_ONLY.has(property),
+      `member_readonly: ParticleEmitter.${property} is create_only`);
+    const [valueType, unit] = entry;
+    const length = valueType === "vector3" ? 3 : valueType === "vector2" ? 2 : 1;
+    const divisor = ["scalar", "vector2", "vector3"].includes(valueType) ? 1e6 : 1;
+    return { kind: "member", value_type: valueType, unit, length, divisor };
+  }
+
+  /** The facade speaks sRGB 0..1 triples; the author writes #rrggbb like everywhere else. */
+  function particleColorTriple(value, field) {
+    invariant(typeof value === "string" && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value),
+      `${field} must be #rrggbb`);
+    const channels = value.slice(1).match(/../g).map((part) => Number.parseInt(part, 16));
+    return [channels[0] / 255, channels[1] / 255, channels[2] / 255];
+  }
+
+  function particleWireValue(property, value) {
+    const [valueType] = PARTICLE_MEMBER_TYPES[property];
+    if (valueType === "color") return particleColorTriple(value, `ParticleEmitter.${property}`);
+    if (valueType === "vector3") return [value.x, value.y, value.z];
+    if (valueType === "vector2") return [value.x, value.y];
+    return value;
+  }
+
+  class ParticleEmitter {
+    constructor(runtime, spec) {
+      invariant(spec && typeof spec === "object", "ParticleEmitter needs a spec");
+      // An engine artefact built before this lane has no ParticleFacade at all.  Naming that here
+      // is the difference between "your effect is missing" and "your engine build is older".
+      invariant(runtime.particleFacade,
+        "particle_dependency_missing: ParticleFacade/v1 is unavailable in this engine build");
+      const allowed = new Set(["id", "key", "parent", "sprite", ...Object.keys(PARTICLE_MEMBER_TYPES)]);
+      const unknown = Object.keys(spec).find((name) => !allowed.has(name));
+      invariant(!unknown, `member_unsupported: ParticleEmitter.${unknown}`);
+      const id = spec.id || spec.key;
+      invariant(typeof id === "string" && id.length > 0, "ParticleEmitter.id or key is required");
+      invariant(!runtime.particleEmitters.has(id), `ParticleEmitter '${id}' is already registered`);
+      runtime.assertReferenceIdAvailable(id);
+
+      const values = {};
+      for (const [property, fallback] of Object.entries(PARTICLE_DEFAULTS)) {
+        const authored = spec[property];
+        values[property] = authored === undefined
+          ? cloneLogical(fallback)
+          : particleNormalizeAuthored(property, authored);
+      }
+      particleAssertConsistent(values);
+
+      let texture = null;
+      if (spec.sprite !== undefined) {
+        invariant(spec.sprite instanceof Texture && !spec.sprite.disposed && spec.sprite.runtime === runtime,
+          "ParticleEmitter.sprite must be a live Texture from the same runtime");
+        texture = spec.sprite;
+      }
+
+      const request = {
+        schema_version: "ParticleEmitterSpec/v1",
+        id,
+        parent: spec.parent?.handle || spec.parent || runtime.locatorHandle,
+        properties: Object.fromEntries(Object.entries(values)
+          .map(([property, value]) => [property, particleWireValue(property, value)])),
+      };
+      const receipt = nativeResult(runtime.particleFacade.create(runtime.scene, JSON.stringify(request)),
+        "ParticleFacade.create");
+
+      this.runtime = runtime;
+      this.id = id;
+      this.component_type = "ParticleEmitter";
+      this.handle = receipt.particle_handle;
+      this.values = values;
+      this.sprite = texture;
+      this.spriteRevision = 0;
+      this.disposed = false;
+      runtime.particleEmitters.set(id, this);
+      for (const property of Object.keys(PARTICLE_MEMBER_TYPES)) {
+        if (PARTICLE_CREATE_ONLY.has(property)) continue;
+        runtime.registerLogicalSlot(this, property, values[property]);
+      }
+      if (texture) {
+        texture.references.add(this);
+        this.spritePromise = this.uploadSprite(texture);
+      } else {
+        this.spritePromise = Promise.resolve(null);
+      }
+    }
+
+    /** The bitmap arrives asynchronously, exactly like a managed material texture. */
+    uploadSprite(texture) {
+      const revision = ++this.spriteRevision;
+      const consumer = `ParticleEmitter '${this.id}'.sprite`;
+      const upload = (async () => {
+        const bytes = await texture.load(consumer);
+        invariant(!this.disposed, "ParticleEmitter is disposed");
+        invariant(!texture.disposed, "ParticleEmitter.sprite must remain live until the upload completes");
+        invariant(revision === this.spriteRevision, "ParticleEmitter.sprite upload was superseded");
+        return nativeResult(this.runtime.particleFacade.setSprite(this.handle, JSON.stringify({
+          schema_version: "ParticleSprite/v1",
+          content_digest: texture.source.content_digest,
+          size_bytes: texture.source.size_bytes,
+          media_type: texture.source.media_type,
+        }), bytes), "ParticleFacade.setSprite");
+      })();
+      // Without a sprite the engine draws bare quads, so the failure is reported here (ready() still rejects
+      // for a page that awaits it); disposal or a newer sprite superseding this one is ordinary teardown.
+      upload.catch((error) => {
+        if (this.disposed || texture.disposed || revision !== this.spriteRevision) return;
+        this.runtime.noteTextureUploadFailure(consumer, texture, error);
+      });
+      return upload;
+    }
+
+    /** Resolves once the sprite bitmap is in the engine; a page that screenshots must await it. */
+    ready() { return this.spritePromise; }
+
+    update(patch) {
+      invariant(!this.disposed, "ParticleEmitter is disposed");
+      invariant(patch && typeof patch === "object" && !Array.isArray(patch),
+        "ParticleEmitter patch must be an object");
+      const properties = {};
+      const next = { ...this.values };
+      for (const [property, authored] of Object.entries(patch)) {
+        invariant(PARTICLE_MEMBER_TYPES[property], `member_unsupported: ParticleEmitter.${property}`);
+        invariant(!PARTICLE_CREATE_ONLY.has(property),
+          `member_readonly: ParticleEmitter.${property} is create_only`);
+        const value = particleNormalizeAuthored(property, authored);
+        if (this.runtime.slotKey(this, property)) this.runtime.assertLogicalWritable(this, property);
+        next[property] = value;
+        properties[property] = particleWireValue(property, value);
+      }
+      particleAssertConsistent(next);
+      const receipt = nativeResult(this.runtime.particleFacade.update(this.handle, JSON.stringify(properties)),
+        "ParticleFacade.update");
+      for (const property of Object.keys(patch)) {
+        this.values[property] = next[property];
+        const slot = this.runtime.slotKey(this, property);
+        if (slot) this.runtime.writeLogical(this, property, next[property], { write: false });
+        else this.runtime.registerLogicalSlot(this, property, next[property]);
+      }
+      return receipt;
+    }
+
+    applyProperty(property, value) {
+      const receipt = nativeResult(this.runtime.particleFacade.update(this.handle,
+        JSON.stringify({ [property]: particleWireValue(property, value) })), "ParticleFacade.update");
+      this.values[property] = cloneLogical(value);
+      return receipt;
+    }
+
+    command(name, args = {}) {
+      invariant(!this.disposed, "ParticleEmitter is disposed");
+      invariant(["burst", "restart", "clear"].includes(name),
+        `member_unsupported: ParticleEmitter.${name} is not a command`);
+      const receipt = nativeResult(this.runtime.particleFacade.command(this.handle,
+        JSON.stringify({ name, args })), "ParticleFacade.command");
+      // restart re-activates the system natively; keep the logical slot honest about it.
+      if (name === "restart" && this.values.emitting !== true) {
+        this.values.emitting = true;
+        if (this.runtime.slotKey(this, "emitting")) {
+          this.runtime.writeLogical(this, "emitting", true, { write: false });
+        }
+      }
+      return receipt;
+    }
+
+    burst(count) { return this.command("burst", { count }); }
+    restart() { return this.command("restart"); }
+    clear() { return this.command("clear"); }
+
+    describe() {
+      invariant(!this.disposed, "ParticleEmitter is disposed");
+      return nativeResult(this.runtime.particleFacade.describe(this.handle), "ParticleFacade.describe");
+    }
+
+    snapshot() {
+      const receipt = this.describe();
+      return {
+        id: this.id, handle: this.handle, component_type: "ParticleEmitter",
+        sprite: this.sprite ? this.sprite.id : null,
+        values: receipt.values, stats: receipt.stats,
+      };
+    }
+
+    dispose() {
+      if (this.disposed) return { ok: true, removed: false, idempotent: true };
+      this.runtime.disposeTargetDependents(this);
+      const result = nativeResult(this.runtime.particleFacade.dispose(this.handle), "ParticleFacade.dispose");
+      if (this.sprite) this.sprite.references.delete(this);
+      this.runtime.particleEmitters.delete(this.id);
+      this.disposed = true;
+      this.runtime.disposeOwnerSlots(this);
+      return result;
+    }
+  }
+
+  function particleNormalizeAuthored(property, value) {
+    const [valueType, unit] = PARTICLE_MEMBER_TYPES[property];
+    const length = valueType === "vector3" ? 3 : valueType === "vector2" ? 2 : 1;
+    const divisor = ["scalar", "vector2", "vector3"].includes(valueType) ? 1e6 : 1;
+    const descriptor = { kind: "member", value_type: valueType, unit, length, divisor };
+    // SSDL writes vectors as lists; the logical layer speaks {x, y, z} -- accept both, as the geo lane does.
+    const candidate = Array.isArray(value)
+      ? (valueType === "vector3" ? { x: value[0], y: value[1], z: value[2] }
+        : valueType === "vector2" ? { x: value[0], y: value[1] } : value)
+      : value;
+    return normalizeLogical(descriptor, candidate, `ParticleEmitter.${property}`);
+  }
+
+  /*
+   * Two author traps get named here rather than surfacing as "the effect looks wrong":
+   * a cone with no base radius, and a spawn budget the rate cannot fit inside.
+   */
+  function particleAssertConsistent(values) {
+    if (values.shape === "cone") {
+      invariant(values.shapeSize.x > 0,
+        "ParticleEmitter.shape 'cone' needs shapeSize[0] as the base radius");
+    }
+    if (values.shape === "box") {
+      invariant(values.shapeSize.x > 0 || values.shapeSize.y > 0 || values.shapeSize.z > 0,
+        "ParticleEmitter.shape 'box' needs at least one non-zero shapeSize component");
+    }
+    invariant(values.lifetime.x > 0 && values.lifetime.y >= values.lifetime.x,
+      "ParticleEmitter.lifetime must be [min, max] with 0 < min <= max");
+    invariant(values.speed.y >= values.speed.x, "ParticleEmitter.speed must be [min, max]");
+    invariant(values.rotationSpeed.y >= values.rotationSpeed.x,
+      "ParticleEmitter.rotationSpeed must be [min, max]");
+    invariant(values.size.x > 0, "ParticleEmitter.size[0] (birth) must be > 0");
   }
 
   class Model {
@@ -5135,7 +5487,7 @@
       };
       const modelBytes = await this.runtime.resolveAsset(this.source, "Model.source");
       const textureBytes = this.texture
-        ? await this.texture.load()
+        ? await this.texture.load(`Model '${this.id}'.texture`)
         : null;
       const descriptor = (asset) => ({
         content_digest: asset.content_digest,
@@ -5451,6 +5803,57 @@
       invariant(!sunSky, "multiple_writer: Environment owns sun direction, so SunSky cannot also set it");
     } else {
       invariant(!environment, `multiple_writer: Environment owns sun direction, so ${claimant} cannot also set it`);
+    }
+  }
+
+  // LiEnvironment::applyClouds reaches into the VolumetricCloud every frame, so a member it drives
+  // silently overwrites whatever the author wrote on the cloud: the authored value is accepted, the
+  // facade reports it back, and the picture never changes.  Refuse each such pair at author time
+  // rather than let the last frame pick a winner.
+  //
+  //   Environment.cloudCoverage          -> weatherMapCoverage, but ONLY while the procedural
+  //                                         weather map is on.  With it off the coverage lands on
+  //                                         swirlBias instead, which is a different member, so the
+  //                                         pair does not collide.
+  //   Environment.windSpeed/windDirection -> noiseVelocity AND weatherMapVelocity, always.
+  const ENVIRONMENT_CLOUD_OVERRIDES = Object.freeze([
+    {
+      drivers: ["cloudCoverage"],
+      driven: ["weatherMapCoverage"],
+      onlyWhenProcedural: true,
+      message: "Environment.cloudCoverage drives the procedural weather map, so "
+        + "VolumetricCloud.weatherMapCoverage cannot also set it",
+    },
+    {
+      drivers: ["windSpeed", "windDirection"],
+      driven: ["noiseVelocity", "weatherMapVelocity"],
+      onlyWhenProcedural: false,
+      message: "Environment.windSpeed/windDirection drive the cloud drift, so "
+        + "VolumetricCloud.noiseVelocity/weatherMapVelocity cannot also set it",
+    },
+  ]);
+
+  // `incoming` describes the write being attempted: `{ component, type, values }`, with component
+  // null for a component that does not exist yet.
+  function assertCloudWriter(runtime, incoming) {
+    const entries = [...runtime.environmentComponents.values()]
+      .filter((item) => !item.disposed)
+      .map((item) => ({
+        type: item.type,
+        values: (incoming && incoming.component === item)
+          ? { ...(item.authorValues || {}), ...incoming.values }
+          : (item.authorValues || {}),
+      }));
+    if (incoming && !incoming.component) entries.push({ type: incoming.type, values: incoming.values });
+
+    const environments = entries.filter((entry) => entry.type === "Environment");
+    for (const rule of ENVIRONMENT_CLOUD_OVERRIDES) {
+      const driven = environments.some((entry) => rule.drivers.some((name) => entry.values[name] !== undefined));
+      if (!driven) continue;
+      const targets = entries.filter((entry) => entry.type === "VolumetricCloud");
+      const clash = targets.some((entry) => (!rule.onlyWhenProcedural || entry.values.proceduralWeatherMap === true)
+        && rule.driven.some((name) => entry.values[name] !== undefined));
+      invariant(!clash, `multiple_writer: ${rule.message}; keep one of the two`);
     }
   }
 
@@ -5819,6 +6222,9 @@
       invariant(patch && typeof patch === "object" && !Array.isArray(patch), `${this.type} patch must be an object`);
       invariant(patch.id === undefined && patch.key === undefined,
         `member_unsupported: ${this.type}.${patch.id !== undefined ? "id" : "key"}`);
+      if (this.type === "Environment" || this.type === "VolumetricCloud") {
+        assertCloudWriter(this.runtime, { component: this, type: this.type, values: patch });
+      }
       const properties = environmentProperties(this.type, patch);
       for (const property of Object.keys(patch)) {
         if (property === "secondFogData") continue;
@@ -5972,6 +6378,7 @@
   class Environment extends EnvironmentComponent {
     constructor(runtime, spec) {
       assertSunDirectionWriter(runtime, "Environment");
+      assertCloudWriter(runtime, { component: null, type: "Environment", values: spec });
       super(runtime, "Environment", spec);
     }
   }
@@ -5991,7 +6398,10 @@
     constructor(runtime, spec) { super(runtime, "SkyAtmosphere", spec); }
   }
   class VolumetricCloud extends EnvironmentComponent {
-    constructor(runtime, spec) { super(runtime, "VolumetricCloud", spec); }
+    constructor(runtime, spec) {
+      assertCloudWriter(runtime, { component: null, type: "VolumetricCloud", values: spec });
+      super(runtime, "VolumetricCloud", spec);
+    }
   }
   class ExponentialHeightFog extends EnvironmentComponent {
     constructor(runtime, spec) { super(runtime, "ExponentialHeightFog", spec); }
@@ -6103,6 +6513,7 @@
     "autoExposureSpeedUp", "autoExposureSpeedDown", "lowPercent", "highPercent", "histogramLogMin",
     "histogramLogMax", "bloomMethod", "bloomIntensity", "bloomThreshold", "lensFlareIntensity",
     "lensFlareBokehSize", "lensFlareThreshold", "depthOfFieldFocalDistance", "motionBlurAmount",
+    "motionBlurTargetFPS",
     "vignetteIntensity", "filmSlope", "filmToe", "filmShoulder", "filmBlackClip", "filmWhiteClip",
     "temperature", "temperatureTint", "blueCorrection", "expandGamut", "toneCurveAmount",
     "ambientOcclusionFadeRadius", "ambientOcclusionFadeDistance", "ambientOcclusionIntensity",
@@ -6830,8 +7241,9 @@
       const materialFacade = materialCapability.facade;
       const revisionKey = `${slot}Revision`;
       const revision = ++this[revisionKey];
+      const consumer = `${this.kind} '${this.id}'.${slot}`;
       const update = (async () => {
-        const bytes = await texture.load();
+        const bytes = await texture.load(consumer);
         invariant(!this.disposed, `${this.kind} is disposed`);
         invariant(!texture.disposed,
           `${this.kind}.${slot} must remain live until native upload completes`);
@@ -6872,6 +7284,12 @@
         if (previous && previous !== texture) this.releaseManagedTextureReference(previous);
         return this;
       })();
+      // An untextured material keeps rendering, so a failure is reported rather than left to an unawaited
+      // promise; disposal or a newer map superseding this one is ordinary teardown.
+      update.catch((error) => {
+        if (this.disposed || texture.disposed || revision !== this[revisionKey]) return;
+        this.runtime.noteTextureUploadFailure(consumer, texture, error);
+      });
       this.ready = update;
       return update;
     }
@@ -9361,6 +9779,13 @@
         (value, field) => invariant(value.length <= 4096, `${field} must be at most 4096 characters`));
       if (property === "visible") return boolean((value) => owner.applyVisible(value));
     }
+    if (owner instanceof ParticleEmitter) {
+      return {
+        ...particleMemberValueDescriptor(property),
+        write: (value) => owner.applyProperty(property, value),
+        read: () => owner.values[property],
+      };
+    }
     if (owner instanceof EnvironmentComponent) {
       return {
         ...environmentMemberValueDescriptor(owner.type, property),
@@ -9473,6 +9898,10 @@
       this.modelFacade = typeof Module.SSDLSceneFacade === "function" ? new Module.SSDLSceneFacade() : null;
       this.prefabFacade = typeof Module.PrefabFacade === "function" ? new Module.PrefabFacade() : null;
       this.environmentFacade = typeof Module.EnvironmentFacade === "function" ? new Module.EnvironmentFacade() : null;
+      // An older engine artefact paired with a newer runtime has no ParticleFacade.  Leaving it null
+      // here makes ParticleEmitter fail loudly with particle_dependency_missing instead of drawing
+      // nothing (the SunSky capability gate uses the same shape).
+      this.particleFacade = typeof Module.ParticleFacade === "function" ? new Module.ParticleFacade() : null;
       this.postProcessLease = acquirePostProcessFacade(this.viewer, Module.PostProcessFacade);
       this.postProcessFacade = this.postProcessLease.facade;
       this.expressionEvaluate = typeof options.expressionRuntime === "function"
@@ -9504,10 +9933,13 @@
       this.modelReservations = new Set();
       this.modelIncarnations = new Map();
       this.environmentComponents = new Map();
+      this.particleEmitters = new Map();
       // Geographic layers keep one registry across all four types: they share an id space, a teardown
       // order and one read-back tool, and the globe is at most one of them.
       this.geoComponents = new Map();
       this.geoErrors = [];
+      // Background texture failures (after retries), in the order they happened; each is also emitted.
+      this.assetErrors = [];
       this.sunSkies = new Map();
       this.postProcessVolumes = new Map();
       this.materials = new Map();
@@ -10110,6 +10542,7 @@
       finally { this.modelReservations.delete(model.id); }
     }
     createTexture(spec) { return new Texture(this, spec); }
+    createParticleEmitter(spec) { return new ParticleEmitter(this, spec); }
     createPropertyBag(spec) { return new LogicalPropertyBag(this, spec); }
     createPrincipledMaterial(spec) { return new PrincipledMaterial(this, spec); }
     createUnlitMaterial(spec) { return new UnlitMaterial(this, spec); }
@@ -10205,6 +10638,30 @@
       invariant(bytes.byteLength === asset.size_bytes,
         `${field} managed bytes do not match the declared size`);
       return bytes;
+    }
+
+    /**
+     * A texture that could not reach the engine: its bytes never verified after retries, or the native upload
+     * refused them. The consumer keeps rendering untextured, so the page has to be told.
+     */
+    noteAssetError(detail) {
+      const entry = Object.freeze({ ...detail, consumers: Object.freeze([...(detail.consumers || [])]) });
+      this.assetErrors.push(entry);
+      this.emit("asseterror", entry);
+      return entry;
+    }
+
+    /**
+     * Report a background texture upload that failed for a reason other than its owner being disposed or
+     * superseded (those are ordinary teardown). A load failure was already reported by Texture.load.
+     */
+    noteTextureUploadFailure(consumer, texture, error) {
+      if (error?.reported) return;
+      this.noteAssetError({
+        texture: texture.id, asset: texture.source.asset_id, consumers: [consumer],
+        code: error?.code || "texture_upload_failed",
+        message: `${consumer}: ${error?.message || String(error)}`, attempts: 1,
+      });
     }
 
     /** Background failure of a geographic layer: recorded for geo_read and emitted for the page log. */

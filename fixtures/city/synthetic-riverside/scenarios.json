@@ -1,0 +1,64 @@
+[
+  {
+    "id": "baseline",
+    "description": "基线",
+    "water_level_m": 10,
+    "closed_portals": []
+  },
+  {
+    "id": "close_gate",
+    "description": "关闭 01 号建筑 A 门",
+    "water_level_m": 10,
+    "closed_portals": [
+      "portal-01-a"
+    ]
+  },
+  {
+    "id": "river_plus_1m",
+    "description": "河水从合成标高 10 m 升至 11 m",
+    "water_level_m": 11
+  },
+  {
+    "id": "landslide_evacuation",
+    "description": "给定滑坡范围后的疏散输入",
+    "hazard_ref": "landslide.geojson#slide-1",
+    "population_ref": "population.csv",
+    "shelter_ref": "shelters.geojson"
+  },
+  {
+    "id": "replace_building",
+    "building_id": "building-01",
+    "recipe_id": "recipe-01",
+    "description": "按合成尺寸生成、替换单栋模型；照片输入待提供"
+  },
+  {
+    "id": "land_use_park",
+    "parcel_id": "parcel-01",
+    "new_use": "park",
+    "demolish": [
+      "building-01"
+    ],
+    "retain_portals": [
+      "portal-01-a",
+      "portal-01-b"
+    ],
+    "resident_count": 0,
+    "visitor_peak_person": 60,
+    "impervious_fraction": 0.15,
+    "description": "改造候选参数，尚未应用到基线"
+  },
+  {
+    "id": "land_use_mixed",
+    "parcel_id": "parcel-01",
+    "new_use": "mixed",
+    "replace": [
+      "building-01"
+    ],
+    "gross_floor_area_m2": 7200,
+    "residential_fraction": 0.7,
+    "commercial_fraction": 0.3,
+    "resident_count": 120,
+    "jobs": 60,
+    "description": "改造候选参数，尚未应用到基线"
+  }
+]

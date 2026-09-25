@@ -6,12 +6,13 @@ import { engineStatus, ensureEngine } from "./engine.mjs";
 import { compileNamed, createProject, listProjects, readSource, writeSource, patchSource, batchEdit, sourceState, projectDir, DEFAULT_ANCHOR } from "./project.mjs";
 import { dedupeErrors, locateRuntimeErrors } from "./diagnose.mjs";
 import { inspectScene, readIR, readAnchor, requestedCamera } from "./inspect.mjs";
-import { startPreview, projectUrl, fetchPageStatus, pageCommand } from "./preview.mjs";
+import { startPreview, projectUrl, fetchPageStatus, pageCommand, isSessionClient } from "./preview.mjs";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { catalogSummary, catalogComponent, catalogComponents, catalogDigest } from "./catalog.mjs";
 import { CLIP_PLANE_POLICY, FOV_POLICY } from "./runtime-support.mjs";
-import { CompileError } from "./compile.mjs";
+import { CompileError, SOURCE_LIMITS } from "./compile.mjs";
+import { importCity, queryCity, commandCity, impactReport, startRun, readRun, listRuns, buildBuilding, cityStatus } from "./city/host.mjs";
 
 const SUPPORTED_PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -20,6 +21,7 @@ Workflow: ssworld_catalog (index, or components: [...] with detail 'compact' for
 Assets: copy glb models (and png/jpg textures) into <project>/assets/ and reference them by project-relative path (Model { source: "assets/name.glb" }); ssworld_compile discovers them (usage.assets) and rejects oversize files (asset_budget). Compile success means the scene is well-formed, not that it looks right; open the preview, then call ssworld_capture_frame and look at the image before reporting. Every result carries next: {action, reason, ...} naming the next step; 'open_webgpu_viewer' means the client must open next.url in a visible WebGPU browser tab (a client capability, not an SSWorld tool). reference_match stays not_evaluated unless a comparison was actually run.
 Conventions: local metres, x east / y north / z up around the project anchor; geometry rotation quaternions are [x, y, z, w], environment component rotation is Euler degrees; CameraView takes position/lookAt in local metres (or longitude/latitude/height), fov in HORIZONTAL degrees (the vertical fov follows the aspect); ${CLIP_PLANE_POLICY}. Scene logic: 'property real score: 0' on the Scene root, handler assignments with arithmetic, comparisons (>=, <=, ===, !==) in bindings, and 'Iface.method(arg: expr)' host calls declared in host_interfaces.json + implemented in logic.mjs; ssworld_catalog.logic documents the surface, ssworld_capture_frame returns the live values as 'logic'; ssworld_logic_read / ssworld_logic_write read and set declared properties on the open page in one transaction (States are derived and cannot be written), and ssworld_capture_frame { await: {state|property, ...} } waits for a game state before shooting instead of editing initial values.
 Measure, do not squint: ssworld_geometry_read returns every node's dimensions, world box, ground contact (a Box is centred on its position, so z: 0 buries half of it) and optional overlaps as numbers read back from the engine; ssworld_environment_read and ssworld_geo_read do the same for the sun/sky and the geographic layers. Use them before a screenshot when the question is a size, a position or a collision.
+Real sites: ssworld_city_import turns a local dataset (GeoJSON + an explicit elevation grid) into an immutable city baseline with business ids, generates its SSDL scene, and reports every data gap with what that gap blocks. From there the city is edited by COMMAND, never by hand-editing the generated scene.ssdl: ssworld_city_command (portal.move/close/open, water.set_level, hazard.activate, building.replace_asset, parcel.set_use, road.close, demand.add) makes a new revision, records it in an append-only log keyed by command_id, regenerates the display and says what it invalidated. ssworld_city_impact turns a water level into a source-connected inundation extent and the closures it implies (a bridge is judged on its deck), and separates "inundated" from "cut off but dry". ssworld_city_run routes the demand through entry capacity, link storage and portal queues, or evacuates the population into shelters under capacity; both conserve people and give a reason for everyone who did not finish. ssworld_city_build generates a building mass from a rule and records the BuildRecipe behind it. The static models have named limits (no propagation time, no velocity, no runoff, no failure timing) and every result carries them -- report them rather than rounding them off.
 Runtime evidence: a binding whose value the target refuses rolls its whole batch back and freezes the affected values; the page reports it as runtime.errors kind 'binding_error' (mapped to scene.ssdl:line) and logic.bindings.invalid, so check runtime.errors before judging a frame. Several browsers may have the same page open (desktop preview pane + automation browser): ssworld_preview lists them as page.clients, every capture receipt names the answering receipt.client, and capture/logic tools accept client: "<id>" to pick one.`;
 
 const log = (line) => process.stderr.write(`[ssworld-mcp] ${line}\n`);
@@ -41,9 +43,24 @@ const NEXT = {
   engine: () => next("install_engine", "the SSEngine WebGPU runtime pair is not installed; call ssworld_engine_status { install: true }", { blocking: true }),
 };
 
-/** The page that will answer a command, or a structured page_not_open / client_not_connected error. */
+/**
+ * The page that will answer a command, or a structured page_not_open / client_not_connected error.
+ * Without `client`, a page opened from this session's viewer_url answers before any other browser.
+ */
 async function requirePage(project, client) {
-  const page = await fetchPageStatus(project, { client: client || null });
+  let page = await fetchPageStatus(project, { client: client || null });
+  if (!client && page.connected) {
+    // This session's own page wins while it is visible; a hidden one (minimised, background tab) paints no frames, so it
+    // only wins when no page is visible at all.
+    const visible = (item) => !item.visibility || item.visibility === "visible";
+    const own = page.clients.filter((item) => isSessionClient(item.id));
+    const pick = own.find(visible) || (page.client && visible(page.client) ? null : own[0]);
+    if (pick && pick.id !== page.client?.id) {
+      const mine = await fetchPageStatus(project, { client: pick.id });
+      if (mine.connected) page = mine;
+    }
+    if (isSessionClient(page.client?.id)) page = { ...page, selection: "this_session" };
+  }
   if (page.connected) return page;
   const started = await startPreview({ log });
   const url = projectUrl(project, started.port);
@@ -91,14 +108,14 @@ const TOOLS = [
   },
   {
     name: "ssworld_project_create",
-    description: "Create a new runnable SSDL project and compile it. template 'starter' (default) is a tappable rotating box; 'empty' is just Scene + local-frame CameraView/Camera for scenes you write from scratch; 'geo' starts on the globe (Globe + a geographic CameraView + a commented ImageryLayer/Tileset/GeoJsonLayer to fill in) for a scene that carries a basemap, terrain or 3D Tiles. Never overwrites an existing project.",
+    description: "Create a new runnable SSDL project and compile it. template 'starter' (default) is a tappable rotating box; 'empty' is just Scene + local-frame CameraView/Camera for scenes you write from scratch; 'geo' starts on the globe (Globe + a geographic CameraView + a commented ImageryLayer/Tileset/GeoJsonLayer to fill in) for a scene that carries a basemap, terrain or 3D Tiles; 'campfire' is the particle starting point (two ParticleEmitters over a tappable fire pit, plus nine sprite PNGs copied into the project's assets/ and a commented rain emitter). Never overwrites an existing project.",
     inputSchema: { type: "object", required: ["name"], properties: {
       name: { type: "string", pattern: "^[A-Za-z][A-Za-z0-9_-]{0,63}$", description: "Project name; letters, digits, '_' and '-'." },
       title: { type: "string", description: "Page title shown in the preview; defaults to the name." },
       longitude: { type: "number", description: "Anchor longitude in degrees (WGS84). Default: Shenzhen civic centre." },
       latitude: { type: "number", description: "Anchor latitude in degrees." },
       height: { type: "number", description: "Anchor height in metres above the ellipsoid. Default 150." },
-      template: { type: "string", enum: ["starter", "empty", "geo"], description: "Starting scene.ssdl; default starter." },
+      template: { type: "string", enum: ["starter", "empty", "geo", "campfire"], description: "Starting scene.ssdl; default starter." },
     }, additionalProperties: false },
     annotations: { title: "Create project", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     run: async ({ name, title, longitude, latitude, height, template }) => ({ ...(await createProject(name, { title, template, anchor: {
@@ -123,7 +140,7 @@ const TOOLS = [
     name: "ssworld_source_write",
     description: "Replace a whole .ssdl file (or logic.mjs / host_interfaces.json for host logic and its contract). Pass expected_digest from ssworld_source_read (or 'new' for a new component file). For edits prefer ssworld_source_patch / ssworld_source_batch. Does not compile; call ssworld_compile next. Editing the .ssdl files in the project directory with any other file tool also works (ssworld_compile always rebuilds from disk) but bypasses the digest lock.",
     inputSchema: { type: "object", required: ["project", "file", "content", "expected_digest"], properties: {
-      project: { type: "string" }, file: { type: "string" }, content: { type: "string", description: "Full new file content (UTF-8, ≤1 MiB)." },
+      project: { type: "string" }, file: { type: "string" }, content: { type: "string", description: `Full new file content (UTF-8, ≤${SOURCE_LIMITS.file_bytes / 1048576} MiB; a project takes ${SOURCE_LIMITS.project_bytes / 1048576} MiB of sources in ${SOURCE_LIMITS.files} files).` },
       expected_digest: { type: "string", description: "sha256 hex from the last read, or 'new'." } }, additionalProperties: false },
     annotations: { title: "Write SSDL source", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     run: ({ project, file, content, expected_digest }) => ({ ...writeSource(project, file, content, expected_digest), next: NEXT.compile() }),
@@ -213,27 +230,30 @@ const TOOLS = [
       width: { type: "integer", minimum: 64, maximum: 4096, description: "Capture width in pixels; default 800." },
       height: { type: "integer", minimum: 64, maximum: 4096, description: "Capture height; default keeps 16:9." },
       settle_ms: { type: "integer", minimum: 0, maximum: 10000, description: "Wait before capturing (camera flights, animations); default 500." },
-      timeout_ms: { type: "integer", minimum: 1000, maximum: 120000, description: "How long to wait for the page to answer; default 30000 (raised automatically to cover await.timeout_ms and settle_ms). A large scene needs it: the engine readback is given this budget minus the waits, so raise it rather than retrying a timed-out capture." },
-      client: { type: "string", description: "Page client id (from ssworld_preview page.clients / a capture receipt.client.id) that must answer; default: the most recently synced visible page." },
+      timeout_ms: { type: "integer", minimum: 1000, maximum: 120000, description: "How long to wait for the page to answer; default 30000 (raised automatically to cover await.timeout_ms, settle_ms and stable.timeout_ms). A large scene needs it: the engine readback is given this budget minus the waits, so raise it rather than retrying a timed-out capture." },
+      client: { type: "string", description: "Page client id (from ssworld_preview page.clients / a capture receipt.client.id) that must answer; default: the page opened from this session's viewer_url, else the most recently synced visible page." },
       detail: { type: "string", enum: ["full", "brief"], description: "'brief' returns only what an iteration loop reads (verdict, next, runtime errors, luma, 3x3 regions, capture path, in_sync, logic) and drops the framing/receipt/camera/coverage blocks; default 'full'." },
       await: { type: "object", description: "Capture only once the scene logic satisfies this: {state: 'corner'} (State.when true; equals: false for the opposite) or {property: 'p', equals: 0.4} / {property: 'p', min: 0.3, max: 0.5}; timeout_ms default 5000 (max 60000).",
         properties: { state: { type: "string" }, property: { type: "string" }, equals: {}, min: { type: "number" }, max: { type: "number" }, timeout_ms: { type: "integer", minimum: 0, maximum: 60000 } }, additionalProperties: false },
+      stable: { type: "object", description: "Shoot only once the brightness stops changing. Use it after moving the clock (dateTime, timeScale, a time-of-day property): the sky light capture and the ambient it feeds keep converging for up to ~30 s (measured mean luma 26 -> 2 after a day -> night jump), so an immediate frame shows the old light. Pass {} for the defaults: small frames are sampled once a second until the mean luma of the last five samples (4 s) spans less than tolerance (default 0.3 of 255), within timeout_ms (default 30000, max 60000). Still changing at the deadline: the frame is returned anyway with stabilised.stable false.",
+        properties: { tolerance: { type: "number", minimum: 0.01, maximum: 20 }, timeout_ms: { type: "integer", minimum: 1000, maximum: 60000 } }, additionalProperties: false },
     }, additionalProperties: false },
     annotations: { title: "Capture preview frame", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     rich: true,
-    run: async ({ project, width, height, settle_ms, timeout_ms, client, await: awaitSpec, detail }) => {
+    run: async ({ project, width, height, settle_ms, timeout_ms, client, await: awaitSpec, stable, detail }) => {
       const directory = projectDir(project);
       const page = await requirePage(project, client);
       const requestedWidth = width || 800;
       const requestedHeight = height || Math.round(requestedWidth * 9 / 16);
       const awaitBudget = awaitSpec ? Math.min(awaitSpec.timeout_ms ?? 5000, 60000) : 0;
       const settleMs = settle_ms ?? 500;
-      const timeoutMs = Math.max(timeout_ms || 30000, awaitBudget + settleMs + 12000);
+      const stableBudget = stable ? Math.min(stable.timeout_ms ?? 30000, 60000) + 5000 : 0;
+      const timeoutMs = Math.min(Math.max(timeout_ms || 30000, awaitBudget + settleMs + stableBudget + 12000), 120000);
       // The engine readback is the slow part of a big scene, and the page used to give it a fixed 8 s
       // no matter what the caller asked for -- so a scene large enough to be worth capturing timed out
       // and the author lost the only evidence channel they had. Hand the page the budget it may spend.
-      const readbackMs = Math.max(timeoutMs - awaitBudget - settleMs - 3000, 8000);
-      const reply = await pageCommand(project, "capture", { width: requestedWidth, height: requestedHeight, settle_ms: settleMs, readback_ms: readbackMs, ...(awaitSpec ? { await: { ...awaitSpec, timeout_ms: awaitBudget } } : {}) },
+      const readbackMs = Math.max(timeoutMs - awaitBudget - settleMs - stableBudget - 3000, 8000);
+      const reply = await pageCommand(project, "capture", { width: requestedWidth, height: requestedHeight, settle_ms: settleMs, readback_ms: readbackMs, ...(awaitSpec ? { await: { ...awaitSpec, timeout_ms: awaitBudget } } : {}), ...(stable ? { stable } : {}) },
         { timeoutMs, client: page.client?.id });
       if (!reply.ok) throw commandFailure(reply, "retry_capture");
       const result = reply.result;
@@ -243,6 +263,10 @@ const TOOLS = [
         throw Object.assign(new Error(result.error), { code, extra: { status: result.status, ...(result.logic ? { logic: result.logic } : {}), client: reply.page?.client ?? null,
           next: next(code === "await_timeout" ? "inspect_logic" : "retry_capture", reason, { blocking: code !== "await_timeout" }) } });
       }
+      // index.html is project-owned: a page made before `stable` existed ignores it and shoots at once, which
+      // would read exactly like a frame that waited. Say so instead of passing that off as settled light.
+      const stabilised = stable ? result.stabilised ?? { stable: null, waited_ms: 0, page_unsupported: true,
+        reason: "this project's index.html predates stable, so the frame was shot without waiting; copy awaitStableLuma() and its call in captureFrame from a project created with this server version (ssworld_source_patch works on index.html)" } : null;
       const capturedAt = new Date();
       const stamp = capturedAt.toISOString().replace(/[:.]/g, "-");
       const capturesDir = path.join(directory, "captures");
@@ -270,8 +294,8 @@ const TOOLS = [
         engine_id: engine.engine_id || null, server_version: PACKAGE.version,
         in_sync: staleness.length === 0, staleness,
         // Which browser answered: several may have the page open (desktop preview pane + automation browser).
-        client: reply.page?.client ?? null, client_selection: reply.page?.selection ?? null, clients_connected: reply.page?.clients?.length ?? null,
-        ...(reply.page?.clients?.length > 1 && !client ? { client_note: `${reply.page.clients.length} pages sync this project; this frame comes from client ${reply.page.client?.id}; pass client to pick another (see ssworld_preview page.clients)` } : {}) };
+        client: reply.page?.client ?? null, client_selection: client ? "requested" : page.selection ?? reply.page?.selection ?? null, clients_connected: reply.page?.clients?.length ?? null,
+        ...(reply.page?.clients?.length > 1 && !client ? { client_note: `${reply.page.clients.length} pages sync this project; this frame comes from client ${reply.page.client?.id}${page.selection === "this_session" ? " (the page opened from this session's viewer_url)" : ", not from a page opened with this session's viewer_url"}; pass client to pick another (see ssworld_preview page.clients)` } : {}) };
 
       // Framing: what the engine did with the requested size (verified against LiRenderSystem offscreen path).
       const effective = result.camera && !result.camera.error ? result.camera : null;
@@ -322,9 +346,12 @@ const TOOLS = [
         ok: true, project, capture_path: file, receipt, framing, stats, camera, runtime: status,
           logic: status.logic ?? null,
           ...(result.awaited ? { awaited: result.awaited } : {}),
+          ...(stabilised ? { stabilised } : {}),
           render_verified: verified,
           reference_match: { status: "not_evaluated", method: null, metrics: null, note: "no reference image comparison is performed by this tool" },
-          verdict: verified ? (receipt.in_sync ? "frame captured from the running scene with no runtime errors; judge composition from the image and stats.regions"
+          verdict: verified ? (receipt.in_sync ? (stabilised && !stabilised.stable
+                ? `frame captured with no runtime errors, but it is not known to show settled light (${stabilised.reason}); judge the light again later`
+                : "frame captured from the running scene with no runtime errors; judge composition from the image and stats.regions")
               : `frame captured with no runtime errors, but it may not show the latest sources: ${staleness.join("; ")}`)
             : status.errors.length ? `runtime reported ${status.errors.length} error(s): ${firstError.message}${where}; fix the source and compile again`
             : status.state !== "ready" ? `runtime state is '${status.state}': ${status.hint}`
@@ -338,7 +365,7 @@ const TOOLS = [
   {
     name: "ssworld_logic_read",
     description: "Read the page's scene logic AND whether the scene module is actually loaded, without a screenshot: runtime.state / runtime.errors (mapped to scene.ssdl:line) plus declared properties, State.when values, host call errors, bindings.invalid (bindings whose last value was refused) and binding_errors. This is the cheap 'did it load' probe: when a scene module fails to mount, a capture only shows the engine's default earth view, while this returns the state and the errors for a fraction of the tokens. Read it twice a few seconds apart to prove a game loop is actually advancing (a frozen value with no runtime error is what a rolled-back binding batch looks like). client picks one of several open pages.",
-    inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" }, client: { type: "string", description: "Page client id; default: most recent visible page." },
+    inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" }, client: { type: "string", description: "Page client id; default: the page opened from this session's viewer_url, else the most recent visible page." },
       timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, description: "Default 10000." } }, additionalProperties: false },
     annotations: { title: "Read scene logic", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     run: async ({ project, client, timeout_ms }) => {
@@ -365,7 +392,7 @@ const TOOLS = [
     description: "Set declared scene properties on the open preview page in ONE event transaction (the same path as window.SSWorld.logical.write): {set: {p: 0.4, pace: 0.0025}}. Use it to put the game into a situation (a corner, the last lap) before ssworld_capture_frame instead of editing initial values in the sources. Returns before/after logic and the transaction receipt; a refused value rolls every property in the set back and the error names the failing binding (logical_write_rejected). States are derived from their `when` expression and cannot be written (logic_property_unknown tells you so): set a declared property they read.",
     inputSchema: { type: "object", required: ["project", "set"], properties: { project: { type: "string" },
       set: { type: "object", minProperties: 1, additionalProperties: true, description: "{declaredProperty: value}; numbers for real/length/degrees/duration/radians, booleans for bool, strings for string." },
-      client: { type: "string", description: "Page client id; default: most recent visible page." },
+      client: { type: "string", description: "Page client id; default: the page opened from this session's viewer_url, else the most recent visible page." },
       timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, description: "Default 10000." } }, additionalProperties: false },
     annotations: { title: "Write scene logic", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     run: async ({ project, set, client, timeout_ms }) => {
@@ -387,7 +414,7 @@ const TOOLS = [
     name: "ssworld_environment_read",
     description: "Ask the ENGINE what it actually received for the environment, instead of bisecting it with screenshots: the adopted sun's real direction read back from the native sun and converted to azimuth/elevation at the project anchor (with the deviation from what the scene asked for), which DirectionalLight drives the atmosphere, and the live values of every environment component (SkyAtmosphere, ExponentialHeightFog, VolumetricCloud, SkyLight, PostProcessVolume, owned lights) as the native side holds them right now. Answers \"why is the sky orange\" / \"where is the sun\" in one call. Requires the preview page to be open; a page whose index.html predates this probe answers page_probe_unavailable and names the handler to paste in.",
     inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" },
-      client: { type: "string", description: "Page client id; default: most recent visible page." },
+      client: { type: "string", description: "Page client id; default: the page opened from this session's viewer_url, else the most recent visible page." },
       timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, description: "Default 10000." } }, additionalProperties: false },
     annotations: { title: "Read engine environment", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     run: async ({ project, client, timeout_ms }) => {
@@ -430,7 +457,7 @@ const TOOLS = [
     name: "ssworld_geo_read",
     description: "Ask the ENGINE what it holds for the geographic layers, instead of bisecting a basemap with screenshots: whether the terrain provider actually loaded, how far the scene's local z = 0 sits above the terrain under the project anchor (turning terrain on moves the GROUND, not the scene, so a flat scene can end up buried or floating), the imagery layers in real draw order with their native stack index, and each Tileset / GeoJsonLayer's readiness, extent and feature count. Answers \"why is there no basemap\" / \"where did my buildings go\" in one call. Requires the preview page to be open; a page whose index.html predates this probe answers page_probe_unavailable and names the handler to paste in.",
     inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" },
-      client: { type: "string", description: "Page client id; default: most recent visible page." },
+      client: { type: "string", description: "Page client id; default: the page opened from this session's viewer_url, else the most recent visible page." },
       timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, description: "Default 10000." } }, additionalProperties: false },
     annotations: { title: "Read engine geography", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     run: async ({ project, client, timeout_ms }) => {
@@ -475,7 +502,7 @@ const TOOLS = [
       overlaps: { type: "boolean", description: "Also list pairs of intersecting world boxes (largest overlap volume first, at most 50; skipped above 400 boxes)." },
       tolerance_m: { type: "number", minimum: 0, description: "Ground contact and overlap tolerance in metres; default 0.01." },
       detail: { type: "string", enum: ["full", "brief"], description: "brief drops local transforms, ancestors and mesh facts." },
-      client: { type: "string", description: "Page client id; default: most recent visible page." },
+      client: { type: "string", description: "Page client id; default: the page opened from this session's viewer_url, else the most recent visible page." },
       timeout_ms: { type: "integer", minimum: 1000, maximum: 60000, description: "Default 10000." } }, additionalProperties: false },
     annotations: { title: "Measure scene geometry", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     run: async ({ project, ids, overlaps, tolerance_m, detail, client, timeout_ms }) => {
@@ -518,6 +545,114 @@ const TOOLS = [
     },
   },
   {
+    name: "ssworld_city_import",
+    description: "Import a real-site dataset (local GeoJSON + an explicit elevation grid) into a project as an immutable city baseline, and generate the SSDL scene for it. Reports every object count, the frame it resolved, and every data gap the dataset left (missing elevation datum, no photos, pedestrian-only demand ...) with what each gap blocks. Never overwrites an existing baseline.",
+    inputSchema: { type: "object", required: ["project", "dataset"], properties: {
+      project: { type: "string", description: "Existing SSWorld project to import into (create it first with ssworld_project_create, template 'empty')." },
+      dataset: { type: "string", description: "Directory holding dataset.json and its GeoJSON/CSV files." },
+    }, additionalProperties: false },
+    annotations: { title: "Import city dataset", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    run: ({ project, dataset }) => {
+      const result = importCity(projectDir(project), dataset);
+      return { project, ...result, next: next("compile", "the city scene was generated; ssworld_compile builds it, then ssworld_preview opens it") };
+    },
+  },
+  {
+    name: "ssworld_city_status",
+    description: "The city's current revision, command cursor, runs, impact summary (closed edges/portals, flooded area, active hazards), and the catalogue of commands and mass-model generators this city accepts.",
+    inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" } }, additionalProperties: false },
+    annotations: { title: "City status", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    run: ({ project }) => ({ project, ...cityStatus(projectDir(project)) }),
+  },
+  {
+    name: "ssworld_city_query",
+    description: "Read city objects by business id (building-01, portal-01-a, road-v-400-100, a network node ...) or list them by kind / bounding box. One object comes back with its attributes, its relations (parcel, portals, exit node, population), its data gaps and every reason it is currently closed or exposed.",
+    inputSchema: { type: "object", required: ["project"], properties: {
+      project: { type: "string" },
+      id: { type: "string", description: "Business id of one object; omit to list." },
+      kind: { type: "string", description: "parcel, building, road, access_link, portal, water, hazard, shelter, surface_cover, survey." },
+      bbox: { type: "array", items: { type: "number" }, minItems: 4, maxItems: 4, description: "[minX, minY, maxX, maxY] in local metres." },
+      revision: { type: "string", description: "Read an earlier revision instead of the head." },
+      limit: { type: "integer", minimum: 1, maximum: 2000 },
+    }, additionalProperties: false },
+    annotations: { title: "Query city", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    run: ({ project, id, kind, bbox, revision, limit }) => ({ project, ...queryCity(projectDir(project), { id, kind, bbox, revision, limit }) }),
+  },
+  {
+    name: "ssworld_city_command",
+    description: "Change the city. Every command creates a new revision, is recorded in an append-only log, and says what it invalidated (routing / traffic / flood / display). command_id is the idempotency key: re-sending one returns the ORIGINAL result instead of applying it twice. Kinds: portal.move / portal.set / portal.close / portal.open, water.set_level / water.reset_level, hazard.activate / hazard.deactivate, road.close / road.open, building.replace_asset / building.set_geometry / building.set_use, parcel.set_use, demand.add / demand.remove. The SSDL scene is regenerated from the new revision unless regenerate is false.",
+    inputSchema: { type: "object", required: ["project", "kind"], properties: {
+      project: { type: "string" },
+      kind: { type: "string", description: "Command kind; ssworld_city_status lists them all." },
+      params: { type: "object", description: "Command arguments.", additionalProperties: true },
+      command_id: { type: "string", description: "Idempotency key; a repeat returns the first result." },
+      expected_revision: { type: "string", description: "Refuse the write if the city has moved on (returns revision_stale)." },
+      effective_at_s: { type: "number", description: "Simulation time this change takes effect at, for the run log." },
+      regenerate: { type: "boolean", description: "Rewrite scene.ssdl from the new revision (default true)." },
+    }, additionalProperties: false },
+    annotations: { title: "City command", readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    run: ({ project, kind, params, command_id, expected_revision, effective_at_s, regenerate }) => {
+      const result = commandCity(projectDir(project), { kind, params, command_id, expected_revision, effective_at_s, regenerate: regenerate !== false, source: "mcp" });
+      return { project, ...result, next: result.display?.scene_changed ? NEXT.compile() : next("run_city", "nothing in the display changed; start a run or read the impact") };
+    },
+  },
+  {
+    name: "ssworld_city_impact",
+    description: "What the current water level and active hazards mean for the city: the connected inundation extent and its per-body levels, which network edges / portals / buildings are closed or over-topped (a bridge is judged on its DECK, not the ground under it), which objects are cut off but NOT inundated, and every limitation of the static model (no propagation time, no velocity, no culverts).",
+    inputSchema: { type: "object", required: ["project"], properties: {
+      project: { type: "string" },
+      revision: { type: "string" },
+      reference_nodes: { type: "array", items: { type: "string" }, description: "Nodes reachability is measured from; defaults to the shelters." },
+      passable_depth_m: { type: "number", description: "Depth above which a link counts as impassable (default 0.2)." },
+    }, additionalProperties: false },
+    annotations: { title: "City impact", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    run: ({ project, revision, reference_nodes, passable_depth_m }) => ({ project, ...impactReport(projectDir(project), { revision, reference_nodes, passable_depth_m }) }),
+  },
+  {
+    name: "ssworld_city_run",
+    description: "Run the city. kind 'traffic' routes the revision's demand through entry capacities, link storage and portal queues; kind 'evacuation' assigns population groups to shelters under capacity and then runs the same engine with shelter intake as the last server. Both conserve people: not_departed + queued + traversing + arrived + stranded always equals the total, and a stranded traveller carries its reason. controls apply a portal/road closure mid-run at a sync point; a command that changes geometry or topology is refused as a control and needs a new run.",
+    inputSchema: { type: "object", required: ["project"], properties: {
+      project: { type: "string" },
+      kind: { type: "string", enum: ["traffic", "evacuation"], description: "Default traffic." },
+      revision: { type: "string" },
+      run_id: { type: "string" },
+      horizon_s: { type: "number", description: "Simulation horizon in seconds (default 7200)." },
+      step_s: { type: "number", description: "Time step in seconds (default 1)." },
+      sample_interval_s: { type: "number", description: "Seconds between recorded samples (default 60); 0 records none." },
+      display_rows: { type: "integer", description: "How many traveller positions to sample per frame for the page (default 0)." },
+      departure_window_s: { type: "number", description: "Evacuation: seconds over which a group leaves (default 0, all at once)." },
+      controls: { type: "array", description: "[{ at_s, command: { kind, params } }] applied at sync points during the run.", items: { type: "object", additionalProperties: true } },
+      list: { type: "boolean", description: "List this city's runs instead of starting one." },
+      read: { type: "string", description: "Read a stored run by id instead of starting one." },
+    }, additionalProperties: false },
+    annotations: { title: "Run city", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    run: ({ project, list, read, ...options }) => {
+      const directory = projectDir(project);
+      if (list) return { project, runs: listRuns(directory) };
+      if (read) return { project, run: readRun(directory, read) };
+      const run = startRun(directory, options);
+      const { samples, travellers, ...result } = run.result;
+      return { project, ...run, result: { ...result, sample_count: samples?.length ?? 0 },
+        next: next("read_run", "the full sample timeline is stored; ssworld_city_run { read: run_id } returns it, and the preview page plays it back") };
+    },
+  },
+  {
+    name: "ssworld_city_build",
+    description: "Generate a mass model for one building from a rule and record the BuildRecipe that produced it (building id, input refs and digests, hard constraints, generator id and version, parameters, seed, tool versions). Generators: footprint_extrusion, footprint_extrusion_roof, podium_tower, script (records an external command and the asset it produced). The candidate comes back with its hard checks - footprint area, position, height, survey dimensions, portals not swallowed, no neighbour overlap - passed or failed. Apply it with ssworld_city_command building.replace_asset.",
+    inputSchema: { type: "object", required: ["project", "building_id"], properties: {
+      project: { type: "string" },
+      building_id: { type: "string" },
+      generator_id: { type: "string", description: "Default footprint_extrusion." },
+      parameters: { type: "object", additionalProperties: true },
+      constraints: { type: "object", additionalProperties: true, description: "Hard constraints: footprint (ring of [x, y]) and/or height_m." },
+      seed: { type: "integer" },
+      recipe_id: { type: "string" },
+      revision: { type: "string" },
+    }, additionalProperties: false },
+    annotations: { title: "Build city model", readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    run: ({ project, ...options }) => ({ project, ...buildBuilding(projectDir(project), options) }),
+  },
+  {
     name: "ssworld_engine_status",
     description: "Report whether the SSEngine WebGPU runtime pair (SSmap.js/SSmap.wasm) is installed locally; optionally download it now.",
     inputSchema: { type: "object", properties: { install: { type: "boolean", description: "Download the pinned engine if missing." } }, additionalProperties: false },
@@ -554,6 +689,7 @@ function briefCapture(full) {
       regions: stats.regions },
     ...(full.logic ? { logic: full.logic } : {}),
     ...(full.awaited ? { awaited: full.awaited } : {}),
+    ...(full.stabilised ? { stabilised: full.stabilised } : {}),
     verdict: full.verdict, next: full.next,
     omitted: "framing, receipt details, camera pose/deviation, colour coverage and colormap_top; call again with detail: 'full' for them",
   };

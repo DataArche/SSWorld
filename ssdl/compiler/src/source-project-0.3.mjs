@@ -14,6 +14,15 @@ export const FRAGMENT_ROOT_ID = "fragment-root";
 // fragment reach for an asset the project never declared.
 export const FRAGMENT_PARAMETER_TYPES = Object.freeze(["real", "bool", "string", "length", "degrees", "duration"]);
 
+// The size walls of a source project, in one place: the compiler and the MCP server's source tools
+// both read these rather than repeating the numbers. Measured 2026-09-25 on Windows node 26 with a
+// real project scaled 1x-6x: compile time and peak memory grow linearly, ~0.65 s and ~170 MiB per
+// MiB of source, and the generated module is ~4x the source. 16 MiB is ~10 s, ~2.7 GiB and a ~64 MiB
+// module; the page still has to load that module, which is the next wall rather than this one.
+export const SOURCE_LIMITS = Object.freeze({ file_bytes: 4 * 1024 * 1024, project_bytes: 16 * 1024 * 1024, files: 256, asset_refs: 256 });
+
+const mib = (bytes) => `${(bytes / 1048576).toFixed(2)} MiB`;
+
 function fail(code, ast, detail = code) {
   const error = Object.assign(new Error(detail), { code });
   const start = ast?.location?.start || { line: 1, column: 1 };
@@ -54,10 +63,38 @@ function annotate(value, file, seen = new Set()) {
   return value;
 }
 
+// Every component instantiation copies its template's AST, so this is most of the compile time on a
+// large project; a plain key loop builds the same objects several times faster than
+// Object.fromEntries(Object.entries(...)).
 function clone(value) {
-  if (Array.isArray(value)) return value.map(clone);
   if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, clone(child)]));
+  if (Array.isArray(value)) {
+    const copy = new Array(value.length);
+    for (let index = 0; index < value.length; index++) copy[index] = clone(value[index]);
+    return copy;
+  }
+  const copy = {};
+  for (const key of Object.keys(value)) {
+    // An assignment to "__proto__" would set the prototype instead of creating the key.
+    if (key === "__proto__") Object.defineProperty(copy, key, { value: clone(value[key]), enumerable: true, writable: true, configurable: true });
+    else copy[key] = clone(value[key]);
+  }
+  return copy;
+}
+
+// clone() minus the keys the caller replaces at once. Those keep their place in the key order (so
+// the emitted JSON is unchanged) and hold the ORIGINAL value until the caller overwrites it, but
+// their subtrees are not copied only to be thrown away: cloning a node and then emptying its members
+// copied every descendant once per level of nesting. A caller must overwrite every skipped key that
+// holds an object.
+function cloneExcept(value, skip) {
+  const copy = {};
+  for (const key of Object.keys(value)) {
+    const child = skip.includes(key) ? value[key] : clone(value[key]);
+    if (key === "__proto__") Object.defineProperty(copy, key, { value: child, enumerable: true, writable: true, configurable: true });
+    else copy[key] = child;
+  }
+  return copy;
 }
 
 function fields(node) {
@@ -112,21 +149,28 @@ function transformExpression(ast, environment, resolving = new Set()) {
     return clone(ast);
   }
   if (ast.kind === "reference") {
+    // `root.size` inside a component reads the property the component declares, exactly as the bare
+    // `size` does. Declared properties are parameters substituted where they are used, so the root node
+    // has no member of that name and the QML spelling used to fail as unknown_reference `<instance>.size`.
+    if (ast.segments.length === 2 && environment.root && ast.segments[0] === environment.root
+        && environment.params.has(ast.segments[1])) {
+      return transformExpression({ kind: "identifier", value: ast.segments[1], location: ast.location, file: ast.file }, environment, resolving);
+    }
     const copy = clone(ast);
     if (environment.params.has(copy.segments[0])) fail("invalid_reference", ast);
     if (environment.ids.has(copy.segments[0])) copy.segments[0] = environment.ids.get(copy.segments[0]);
     return copy;
   }
-  const copy = clone(ast);
-  if (copy.actions) copy.actions = copy.actions.map(action => {
-    const result = clone(action);
+  const copy = cloneExcept(ast, ["actions", "arg", "args", "values"]);
+  if (ast.actions) copy.actions = ast.actions.map(action => {
+    const result = cloneExcept(action, ["value"]);
     if (environment.ids.has(result.target[0])) result.target[0] = environment.ids.get(result.target[0]);
-    if (result.value) result.value = transformExpression(result.value, environment, resolving);
+    if (action.value) result.value = transformExpression(action.value, environment, resolving);
     return result;
   });
-  if (copy.arg) copy.arg = transformExpression(copy.arg, environment, resolving);
-  if (copy.args) copy.args = copy.args.map((item) => transformExpression(item, environment, resolving));
-  if (copy.values) copy.values = copy.values.map((item) => transformExpression(item, environment, resolving));
+  if (ast.arg) copy.arg = transformExpression(ast.arg, environment, resolving);
+  if (ast.args) copy.args = ast.args.map((item) => transformExpression(item, environment, resolving));
+  if (ast.values) copy.values = ast.values.map((item) => transformExpression(item, environment, resolving));
   return copy;
 }
 
@@ -145,12 +189,17 @@ function collectIds(node, prefix, result, root = true) {
 export function expandSourceProject(project, catalog) {
   if (!project || project.schema_version !== "SSDLSourceProject/1"
       || project.language !== "SSDL/QML-Subset/0.3" || !Array.isArray(project.files)
-      || project.files.length < 1 || project.files.length > 64 || !Array.isArray(project.asset_refs)
+      || project.files.length < 1 || !Array.isArray(project.asset_refs)
       || !/^sha256:[0-9a-f]{64}$/.test(project.source_digest || "")
       || Object.keys(project).sort().join(",") !== "asset_refs,entry,files,language,schema_version,source_digest") {
     fail("source_schema_invalid");
   }
-  if (project.asset_refs.length > 64) fail("source_budget");
+  if (project.files.length > SOURCE_LIMITS.files) {
+    fail("source_budget", null, `${project.files.length} .ssdl files; a project takes at most ${SOURCE_LIMITS.files}`);
+  }
+  if (project.asset_refs.length > SOURCE_LIMITS.asset_refs) {
+    fail("source_budget", null, `${project.asset_refs.length} asset files; a project takes at most ${SOURCE_LIMITS.asset_refs}`);
+  }
   const ASSET_KEYS = "asset_id,content_digest,dependencies,kind,media_type,size_bytes";
   const MEDIA = { model: ["model/gltf-binary"], texture: ["image/png", "image/jpeg"],
     geojson: ["application/geo+json", "application/json"] };
@@ -180,8 +229,12 @@ export function expandSourceProject(project, catalog) {
     }
     if (typeof raw.content !== "string") fail("source_schema_invalid", { file });
     totalBytes += Buffer.byteLength(raw.content);
-    if (Buffer.byteLength(raw.content) > 1024 * 1024 || totalBytes > 4 * 1024 * 1024) {
-      fail("source_budget", { file });
+    const fileBytes = Buffer.byteLength(raw.content);
+    if (fileBytes > SOURCE_LIMITS.file_bytes) {
+      fail("source_budget", { file }, `${file} is ${mib(fileBytes)}; one source file takes at most ${mib(SOURCE_LIMITS.file_bytes)}`);
+    }
+    if (totalBytes > SOURCE_LIMITS.project_bytes) {
+      fail("source_budget", { file }, `the sources add up to ${mib(totalBytes)} by ${file}; a project takes at most ${mib(SOURCE_LIMITS.project_bytes)}`);
     }
     let document;
     try { document = parser.parse(raw.content, { grammarSource: file }); }
@@ -262,14 +315,14 @@ export function expandSourceProject(project, catalog) {
   function expandNode(raw, doc, environment, chain = []) {
     const component = resolveComponent(doc, raw.type, raw);
     if (!component) {
-      const copy = clone(raw);
+      const copy = cloneExcept(raw, ["members"]);
       copy.type = raw.type;
       copy.members = [];
       for (const member of raw.members) {
         if (member.kind === "node") {
           copy.members.push(expandNode(member, doc, environment, chain));
         } else if (member.kind === "property") {
-          const transformed = { ...clone(member), value: transformExpression(member.value, environment) };
+          const transformed = { ...cloneExcept(member, ["value"]), value: transformExpression(member.value, environment) };
           transformed.file = transformed.value.file || member.file;
           transformed.definition = location(member);
           transformed.instance_chain = clone(chain);
@@ -305,10 +358,10 @@ export function expandSourceProject(project, catalog) {
         ? transformExpression(supplied, environment)
         : clone(declaration.value));
     }
-    const localEnvironment = { ids, params };
+    const localEnvironment = { ids, params, root: templateRootId ? idValue(templateRootId) : null };
     const nextChain = [...chain, { file: component.file, instance_id: invocationId, call_site: location(raw) }];
     const root = {
-      ...clone(template),
+      ...cloneExcept(template, ["members"]),
       type: template.type,
       file: template.file,
       definition: location(template),
@@ -328,7 +381,7 @@ export function expandSourceProject(project, catalog) {
       const override = overrides.get(member.name);
       const origin = override || member;
       root.members.push({
-        ...clone(origin),
+        ...cloneExcept(origin, ["value"]),
         value: transformExpression(origin.value, override ? environment : localEnvironment),
         definition: location(member),
         instance_chain: clone(nextChain),
@@ -337,7 +390,7 @@ export function expandSourceProject(project, catalog) {
     }
     for (const override of overrides.values()) {
       root.members.push({
-        ...clone(override), value: transformExpression(override.value, environment),
+        ...cloneExcept(override, ["value"]), value: transformExpression(override.value, environment),
         definition: location(template), instance_chain: clone(nextChain),
       });
     }

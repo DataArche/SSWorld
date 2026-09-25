@@ -1,24 +1,65 @@
 // In-process SSDL 0.3 compilation, mirroring src/ssdl/compiler/src/compile-showcase.mjs.
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { createReadStream, existsSync, readFileSync } from "node:fs";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
+import { Worker } from "node:worker_threads";
 import { SSDL_ROOT } from "./paths.mjs";
 import { resolveBudgets, MAX_SCENE_DEPTH, MAX_MODEL_INSTANCES, MAX_TEXTURE_BYTES_TOTAL } from "./budgets.mjs";
 import { ensureAssetCapablePage } from "./page.mjs";
 import { ASSET_LIMITS, ASSET_MEDIA, ASSETS_DIR, checkRuntimeSupport, GEO_LAYER_BUDGETS, TIMELINE_LIMIT, timelineNodes } from "./runtime-support.mjs";
 
 let compilerPromise = null;
+const COMPILER_PATH = path.join(SSDL_ROOT, "compiler", "src", "compiler-0.3.mjs");
 function loadCompiler() {
-  compilerPromise ??= import(pathToFileURL(path.join(SSDL_ROOT, "compiler", "src", "compiler-0.3.mjs")).href);
+  compilerPromise ??= import(pathToFileURL(COMPILER_PATH).href);
   return compilerPromise;
+}
+
+// A worker inherits the parent's node flags, and the eval ones (a server started with `node -e` or
+// --input-type) make a worker refuse to start at all. Only then is execArgv passed: an explicit list
+// is validated flag by flag, and process-wide flags that the default inheritance filters out quietly
+// (as under node --test) would be refused.
+const EVAL_FLAGS = new Set(["-e", "--eval", "-p", "--print"]);
+function workerExecArgv() {
+  const isEval = (flag) => EVAL_FLAGS.has(flag) || flag.startsWith("--input-type") || flag.startsWith("--eval=") || flag.startsWith("--print=");
+  if (!process.execArgv.some(isEval)) return undefined;
+  const kept = [];
+  for (let index = 0; index < process.execArgv.length; index++) {
+    const flag = process.execArgv[index];
+    if (EVAL_FLAGS.has(flag)) { index++; continue; }
+    if (flag.startsWith("--input-type") || flag.startsWith("--eval=") || flag.startsWith("--print=")) continue;
+    kept.push(flag);
+  }
+  return kept;
+}
+
+/** compileSceneModuleProject in a worker thread (compile-worker.mjs), with the compiler's own error shape. */
+function compileInWorker(project, options) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL("./compile-worker.mjs", import.meta.url), {
+      workerData: { compilerPath: COMPILER_PATH, project, options }, execArgv: workerExecArgv(),
+    });
+    let settled = false;
+    const settle = (fn, value) => { if (!settled) { settled = true; fn(value); } };
+    worker.once("message", (message) => {
+      if (message.ok) settle(resolve, message.result);
+      else settle(reject, Object.assign(new Error(message.error.message), { code: message.error.code, diagnostic: message.error.diagnostic }));
+    });
+    // An out-of-memory compile ends here (ERR_WORKER_OUT_OF_MEMORY) instead of taking the server down.
+    worker.once("error", (error) => settle(reject, error));
+    worker.once("exit", (code) => settle(reject, new Error(`the compiler worker exited with code ${code} before answering`)));
+  });
 }
 
 // Instance rows are counted with the compiler's own placement resolver, so the receipt cannot
 // disagree with the runtime.  It is loaded here rather than lazily because budgetUsage() is
 // synchronous and is also reached from inspect(), which never compiles anything.
-const { checkInstances } = await loadCompiler();
+const { checkInstances, SOURCE_LIMITS } = await loadCompiler();
+export { SOURCE_LIMITS };
 
 const hash = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
 
@@ -170,9 +211,82 @@ const ENFORCED_COMPILE_BUDGET_DIMENSIONS = ["materials", "textures", "timers", "
  * rather than a slow frame, so the compiler is the last place the author can still be told which
  * node is at fault.
  */
+/** ParticleEmitter defaults that the runtime materialises; the compiler needs the same three numbers. */
+const PARTICLE_DEFAULT_MAX = 500;
+const PARTICLE_DEFAULT_RATE = 20;
+const PARTICLE_DEFAULT_LIFETIME_MAX = 2;
+
+function particleProperty(node, name) {
+  return (node.properties || []).find((entry) => entry.property === name)?.value;
+}
+
+/** ParticleEmitter.maxParticles, with the runtime's own default when the author left it out. */
+function particleCeiling(node) {
+  const value = particleProperty(node, "maxParticles");
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : PARTICLE_DEFAULT_MAX;
+}
+
+// PostProcessVolume members in the SDK facade's "eyeAdaptation" group (ssdl_postprocess_bindings.cpp):
+// writing any one of them switches eye adaptation on.
+const EYE_ADAPTATION_MEMBERS = ["autoExposureMethod", "autoExposureBias", "autoExposureMinBrightness", "autoExposureMaxBrightness",
+  "autoExposureSpeedUp", "autoExposureSpeedDown", "lowPercent", "highPercent", "histogramLogMin", "histogramLogMax"];
+
 function structuralProblems(result, usage) {
   const nodes = result.scene_ir?.nodes || [];
   const problems = [];
+
+  // The engine runs at a FIXED exposure; an exposure member does not tune it, it switches eye
+  // adaptation on. The frame then re-exposes from scene brightness (about +6 stops at the defaults)
+  // and keeps adapting, so a night brightens until its lamps blow out.
+  for (const node of nodes.filter((entry) => entry.type === "PostProcessVolume")) {
+    const written = EYE_ADAPTATION_MEMBERS.filter((name) => (node.properties || []).some((item) => item.property === `settings.${name}`));
+    if (!written.length) continue;
+    problems.push({ code: "eye_adaptation_on", severity: "warning", node: node.id, members: written,
+      message: `PostProcessVolume '${node.id}' writes settings.${written.join(", settings.")}, which switches eye adaptation on: exposure then follows scene brightness (about +6 stops brighter at the defaults) and a night scene keeps brightening until its lamps blow out. Without these the exposure is fixed; brighten or darken the scene with light intensities instead. If adaptation is what you want, equal autoExposureMinBrightness and autoExposureMaxBrightness pin it at one level` });
+  }
+
+  // At night the moon is the only light, and its default intensity (0.2) reads as black: the DaxiongHall
+  // night was black until moonIntensity was written. The light does not follow the phase -- the renderer
+  // hands moonIntensity to the moon light as is (skyatmosphererendercommon.cpp); the phase shapes the disk.
+  for (const node of nodes.filter((entry) => entry.type === "Environment")) {
+    const props = new Map((node.properties || []).map((item) => [item.property, item.value]));
+    if (props.has("moonIntensity") || props.get("moonEnabled") === false) continue;
+    const clockBound = (result.binding_ir?.bindings || []).some((binding) => binding.target?.node === node.id && ["dateTime", "timeScale"].includes(binding.target?.property));
+    const timeScale = props.get("timeScale");
+    if (!clockBound && !(typeof timeScale === "number" && timeScale > 0)) continue;
+    problems.push({ code: "night_without_moonlight", severity: "warning", node: node.id,
+      message: `Environment '${node.id}': the clock can reach night, where the moon is the only light, and moonIntensity is not written; its default (0.2) makes the night read as black. For a readable night write moonIntensity (4 gave a moonlit blue night)` });
+  }
+
+  // The trap this names: rate x lifetime.max past maxParticles clips the effect, and it looks
+  // exactly like "rate is not taking effect" rather than like a budget.
+  for (const node of nodes.filter((entry) => entry.type === "ParticleEmitter")) {
+    const rate = particleProperty(node, "rate") ?? PARTICLE_DEFAULT_RATE;
+    const lifetime = particleProperty(node, "lifetime");
+    const lifetimeMax = Number.isFinite(lifetime?.y) ? lifetime.y : PARTICLE_DEFAULT_LIFETIME_MAX;
+    const ceiling = particleCeiling(node);
+    const steady = Math.ceil(rate * lifetimeMax);
+    if (steady > ceiling) {
+      problems.push({ code: "particle_budget", severity: "warning", node: node.id,
+        used: steady, limit: ceiling,
+        message: `'${node.id}' spawns ${rate}/s for up to ${lifetimeMax}s, which needs ${steady} live particles but maxParticles is ${ceiling}; the emitter will clip and look like rate is being ignored. Raise maxParticles or lower rate/lifetime.` });
+    }
+    const shape = particleProperty(node, "shape");
+    const shapeSize = particleProperty(node, "shapeSize");
+    if (shape === "cone" && !(Number.isFinite(shapeSize?.x) && shapeSize.x > 0)) {
+      problems.push({ code: "particle_shape_invalid", node: node.id,
+        message: `'${node.id}' uses shape: "cone" but has no shapeSize[0]; the cone needs a base radius in metres.` });
+    }
+    // Soft particles reach the engine -- the member parses, the uniform arrives and the soft shader
+    // variant is selected -- but on the 2026-09-19 build the depth fade produces no visible change
+    // on real hardware.  Refusing it is the honest answer: a member that is accepted and does
+    // nothing is exactly the kind of silence this project spends its afternoons chasing.
+    const softness = particleProperty(node, "softness");
+    if (Number.isFinite(softness) && softness > 0) {
+      problems.push({ code: "particle_softness_unavailable", node: node.id,
+        message: `'${node.id}' sets softness: ${softness}, but soft particles do not work on this engine build (the depth fade has no visible effect; verified on real hardware 2026-09-19). Use softness: 0 and keep the effect away from surfaces it would visibly cut into.` });
+    }
+  }
 
   // SceneGraphFacade.max_depth: how deeply the native graph will accept a parent chain.
   const byId = new Map(nodes.map((node) => [node.id, node]));
@@ -364,6 +478,10 @@ export function budgetUsage(result, budgets = {}) {
     instances: nodes.filter((node) => node.type === "Instances")
       .reduce((sum, node) => sum + instanceRowCount(node), 0),
     timelines: timelineNodes(result.scene_ir).length,
+    // A ParticleEmitter costs its maxParticles ceiling, not one node: the simulation ticks every
+    // live particle every frame whether or not the author ever reaches the cap.
+    particles: nodes.filter((node) => node.type === "ParticleEmitter")
+      .reduce((sum, node) => sum + particleCeiling(node), 0),
   };
   // Reported alongside the manifest dimensions, but the ceiling itself is the compiler's (geo_budget):
   // each layer carries its own tile cache, so these are memory walls rather than manifest choices.
@@ -388,9 +506,104 @@ export function budgetUsage(result, budgets = {}) {
   return out;
 }
 
-/** Compile `directory/scene.ssdl` (+ siblings) into the same directory and refresh showcase.manifest.json. */
-export async function compileProject(directory, { name, budgets } = {}) {
-  const { compileSceneModuleProject, MESH_GENERATORS, MESH_MAX_VERTICES } = await loadCompiler();
+// Two processes compile the same project: the preview server recompiles when the page polls, and the
+// MCP server compiles on ssworld_compile.  Writing the outputs in place let the two interleave and
+// leave the tail of the old module behind the new one, so the compile answered ok and the page died
+// on "Unexpected token".  Every output is now written to a dot-file (the watcher ignores those) and
+// renamed over, and a project compiles under a lock file that both processes take.
+export const COMPILE_LOCK = ".ssworld-compile.lock";
+const LOCK_WAIT_MS = 180000;
+// Only for a lock whose owner cannot be checked (another host, or WSL beside Windows): a compile of
+// the largest project allowed takes well under this.
+const LOCK_STALE_MS = 300000;
+// ~7.6 s of backoff in all: a rename over a file some reader holds open (the preview server streaming
+// the module to a browser) keeps failing until that reader lets go.
+const RENAME_RETRIES = 12;
+const TRANSIENT_RENAME = new Set(["EPERM", "EACCES", "EBUSY"]);
+const compileQueues = new Map();
+
+async function writeAtomic(file, data) {
+  const temporary = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
+  await writeFile(temporary, data, "utf8");
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await rename(temporary, file);
+    } catch (error) {
+      // Windows refuses to rename over a file that a scanner or an editor holds open, briefly.
+      if (attempt >= RENAME_RETRIES || !TRANSIENT_RENAME.has(error.code)) {
+        await rm(temporary, { force: true });
+        throw error;
+      }
+      await sleep(Math.min(25 * 2 ** attempt, 1000));
+    }
+  }
+}
+
+async function lockIsStale(file) {
+  let owner = null;
+  let since;
+  try {
+    const raw = await readFile(file, "utf8");
+    try { owner = JSON.parse(raw); } catch { /* still being written, or foreign: judge by age */ }
+    since = Number.isFinite(owner?.since) ? owner.since : (await stat(file)).mtimeMs;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+  if (owner && owner.platform === process.platform && owner.host === os.hostname() && Number.isSafeInteger(owner.pid)) {
+    if (owner.pid === process.pid) return false;
+    try { process.kill(owner.pid, 0); return false; } catch (error) { return error.code === "ESRCH"; }
+  }
+  return Date.now() - since > LOCK_STALE_MS;
+}
+
+async function withCompileLock(directory, waitMs, body) {
+  const file = path.join(directory, COMPILE_LOCK);
+  const owner = JSON.stringify({ pid: process.pid, platform: process.platform, host: os.hostname(), since: Date.now() });
+  const deadline = Date.now() + waitMs;
+  for (;;) {
+    try {
+      await writeFile(file, owner, { encoding: "utf8", flag: "wx" });
+      break;
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+    }
+    // Two waiters can both judge the same dead lock stale and the second then removes the first's
+    // fresh one; the readback check after writing still catches the collision that could follow.
+    if (await lockIsStale(file)) { await rm(file, { force: true }); continue; }
+    if (Date.now() >= deadline) {
+      throw new CompileError(`compile_busy: another compile of this project has held ${COMPILE_LOCK} for over ${Math.round(waitMs / 1000)} s; if no compile is running, delete that file and compile again`, { code: "compile_busy", file: COMPILE_LOCK });
+    }
+    await sleep(100);
+  }
+  try {
+    return await body();
+  } finally {
+    const current = await readFile(file, "utf8").catch(() => null);
+    if (current === owner) await rm(file, { force: true });
+  }
+}
+
+/**
+ * Compile `directory/scene.ssdl` (+ siblings) into the same directory and refresh showcase.manifest.json.
+ * Compiles of one project run one at a time, in this process and across processes. `isStale`, when
+ * given, is asked again once the lock is held: a caller that queued behind another compile of the
+ * same sources gets `{ ok: true, skipped: "up_to_date" }` instead of a second identical compile.
+ */
+export function compileProject(directory, { lockWaitMs = LOCK_WAIT_MS, isStale, ...options } = {}) {
+  const resolved = path.resolve(directory);
+  const key = process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  const run = (compileQueues.get(key) ?? Promise.resolve()).catch(() => {}).then(() => withCompileLock(resolved, lockWaitMs, () => {
+    if (isStale && !isStale()) return { ok: true, skipped: "up_to_date" };
+    return compileUnlocked(resolved, options);
+  }));
+  compileQueues.set(key, run);
+  run.finally(() => { if (compileQueues.get(key) === run) compileQueues.delete(key); }).catch(() => {});
+  return run;
+}
+
+async function compileUnlocked(directory, { name, budgets } = {}) {
+  const { MESH_GENERATORS, MESH_MAX_VERTICES } = await loadCompiler();
   const manifestPath = path.join(directory, "showcase.manifest.json");
   const hybrid = JSON.parse(await readFile(manifestPath, "utf8"));
   const effectiveBudgets = resolveBudgets(budgets ?? hybrid.budgets);
@@ -400,7 +613,7 @@ export async function compileProject(directory, { name, budgets } = {}) {
   const host = await readHostInterfaces(directory);
   let result;
   try {
-    result = compileSceneModuleProject(project, {
+    result = await compileInWorker(project, {
       entry: "scene.generated.mjs", mapName: "scene.generated.mjs.map",
       name: name || hybrid.name, budgets: effectiveBudgets,
       hostInterfaces: host.contract,
@@ -409,9 +622,20 @@ export async function compileProject(directory, { name, budgets } = {}) {
     const diagnostic = error?.diagnostic || (error?.code === "host_interfaces_invalid" ? { file: HOST_INTERFACES_FILE, line: 1, column: 1 } : {});
     const location = diagnostic.file ? `${diagnostic.file}:${diagnostic.line || 1}:${diagnostic.column || 1}: ` : "";
     const code = error?.code ? `${error.code}: ` : "";
+    if (error?.code === "source_budget") {
+      // Which files to split or slim is the whole question, and the compiler names only the one that tipped it over.
+      const sizes = project.files.map((file) => ({ file: file.path, bytes: Buffer.byteLength(file.content) })).sort((a, b) => b.bytes - a.bytes);
+      const total = sizes.reduce((sum, item) => sum + item.bytes, 0);
+      const largest = sizes.slice(0, 5).map((item) => `${item.file} ${(item.bytes / 1048576).toFixed(2)} MiB`).join(", ");
+      throw new CompileError(`${location}${code}${error.message}. Largest: ${largest}; ${sizes.length} files, ${(total / 1048576).toFixed(2)} MiB in all. Repeated geometry costs ~40 characters per copy as a Prefab + Instances instead of one node per copy`,
+        { ...diagnostic, code: error.code, limits: SOURCE_LIMITS, files: sizes, total_bytes: total });
+    }
     throw new CompileError(`${location}${code}${error?.message || String(error)}`, { ...diagnostic, code: error?.code });
   }
-  const unsupported = checkRuntimeSupport(result.scene_ir);
+  // Some runtime findings are advice, not refusals: the scene still mounts and renders, just not as written
+  // (a fog value the Environment overrides, a second directional light that re-tints the sun).
+  const runtimeFindings = checkRuntimeSupport(result.scene_ir);
+  const unsupported = runtimeFindings.filter((problem) => problem.severity !== "warning");
   if (unsupported.length) {
     const first = unsupported[0];
     throw new CompileError(`${first.code}: ${first.message}`, { code: first.code, node: first.node, property: first.property, problems: unsupported });
@@ -423,7 +647,10 @@ export async function compileProject(directory, { name, budgets } = {}) {
       { code: first.code, file: first.file, line: 1, column: 1, node: first.node, problems: geojson.problems });
   }
   const usage = budgetUsage(result, effectiveBudgets);
-  const budgetProblems = [...structuralProblems(result, usage), ...enforcedBudgetProblems(usage)];
+  const allProblems = [...structuralProblems(result, usage), ...enforcedBudgetProblems(usage)];
+  // A warning is reported, never fatal: a clipped particle emitter still mounts and still renders.
+  const budgetProblems = allProblems.filter((problem) => problem.severity !== "warning");
+  const budgetWarnings = [...runtimeFindings, ...allProblems].filter((problem) => problem.severity === "warning");
   if (budgetProblems.length) {
     const first = budgetProblems[0];
     throw new CompileError(`${first.code}: ${first.message}`, {
@@ -432,12 +659,20 @@ export async function compileProject(directory, { name, budgets } = {}) {
   }
   await mkdir(directory, { recursive: true });
   await Promise.all([
-    writeFile(path.join(directory, "scene.generated.mjs"), result.emitted.module, "utf8"),
-    writeFile(path.join(directory, "scene.generated.mjs.map"), result.emitted.source_map, "utf8"),
-    writeFile(path.join(directory, "showcase.generated.manifest.json"), result.emitted.manifest, "utf8"),
-    writeFile(path.join(directory, "scene.ir.json"), JSON.stringify(result.scene_ir, null, 2) + "\n", "utf8"),
-    writeFile(path.join(directory, "binding.ir.json"), JSON.stringify(result.binding_ir, null, 2) + "\n", "utf8"),
+    writeAtomic(path.join(directory, "scene.generated.mjs.map"), result.emitted.source_map),
+    writeAtomic(path.join(directory, "showcase.generated.manifest.json"), result.emitted.manifest),
+    // Compact: every reader parses these, and indented they were ~4x the source on disk.
+    writeAtomic(path.join(directory, "scene.ir.json"), JSON.stringify(result.scene_ir) + "\n"),
+    writeAtomic(path.join(directory, "binding.ir.json"), JSON.stringify(result.binding_ir) + "\n"),
   ]);
+  // The module goes last, so a page reloaded by its change finds the rest already in place.
+  const modulePath = path.join(directory, "scene.generated.mjs");
+  await writeAtomic(modulePath, result.emitted.module);
+  // A writer that does not take the lock (an ssworld-mcp from before it existed, still serving a
+  // preview port) can still land in between; say so rather than answer ok over a foreign module.
+  if (await readFile(modulePath, "utf8") !== result.emitted.module) {
+    throw new CompileError(`generated_write_conflict: scene.generated.mjs changed while this compile was writing it; another process compiled the same project (an older ssworld-mcp on a preview port does not take ${COMPILE_LOCK}). Compile again once it is done`, { code: "generated_write_conflict", file: "scene.generated.mjs" });
+  }
   const generated = JSON.parse(result.emitted.manifest);
   Object.assign(hybrid, {
     budgets: effectiveBudgets,
@@ -448,7 +683,7 @@ export async function compileProject(directory, { name, budgets } = {}) {
     host_interfaces_digest: host.digest,
   });
   hybrid.module_digest = hash(await readFile(path.join(directory, hybrid.entry)));
-  await writeFile(manifestPath, JSON.stringify(hybrid, null, 2) + "\n", "utf8");
+  await writeAtomic(manifestPath, JSON.stringify(hybrid, null, 2) + "\n");
   const assets = assetUsage(project.asset_refs, result.scene_ir);
   const page = ensureAssetCapablePage(directory, { name: name || hybrid.name, anchor: hybrid.anchor || { lon: 114.0579, lat: 22.5431, height: 150 }, usesAssets: assets.files.some((file) => file.referenced) });
   return {
@@ -464,6 +699,7 @@ export async function compileProject(directory, { name, budgets } = {}) {
       name, source_file: item.source_file, parameters: item.parameters, cost_per_copy: item.budget })) } : {}),
     usage: { ...usage, mesh: meshUsage(result.scene_ir, MESH_GENERATORS, MESH_MAX_VERTICES), assets,
       ...(geojson.layers.length ? { geojson: geojson.layers } : {}) },
+    ...(budgetWarnings.length ? { warnings: budgetWarnings } : {}),
     logic: logicSummary(result.scene_ir),
   };
 }

@@ -1,0 +1,354 @@
+[
+  {
+    "recipe_id": "recipe-01",
+    "building_id": "building-01",
+    "input_refs": [
+      "buildings.geojson#building-01"
+    ],
+    "constraints": {
+      "footprint_source": "building-01",
+      "height_m": 15
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 1,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-02",
+    "building_id": "building-02",
+    "input_refs": [
+      "buildings.geojson#building-02"
+    ],
+    "constraints": {
+      "footprint_source": "building-02",
+      "height_m": 18
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 2,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-03",
+    "building_id": "building-03",
+    "input_refs": [
+      "buildings.geojson#building-03"
+    ],
+    "constraints": {
+      "footprint_source": "building-03",
+      "height_m": 21
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 3,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-04",
+    "building_id": "building-04",
+    "input_refs": [
+      "buildings.geojson#building-04"
+    ],
+    "constraints": {
+      "footprint_source": "building-04",
+      "height_m": 12
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 4,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-05",
+    "building_id": "building-05",
+    "input_refs": [
+      "buildings.geojson#building-05"
+    ],
+    "constraints": {
+      "footprint_source": "building-05",
+      "height_m": 15
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 5,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-06",
+    "building_id": "building-06",
+    "input_refs": [
+      "buildings.geojson#building-06"
+    ],
+    "constraints": {
+      "footprint_source": "building-06",
+      "height_m": 18
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 6,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-07",
+    "building_id": "building-07",
+    "input_refs": [
+      "buildings.geojson#building-07"
+    ],
+    "constraints": {
+      "footprint_source": "building-07",
+      "height_m": 21
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 7,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-08",
+    "building_id": "building-08",
+    "input_refs": [
+      "buildings.geojson#building-08"
+    ],
+    "constraints": {
+      "footprint_source": "building-08",
+      "height_m": 12
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 8,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-09",
+    "building_id": "building-09",
+    "input_refs": [
+      "buildings.geojson#building-09"
+    ],
+    "constraints": {
+      "footprint_source": "building-09",
+      "height_m": 15
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 9,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-10",
+    "building_id": "building-10",
+    "input_refs": [
+      "buildings.geojson#building-10"
+    ],
+    "constraints": {
+      "footprint_source": "building-10",
+      "height_m": 18
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 10,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-11",
+    "building_id": "building-11",
+    "input_refs": [
+      "buildings.geojson#building-11"
+    ],
+    "constraints": {
+      "footprint_source": "building-11",
+      "height_m": 21
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 11,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-12",
+    "building_id": "building-12",
+    "input_refs": [
+      "buildings.geojson#building-12"
+    ],
+    "constraints": {
+      "footprint_source": "building-12",
+      "height_m": 12
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 12,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-13",
+    "building_id": "building-13",
+    "input_refs": [
+      "buildings.geojson#building-13"
+    ],
+    "constraints": {
+      "footprint_source": "building-13",
+      "height_m": 15
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 13,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-14",
+    "building_id": "building-14",
+    "input_refs": [
+      "buildings.geojson#building-14"
+    ],
+    "constraints": {
+      "footprint_source": "building-14",
+      "height_m": 18
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 14,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-15",
+    "building_id": "building-15",
+    "input_refs": [
+      "buildings.geojson#building-15"
+    ],
+    "constraints": {
+      "footprint_source": "building-15",
+      "height_m": 21
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 15,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  },
+  {
+    "recipe_id": "recipe-16",
+    "building_id": "building-16",
+    "input_refs": [
+      "buildings.geojson#building-16"
+    ],
+    "constraints": {
+      "footprint_source": "building-16",
+      "height_m": 12
+    },
+    "generator_id": "footprint_extrusion",
+    "generator_version": "1",
+    "parameters": {
+      "floor_height_m": 3
+    },
+    "seed": 16,
+    "tool_versions": {},
+    "output_asset_ref": null,
+    "regeneration_mode": "parametric",
+    "status": "input_recipe_only",
+    "photos": []
+  }
+]
